@@ -1388,15 +1388,15 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <p class="acct-who"><b id="acctWhoName"></b> <span id="acctWhoUser"></span><br><span class="hint" id="acctWhoEmail"></span></p>
       <p class="hint" id="acctSyncState" role="status"></p>
       <div class="modal-foot">
-        <button class="btn sm" type="button" data-act="acct-signout-all" data-i18n="acctSignOutAll">Logga ut på alla enheter</button>
+        <button class="btn sm" type="button" data-act="acct-signout-ask" data-all="1" data-i18n="acctSignOutAll">Logga ut på alla enheter</button>
         <span class="spacer"></span>
-        <button class="btn" type="button" data-act="acct-signout" data-i18n="acctSignOut">Logga ut</button>
+        <button class="btn" type="button" data-act="acct-signout-ask" data-i18n="acctSignOut">Logga ut</button>
         <button class="btn primary" type="button" data-act="acct-close" data-i18n="finished">Klar</button>
       </div>
     </div>
 
     <div class="acct-view" data-acct-view="merge">
-      <p data-i18n="acctMergeP">Det finns påminnelser och anteckningar på den här enheten. Vill du lägga till dem i ditt konto? Då finns de på alla dina enheter.</p>
+      <p data-i18n="acctMergeP">Det finns påminnelser, anteckningar eller tavlor på den här enheten. Vill du lägga till dem i ditt konto? Då finns de på alla dina enheter.</p>
       <p class="hint" data-i18n="acctMergeHint">Väljer du nej laddas en säkerhetskopia av det som finns här ner först, och sedan visas bara det som finns i kontot.</p>
       <div class="modal-foot">
         <button class="btn" type="button" data-act="acct-replace" data-i18n="acctMergeNo">Nej, bara kontots</button>
@@ -1411,6 +1411,16 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         <button class="btn" type="button" data-act="acct-signout" data-i18n="acctSignOut">Logga ut</button>
         <span class="spacer"></span>
         <button class="btn primary" type="button" data-act="acct-replace" data-i18n="acctOtherGo">Ladda ner kopian och fortsätt</button>
+      </div>
+    </div>
+
+    <div class="acct-view" data-acct-view="signout">
+      <p data-i18n="acctSignOutP">Vill du behålla en kopia av dina påminnelser, anteckningar, bilder och tavlor på den här enheten? Ta bort dem om andra använder den. Allt finns kvar i ditt konto.</p>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="account" data-i18n="acctBack">Tillbaka</button>
+        <span class="spacer"></span>
+        <button class="btn danger" type="button" data-act="acct-signout-remove" data-i18n="acctRemoveHere">Ta bort från enheten</button>
+        <button class="btn primary" type="button" data-act="acct-signout" data-i18n="acctKeepHere">Behåll en kopia</button>
       </div>
     </div>
 
@@ -2924,9 +2934,13 @@ function cloudState(o) {
   const known = obj(o.known), cursor = obj(o.cursor);
   return {
     owner: typeof o.owner === 'string' ? o.owner : null,
-    cursor: { reminders: +cursor.reminders || 0, notes: +cursor.notes || 0, settings: +cursor.settings || 0 },
-    known: { reminders: Object.assign({}, obj(known.reminders)), notes: Object.assign({}, obj(known.notes)) },
+    cursor: { reminders: +cursor.reminders || 0, notes: +cursor.notes || 0, settings: +cursor.settings || 0, boards: +cursor.boards || 0 },
+    known: { reminders: Object.assign({}, obj(known.reminders)), notes: Object.assign({}, obj(known.notes)), boards: Object.assign({}, obj(known.boards)) },
     settingsKnown: +o.settingsKnown || 0,
+    boardFiles: Object.assign({}, obj(o.boardFiles)),   // board id -> its file in storage (the version this device knows)
+    pics: Object.assign({}, obj(o.pics)),               // picture id -> 1: in the account's storage
+    picsMissing: Object.assign({}, obj(o.picsMissing)), // picture id -> when the account didn't have it (try again a day later)
+    picsUnref: Object.assign({}, obj(o.picsUnref)),     // picture id -> since when no note uses it (removed after a week)
   };
 }
 // JSON with object keys sorted at every level. The server's jsonb doesn't keep key order, so plain JSON.stringify
@@ -3015,14 +3029,61 @@ function cloudPrune(d, cs) {
   const keep = new Set([...(d.reminders || []), ...(d.notes || [])].map(x => x.id).concat(Object.keys(d.deleted || {})));
   for (const kind of CLOUD_KINDS) for (const id of Object.keys(cs.known[kind])) if (!keep.has(id)) delete cs.known[kind][id];
 }
+// Boards. Each saved version is its own file in storage ({user}/{board}-{modified}.json), and a small row per board
+// (title, modified, file) is what devices pull, like notes. A version's file goes up before its row, and the row is only
+// accepted if it's newer than what the server has, so an older copy can never replace a newer one, and a device never
+// downloads half a version. Deleting a board leaves a tombstone (in `tombs`, id -> when) so it doesn't come back.
+//   local  board id -> modified, for the boards on this device;  tombs  board id -> deleted at;  rows  pulled board rows
+// Returns what to do: download and drop (rows: newer, or deleted, elsewhere), upload and bury (ids: newer, or deleted, here).
+function cloudBoardPlan(local, tombs, rows, cs) {
+  const latest = new Map();
+  for (const r of rows || []) {
+    if (!r || typeof r.id !== 'string' || !(r.updated >= 0)) continue;
+    const o = latest.get(r.id);
+    if (!o || r.updated > o.updated || (r.updated === o.updated && r.deleted)) latest.set(r.id, r);
+  }
+  const plan = { download: [], drop: [], upload: [], bury: [] }, busy = new Set();
+  for (const r of latest.values()) {
+    const here = local[r.id], gone = tombs[r.id];
+    if (r.deleted) {
+      if (here !== undefined && here <= r.updated) { plan.drop.push(r); busy.add(r.id); }
+    } else if (!(gone >= r.updated) && (here === undefined || here < r.updated) && r.data && typeof r.data.file === 'string') {
+      plan.download.push(r); busy.add(r.id);
+    }
+  }
+  for (const [id, m] of Object.entries(local)) if (!busy.has(id) && cs.known.boards[id] !== m) plan.upload.push(id);
+  for (const [id, ts] of Object.entries(tombs)) {
+    if (busy.has(id) || local[id] !== undefined || !(ts > 0)) continue;
+    const k = cs.known.boards[id];
+    if (k !== undefined && k !== -ts && Math.abs(k) <= ts) plan.bury.push(id);   // only boards the account has heard of
+  }
+  return plan;
+}
+// Pictures in notes never change, so each goes up once. Pictures a note needs but this device lacks are downloaded
+// (one the account doesn't have is tried again a day later). One no note has used for a week is removed from storage.
+function cloudPicturePlan(referenced, localIds, cs, now = Date.now()) {
+  const plan = { upload: [], download: [], remove: [] };
+  for (const id of referenced) {
+    delete cs.picsUnref[id];
+    if (localIds.has(id)) { if (!cs.pics[id]) plan.upload.push(id); }
+    else if (!(cs.picsMissing[id] > now - 86400000)) plan.download.push(id);
+  }
+  for (const id of Object.keys(cs.pics)) {
+    if (referenced.has(id)) continue;
+    if (!cs.picsUnref[id]) cs.picsUnref[id] = now;
+    else if (cs.picsUnref[id] < now - 7 * 86400000) plan.remove.push(id);
+  }
+  return plan;
+}
+
 // Signing in on this device: what to do with the data already here.
 //   'same'   it already belongs to this account: just sync
 //   'empty'  nothing here: take the account's data
 //   'ask'    a guest's data: ask "Add the reminders and notes on this device to your account?" (default yes)
 //   'other'  it belongs to another account (a shared computer): don't merge; offer a backup, then clear
-function cloudFirstStep(cs, userId, d) {
+function cloudFirstStep(cs, userId, d, boards = 0) {
   if (cs.owner && cs.owner === userId) return 'same';
-  const live = (d.reminders || []).length + (d.notes || []).length;
+  const live = (d.reminders || []).length + (d.notes || []).length + boards;
   if (!live) return 'empty';
   return cs.owner ? 'other' : 'ask';
 }
@@ -6406,6 +6467,7 @@ async function wbSaveNow() {
   const b = wb.board; if (!b || wbGuest()) return;
   try { await kv.set('board-' + b.id, JSON.stringify(b)); }
   catch (e) { toast(t('wbSaveFailed', e.message || String(e))); return; }
+  cloudSchedule();
   const entry = wb.list.find(x => x.id === b.id), info = { id: b.id, title: b.title, modified: b.modified, n: Object.keys(b.items).length };
   if (entry) Object.assign(entry, info); else wb.list.unshift(info);
   wb.list.sort((x, y) => y.modified - x.modified);
@@ -6450,10 +6512,16 @@ async function wbDeleteBoard(id) {
   if (wb.board && wb.board.id === id && wbHosting()) wbStopSharing();
   const txt = await kv.get('board-' + id);
   await kv.del('board-' + id);
+  boardBuried(id);                                // so the deletion reaches the account's other devices
   if (wb.board && wb.board.id === id) { wb.board = null; }
   await wbLoadList();
   if (!wb.board) { if (wb.list.length) await wbOpen(wb.list[0].id); else await wbNewBoard(); }
-  toast(t('wbDeleted'), t('undo'), async () => { await kv.set('board-' + id, txt); await wbLoadList(); await wbOpen(id); });
+  toast(t('wbDeleted'), t('undo'), async () => {
+    // Undo makes the board newer than its deletion, so it comes back everywhere even if the deletion was already synced.
+    boardUnburied(id);
+    let back = txt; try { const b = JSON.parse(txt); b.modified = Date.now(); back = JSON.stringify(b); } catch (e) { }
+    await kv.set('board-' + id, back); await wbLoadList(); await wbOpen(id); cloudSchedule();
+  });
 }
 async function wbAllBoards() {
   await wbSaveNow();
@@ -7279,8 +7347,9 @@ document.addEventListener('click', e => {
     case 'acct-view': acctShow(b.dataset.to); break;
     case 'acct-close': $('acctDlg').hidden = true; break;
     case 'acct-oauth': acctOAuth(b.dataset.provider); break;
-    case 'acct-signout': acctSignOut(false); break;
-    case 'acct-signout-all': acctSignOut(true); break;
+    case 'acct-signout': acctSignOut(acct.view === 'signout' && !!acct.signoutAll, true); break;
+    case 'acct-signout-remove': acctSignOut(!!acct.signoutAll, false); break;
+    case 'acct-signout-ask': acct.signoutAll = b.dataset.all === '1'; acctShow('signout'); break;
     case 'move-start': moveStart(); break;
     case 'move-close': $('moveDlg').hidden = true; break;
     case 'move-file': $('moveDlg').hidden = true; fileOpen(); break;
@@ -7607,11 +7676,13 @@ Object.assign(T.en, {
   acctSendLink: 'Send link', acctRepeat: 'Type the password again', acctSavePassword: 'Save the new password',
   acctUsernameP: 'Pick a username. Others can find you by it; your email is never shown.', acctSignOut: 'Log out', acctContinue: 'Continue',
   acctSignOutAll: 'Log out on all devices', acctClose: 'Close',
-  acctMergeP: 'There are reminders and notes on this device. Do you want to add them to your account? Then they’re on all your devices.',
+  acctMergeP: 'There are reminders, notes or boards on this device. Do you want to add them to your account? Then they’re on all your devices.',
   acctMergeHint: 'If you choose no, a backup of what’s here is downloaded first, and then only what’s in the account is shown.',
   acctMergeNo: 'No, only the account’s', acctMergeYes: 'Yes, add them',
   acctOtherP: 'What’s on this device belongs to another account. To keep accounts apart, it isn’t mixed in with yours. A backup of it is downloaded first, then your account is shown here.',
   acctOtherGo: 'Download the backup and continue',
+  acctSignOutP: 'Do you want to keep a copy of your reminders, notes, pictures and boards on this device? Remove them if other people use it. Everything stays in your account.',
+  acctRemoveHere: 'Remove from this device', acctKeepHere: 'Keep a copy',
 });
 const ACCT_T = {
   en: {
@@ -7641,7 +7712,10 @@ const ACCT_T = {
     cloudError: m => `Syncing failed (${m}). Pinglapp tries again by itself; nothing here is lost.`,
     cloudTooBig: n => n === 1 ? 'One note is too big to sync (over a million characters). It stays on this device.' : `${n} notes are too big to sync (over a million characters). They stay on this device.`,
     cloudWaiting: 'Waiting for your answer about the data on this device.',
-    cloudNoPics: 'Pictures in notes and whiteboards don’t sync yet; they stay on this device.',
+    cloudFull: 'Your storage is full. New pictures and boards stay on this device only; text keeps syncing. Delete pictures or boards you no longer need to make room.',
+    cloudStorage: (u, q) => `Pictures and boards: ${u} of ${q} used.`,
+    acctT_signout: 'Log out', acctNotAllSynced: 'Not everything has reached your account yet, so nothing was removed. Check your internet connection, or keep a copy.',
+    acctRemoving: 'Making sure everything is in your account…',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -7670,7 +7744,10 @@ const ACCT_T = {
     cloudError: m => `Synkningen misslyckades (${m}). Pinglapp försöker igen av sig själv; inget här går förlorat.`,
     cloudTooBig: n => n === 1 ? 'En anteckning är för stor för att synkas (över en miljon tecken). Den finns kvar på den här enheten.' : `${n} anteckningar är för stora för att synkas (över en miljon tecken). De finns kvar på den här enheten.`,
     cloudWaiting: 'Väntar på ditt svar om datan på den här enheten.',
-    cloudNoPics: 'Bilder i anteckningar och tavlor synkas inte än; de finns kvar på den här enheten.',
+    cloudFull: 'Ditt lagringsutrymme är fullt. Nya bilder och tavlor finns bara på den här enheten; text synkas som vanligt. Ta bort bilder eller tavlor du inte behöver för att göra plats.',
+    cloudStorage: (u, q) => `Bilder och tavlor: ${u} av ${q} används.`,
+    acctT_signout: 'Logga ut', acctNotAllSynced: 'Allt har inte kommit fram till ditt konto än, så inget togs bort. Kontrollera internetanslutningen, eller behåll en kopia.',
+    acctRemoving: 'Kontrollerar att allt finns i ditt konto…',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -7768,7 +7845,7 @@ async function acctLoadProfile() {
   try {
     const [p, a] = await Promise.all([
       c.from('profiles').select('username,display_name').maybeSingle(),
-      c.from('account_private').select('terms_accepted_at').maybeSingle(),
+      c.from('account_private').select('terms_accepted_at,quota_bytes,used_bytes').maybeSingle(),
     ]);
     if (p.error) return false;
     acct.profile = p.data || null; acct.priv = (a && a.data) || null;
@@ -7783,11 +7860,17 @@ function updateAcctChip() {
   const signed = !!acct.session, st = signed && cloud ? cloud.state : '';
   c.classList.remove('on', 'off', 'bad');
   if (st === 'ok') c.classList.add('on');
-  else if (st === 'offline' || st === 'toobig' || st === 'waiting') c.classList.add('off');
+  else if (st === 'offline' || st === 'toobig' || st === 'waiting' || st === 'full') c.classList.add('off');
   else if (st === 'error') c.classList.add('bad');
   $('acctChipText').textContent = signed ? (acct.profile ? '@' + acct.profile.username : t('acctAccount')) : t('acctSignIn');
   c.title = signed ? [(acct.session.user && acct.session.user.email) || '', cloudStatusText()].filter(Boolean).join('\n') : t('acctChipTitle');
-  if (signed && !$('acctDlg').hidden && acct.view === 'account') $('acctSyncState').textContent = cloudStatusText() + ' ' + t('cloudNoPics');
+  if (signed && !$('acctDlg').hidden && acct.view === 'account') $('acctSyncState').textContent = acctSyncLine();
+}
+// The account page's status: how the sync went, and how much of the storage quota is used.
+function acctSyncLine() {
+  const p = acct.priv, mb = n => (n / 1048576).toLocaleString(LOCALE(), { maximumFractionDigits: 1 }) + ' MB';
+  const used = p && p.quota_bytes > 0 ? ' ' + t('cloudStorage', mb(Math.max(0, +p.used_bytes || 0)), mb(+p.quota_bytes)) : '';
+  return cloudStatusText() + used;
 }
 
 function acctOpen(view, msg, kind) {
@@ -7806,7 +7889,7 @@ function acctShow(view, msg, kind) {
     $('acctWhoName').textContent = p.display_name || '';
     $('acctWhoUser').textContent = p.username ? '@' + p.username : '';
     $('acctWhoEmail').textContent = u.email || '';
-    $('acctSyncState').textContent = cloudStatusText() + ' ' + t('cloudNoPics');
+    $('acctSyncState').textContent = acctSyncLine();
   }
   if (view === 'username') v.querySelector('[data-terms]').hidden = !!(acct.priv && acct.priv.terms_accepted_at);
   if (view === 'signin' || view === 'signup') acctProviders();
@@ -7944,8 +8027,18 @@ async function acctOAuth(provider) {
     if (error) acctMsg(acctErr(error), 'bad');
   } catch (e) { acctMsg(acctErr(e), 'bad'); }
 }
-async function acctSignOut(everywhere) {
+// keep = false: "remove from this device", only once a sync showed that everything is in the account.
+async function acctSignOut(everywhere, keep = true) {
+  if (!keep) {
+    acctMsg(t('acctRemoving'));
+    const btns = document.querySelectorAll('#acctDlg [data-acct-view=signout] button');
+    btns.forEach(b => { b.disabled = true; });
+    let ok = false;
+    try { ok = await cloudSync() && cloud.state === 'ok'; } finally { btns.forEach(b => { b.disabled = false; }); }
+    if (!ok) { acctMsg(t('acctNotAllSynced'), 'bad'); return; }
+  }
   try { const c = await acctClient(); await c.auth.signOut({ scope: everywhere ? 'global' : 'local' }); } catch (e) { }
+  if (!keep) { await cloudWipeHere(); return; }
   acct.session = null; acct.profile = undefined; acct.priv = null; acct.pendingStep = null;
   clearTimeout(cloud.timer); cloud.state = 'idle';
   updateAcctChip(); $('acctDlg').hidden = true;
@@ -7982,15 +8075,18 @@ function cloudStatusText() {
     case 'toobig': return t('cloudTooBig', cloud.tooBig);
     case 'waiting': return t('cloudWaiting');
     case 'error': return t('cloudError', cloud.error);
+    case 'full': return t('cloudFull');
     default: return t('cloudIdle');
   }
 }
 const cloudNetErr = e => navigator.onLine === false || (e && e.status === 0) || /failed to fetch|network|load failed/i.test((e && e.message) || '');
 
 // After signing in (and picking a username): decide what to do with the data already on this device.
-function cloudStart() {
+async function cloudStart() {
   if (!cloud || !acct.session || !acct.profile || !isActiveWindow) return;
-  const uid = acct.session.user.id, cs = cloudLoad(), step = cloudFirstStep(cs, uid, S);
+  if (!cloud.boardsListed) { await wbLoadList(); cloud.boardsListed = true; }   // boards count as data here too
+  if (!acct.session) return;
+  const uid = acct.session.user.id, cs = cloudLoad(), step = cloudFirstStep(cs, uid, S, wb.list.length);
   if (step === 'same') { acct.pendingStep = null; cloudSync(); return; }
   if (step === 'empty') {
     // Nothing here yet: take the account's data. Leftover tombstones and guest settings must not overrule it.
@@ -8013,11 +8109,18 @@ function cloudMergeHere() {
 async function cloudReplaceHere() {
   if (!acct.session) return;
   const uid = acct.session.user.id;
-  await exportBackup();
+  await exportBackup();                           // includes the boards and pictures
   const keep = S.settings;
   S = normalize({ settings: keep }); S.settingsUpdated = 0;
   rebase(); curNote = null;                       // rebase first: removing the old items must not leave tombstones to push
   cloud.selfSave = true; try { save(); } finally { cloud.selfSave = false; }
+  // The old boards go too (they're in the backup), or the next sync would put them in this account.
+  if (wbHosting()) wbStopSharing();
+  try { for (const k of (await kv.keys()).map(String)) if (k.startsWith('board-')) await kv.del(k); } catch (e) { }
+  try { localStorage.removeItem(BOARD_TOMBS); } catch (e) { }
+  clearTimeout(wb.saveTimer); wb.saveTimer = null; wb.board = null; wbStarted = false;
+  await wbLoadList();
+  if (currentTab() === 'board') await wbShow();
   renderAll();
   cloud.cs = cloudState({ owner: uid }); cloudKeep();
   acct.pendingStep = null;
@@ -8085,6 +8188,121 @@ async function cloudPush(c, uid, set) {
   }
   return accepted;
 }
+// ---- boards and pictures (files in Supabase Storage, own folder only; the server enforces the storage quota)
+var BOARD_TOMBS = 'pinglapp.boardTombs';          // board id -> when it was deleted on this device (kept 90 days)
+function boardTombs() { try { const o = JSON.parse(localStorage.getItem(BOARD_TOMBS)); return o && typeof o === 'object' ? o : {}; } catch (e) { return {}; } }
+function boardTombsKeep(o) {
+  const cut = Date.now() - TOMBSTONE_MS;
+  for (const k in o) if (!(o[k] > cut)) delete o[k];
+  try { localStorage.setItem(BOARD_TOMBS, JSON.stringify(o)); } catch (e) { }
+}
+function boardBuried(id) { const o = boardTombs(); o[id] = Date.now(); boardTombsKeep(o); cloudSchedule(); }
+function boardUnburied(id) { const o = boardTombs(); delete o[id]; boardTombsKeep(o); }
+const cloudErrText = e => `${(e && e.message) || ''} ${(e && (e.statusCode || e.status)) || ''}`;
+const cloudIsFull = e => /row-level security|quota|exceed|too large|413/i.test(cloudErrText(e));
+const cloudIsDup = e => /already exists|duplicate|409/i.test(cloudErrText(e));
+const cloudIsMissing = e => /not found|no such|404/i.test(cloudErrText(e));
+const blobToDataUrl = blob => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
+
+async function cloudBoards(c, uid) {
+  if (!cloud.boardsListed) { await wbLoadList(); cloud.boardsListed = true; }
+  cloud.selfSave = true;
+  try { await wbSaveNow(); } finally { cloud.selfSave = false; }   // the open board first; this save isn't a new change
+  const cs = cloud.cs, store = c.storage.from('boards');
+  const rows = await cloudPull(c, 'boards', cloudSince(cs, 'boards'));
+  const local = {};
+  for (const b of wb.list) local[b.id] = b.modified || 0;
+  const tombs = boardTombs(), plan = cloudBoardPlan(local, tombs, rows, cs), changed = new Set();
+  for (const r of plan.download) {
+    const { data, error } = await store.download(r.data.file);
+    if (error) { if (cloudIsMissing(error)) continue; throw error; }   // replaced meanwhile: the next pull brings the newer version
+    const b = wbNormalize(JSON.parse(await data.text()));
+    let old = null; try { old = JSON.parse(await kv.get('board-' + r.id)); } catch (e) { }
+    b.id = r.id; b.modified = r.updated; b.room = (old && old.room) || null;   // a live-sharing link stays with its own device
+    await kv.set('board-' + r.id, JSON.stringify(b));
+    boardUnburied(r.id);
+    cs.known.boards[r.id] = r.updated; cs.boardFiles[r.id] = r.data.file; changed.add(r.id);
+  }
+  for (const r of plan.drop) {
+    await kv.del('board-' + r.id);
+    cs.known.boards[r.id] = -r.updated; delete cs.boardFiles[r.id]; changed.add(r.id);
+  }
+  for (const r of rows) {                         // nothing to do, but now known: equal here, or deleted everywhere
+    if (changed.has(r.id)) continue;
+    if (!r.deleted && local[r.id] === r.updated && r.data && r.data.file) { cs.known.boards[r.id] = r.updated; cs.boardFiles[r.id] = r.data.file; }
+    if (r.deleted && local[r.id] === undefined) cs.known.boards[r.id] = -r.updated;
+  }
+  for (const r of rows) { const t = Date.parse(r.server_at); if (t > cs.cursor.boards) cs.cursor.boards = t; }
+  if (changed.size) { await wbLoadList(); await wbReloadOpen(changed); }
+  for (const id of plan.upload) {
+    if (cloud.full) break;
+    const txt = await kv.get('board-' + id);
+    if (!txt) continue;
+    const b = JSON.parse(txt), m = b.modified || 0, file = `${uid}/${id}-${m}.json`;
+    const body = new Blob([JSON.stringify(Object.assign({}, b, { room: null }))], { type: 'application/json' });
+    const up = await store.upload(file, body, { contentType: 'application/json', upsert: true });
+    if (up.error) { if (cloudIsFull(up.error)) { cloud.full = true; break; } throw up.error; }
+    const { data, error } = await c.from('boards').upsert({ user_id: uid, id, updated: m, deleted: false,
+      data: { title: String(b.title || '').slice(0, 200), modified: m, file, size: body.size } }, { onConflict: 'user_id,id' }).select('id');
+    if (error) throw error;
+    if (data && data.length) {
+      const prev = cs.boardFiles[id];
+      if (prev && prev !== file) await store.remove([prev]);
+      cs.boardFiles[id] = file; cloud.filesChanged = true;
+    } else await store.remove([file]);              // the account already has a newer version; the next pull brings it
+    cs.known.boards[id] = m;
+  }
+  for (const id of plan.bury) {
+    const ts = tombs[id];
+    const { data, error } = await c.from('boards').upsert({ user_id: uid, id, updated: ts, deleted: true, data: {} }, { onConflict: 'user_id,id' }).select('id');
+    if (error) throw error;
+    if (data && data.length && cs.boardFiles[id]) { await store.remove([cs.boardFiles[id]]); delete cs.boardFiles[id]; cloud.filesChanged = true; }
+    cs.known.boards[id] = -ts;
+  }
+  const keep = new Set(wb.list.map(b => b.id).concat(Object.keys(boardTombs())));
+  for (const id of Object.keys(cs.known.boards)) if (!keep.has(id)) { delete cs.known.boards[id]; delete cs.boardFiles[id]; }
+}
+
+async function cloudPictures(c, uid) {
+  if (!imgReady) return;
+  const cs = cloud.cs, store = c.storage.from('note-images');
+  const plan = cloudPicturePlan(referencedImages(), imgIds, cs);
+  let added = false;
+  for (const id of plan.upload) {
+    if (cloud.full) break;
+    const url = imgCache.get(id); if (!url) continue;
+    const blob = await (await fetch(url)).blob();
+    const { error } = await store.upload(`${uid}/${id}`, blob, { contentType: blob.type || 'image/webp', upsert: false });
+    if (error && !cloudIsDup(error)) { if (cloudIsFull(error)) { cloud.full = true; break; } throw error; }
+    cs.pics[id] = 1; cloud.filesChanged = true;
+  }
+  for (const id of plan.download) {
+    const { data, error } = await store.download(`${uid}/${id}`);
+    if (error) { if (cloudIsMissing(error)) { cs.picsMissing[id] = Date.now(); continue; } throw error; }
+    const blob = data.type && data.type.startsWith('image/') ? data : new Blob([data], { type: 'image/webp' });
+    const url = await blobToDataUrl(blob);
+    if (!String(url).startsWith('data:image/')) continue;
+    imgCache.set(id, url); imgIds.add(id); added = true;
+    cs.pics[id] = 1; delete cs.picsMissing[id];
+    try { await kv.set('img-' + id, url); } catch (e) { }
+  }
+  if (added) { paintPreview(); renderNotes(); }
+  for (const id of plan.remove) {
+    const { error } = await store.remove([`${uid}/${id}`]);
+    if (!error) { delete cs.pics[id]; delete cs.picsUnref[id]; cloud.filesChanged = true; }
+  }
+}
+// "Remove from this device" when logging out: everything of the account goes, including pictures, boards, the daily
+// copies and the save-file link, and the page starts fresh. Only after a sync showed everything is in the account.
+async function cloudWipeHere() {
+  const keep = S.settings;
+  try { for (const k of (await kv.keys()).map(String)) if (/^(img-|board-|snap-|unreadable-)/.test(k) || k === 'file') await kv.del(k); } catch (e) { }
+  S = normalize({ settings: keep }); rebase();
+  writeLocal();
+  for (const k of [CLOUD_STORE, BOARD_TOMBS, 'ping.wbLast']) { try { localStorage.removeItem(k); } catch (e) { } }
+  location.reload();
+}
+
 async function cloudSync() {
   if (!cloud || !acct) return false;
   clearTimeout(cloud.timer); cloud.timer = null;
@@ -8111,7 +8329,11 @@ async function cloudSync() {
       cloudMerge({ reminders: await cloudFetch(c, 'reminders', refetch.reminders), notes: await cloudFetch(c, 'notes', refetch.notes) });
     cloudPrune(S, cloud.cs);
     cloud.tooBig = set.tooBig.length;
-    cloudStatus(cloud.tooBig ? 'toobig' : 'ok');
+    cloud.full = false; cloud.filesChanged = false;
+    await cloudBoards(c, uid);
+    await cloudPictures(c, uid);
+    if (cloud.filesChanged || cloud.full) { await acctLoadProfile(); }   // the storage meter
+    cloudStatus(cloud.tooBig ? 'toobig' : cloud.full ? 'full' : 'ok');
     ok = true;
   } catch (e) {
     console.warn('sync', e);

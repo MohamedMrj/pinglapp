@@ -186,7 +186,9 @@ test('log out: back to "Logga in", the session is gone, the data stays', async (
   const { ctx, page } = await open({ session: { user: { id: 'u-a', email: 'a@example.com' } } });
   await page.waitForFunction(() => document.getElementById('acctChipText').textContent === '@alice');
   await page.click('#acctChip');
-  await page.click(inView('account', '[data-act=acct-signout]'));
+  await page.click(inView('account', '[data-act=acct-signout-ask]:not([data-all])'));
+  assert.equal(await view(page), 'signout');
+  await page.click(inView('signout', '[data-act=acct-signout]'));
   await page.waitForFunction(() => document.getElementById('acctChipText').textContent === 'Logga in');
   assert.equal(await page.evaluate(() => localStorage.getItem('pinglapp.auth')), null);
   assert.ok(await page.evaluate(() => localStorage.getItem('reminder-by-me.v1')));

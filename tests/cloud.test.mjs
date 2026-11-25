@@ -7,9 +7,10 @@ import assert from 'node:assert/strict';
 import { load } from './extract.mjs';
 
 const { cloudState, cloudPushSet, cloudPushed, cloudApply, cloudSince, cloudPrune, cloudFirstStep, canonJson,
-  makeBase, stampChanges, syncKey, CLOUD_OVERLAP_MS, CLOUD_MAX_CHARS } =
+  cloudBoardPlan, cloudPicturePlan, makeBase, stampChanges, syncKey, CLOUD_OVERLAP_MS, CLOUD_MAX_CHARS } =
   load(['SYNC', 'CLOUD'], ['cloudState', 'cloudPushSet', 'cloudPushed', 'cloudApply', 'cloudSince', 'cloudPrune',
-    'cloudFirstStep', 'canonJson', 'makeBase', 'stampChanges', 'syncKey', 'CLOUD_OVERLAP_MS', 'CLOUD_MAX_CHARS']);
+    'cloudFirstStep', 'canonJson', 'cloudBoardPlan', 'cloudPicturePlan', 'makeBase', 'stampChanges', 'syncKey',
+    'CLOUD_OVERLAP_MS', 'CLOUD_MAX_CHARS']);
 
 const plain = x => JSON.parse(JSON.stringify(x));
 const data = (o = {}) => Object.assign({ reminders: [], notes: [], deleted: {}, settings: { lang: 'sv', theme: 'system' }, settingsUpdated: 0 }, o);
@@ -73,8 +74,8 @@ class Device {
 test('cloudState repairs missing or damaged state', () => {
   const cs = cloudState({ owner: 5, cursor: 'x', known: { notes: [1] } });
   assert.equal(cs.owner, null);
-  assert.deepEqual(plain(cs.cursor), { reminders: 0, notes: 0, settings: 0 });
-  assert.deepEqual(plain(cs.known), { reminders: {}, notes: {} });
+  assert.deepEqual(plain(cs.cursor), { reminders: 0, notes: 0, settings: 0, boards: 0 });
+  assert.deepEqual(plain(cs.known), { reminders: {}, notes: {}, boards: {} });
   assert.deepEqual(plain(cloudState(null)), plain(cloudState({})));
 });
 
@@ -178,7 +179,7 @@ test('cloudSince pulls again with an overlap, or everything the first time', () 
 test('cloudPrune forgets items that are gone everywhere', () => {
   const cs = cloudState({ known: { reminders: { a: 1, old: -2 }, notes: { n: 3, del: -4 } } });
   cloudPrune(data({ reminders: [rem('a', 1)], deleted: { del: 4 } }), cs);
-  assert.deepEqual(plain(cs.known), { reminders: { a: 1 }, notes: { del: -4 } });
+  assert.deepEqual(plain(cs.known), { reminders: { a: 1 }, notes: { del: -4 }, boards: {} });
 });
 
 test('first sign-in: same account, empty device, a guest\'s data, another account\'s data', () => {
@@ -188,6 +189,8 @@ test('first sign-in: same account, empty device, a guest\'s data, another accoun
   assert.equal(cloudFirstStep(cloudState({ owner: 'u2' }), 'u1', data()), 'empty');
   assert.equal(cloudFirstStep(cloudState({}), 'u1', d), 'ask');
   assert.equal(cloudFirstStep(cloudState({ owner: 'u2' }), 'u1', d), 'other');
+  assert.equal(cloudFirstStep(cloudState({ owner: 'u2' }), 'u1', data(), 2), 'other', 'boards count as data too');
+  assert.equal(cloudFirstStep(cloudState({}), 'u1', data(), 1), 'ask');
 });
 
 test('two devices converge, including edits made on both while offline', () => {
@@ -260,4 +263,56 @@ test('a guest\'s data added to a new account reaches the second device', () => {
   assert.deepEqual(ids(phone.S.reminders), ['r']);
   assert.deepEqual(ids(phone.S.notes), ['n']);
   assert.equal(syncKey(phone.S), syncKey(guest.S));
+});
+
+// ---------------------------------------------------------------- boards and pictures
+const brow = (id, updated, file = `u/${id}-${updated}.json`, deleted = false) => ({ id, updated, deleted, data: deleted ? {} : { file }, server_at: '2026-11-25T12:00:00Z' });
+const ids2 = a => plain(a).map(x => typeof x === 'string' ? x : x.id).sort();
+
+test('boards: newer elsewhere is downloaded, newer here is uploaded, equal is left alone', () => {
+  const cs = cloudState({ known: { boards: { same: 5, mine: 3 } } });
+  const p = cloudBoardPlan({ same: 5, mine: 9, theirs: 4 }, {}, [brow('same', 5), brow('theirs', 8), brow('new', 2)], cs);
+  assert.deepEqual(ids2(p.download), ['new', 'theirs']);
+  assert.deepEqual(ids2(p.upload), ['mine']);
+  assert.deepEqual(plain(p.drop), []);
+  assert.equal(p.download.find(r => r.id === 'theirs').data.file, 'u/theirs-8.json');
+});
+
+test('boards: deleted elsewhere is removed here, unless it was changed here afterwards', () => {
+  const cs = cloudState({ known: { boards: { a: 3, b: 3 } } });
+  const p = cloudBoardPlan({ a: 3, b: 12 }, {}, [brow('a', 10, '', true), brow('b', 10, '', true)], cs);
+  assert.deepEqual(ids2(p.drop), ['a']);
+  assert.deepEqual(ids2(p.upload), ['b'], 'edited after the deletion: it comes back everywhere');
+});
+
+test('boards: a board deleted here sends a tombstone only if the account has it; a newer version elsewhere wins', () => {
+  const cs = cloudState({ known: { boards: { up: 4, gone: -6, edited: 4 } } });
+  const p = cloudBoardPlan({}, { up: 7, local: 7, gone: 6, edited: 7 }, [brow('edited', 9)], cs);
+  assert.deepEqual(ids2(p.bury), ['up'], 'never-uploaded and already-buried boards send nothing');
+  assert.deepEqual(ids2(p.download), ['edited'], 'edited elsewhere after the deletion here: it comes back');
+  const q = cloudBoardPlan({}, { x: 9 }, [brow('x', 5)], cloudState({ known: { boards: { x: 5 } } }));
+  assert.deepEqual(ids2(q.download), [], 'an older version is not downloaded over a deletion');
+  assert.deepEqual(ids2(q.bury), ['x']);
+});
+
+test('boards: several rows for one board count as the newest one; rows without a file are ignored', () => {
+  const p = cloudBoardPlan({}, {}, [brow('a', 3), brow('a', 8), { id: 'b', updated: 2, deleted: false, data: {} }, null], cloudState({}));
+  assert.deepEqual(plain(p.download.map(r => [r.id, r.updated])), [['a', 8]]);
+});
+
+test('pictures: upload what the account lacks, download what a note needs, retry missing ones a day later', () => {
+  const NOW = Date.UTC(2026, 10, 25);
+  const cs = cloudState({ pics: { done: 1 }, picsMissing: { lost: NOW - 3600000, old: NOW - 2 * 86400000 } });
+  const p = cloudPicturePlan(new Set(['done', 'mine', 'theirs', 'lost', 'old']), new Set(['done', 'mine']), cs, NOW);
+  assert.deepEqual(plain(p.upload), ['mine']);
+  assert.deepEqual(plain(p.download).sort(), ['old', 'theirs']);
+});
+
+test('pictures: one no note uses is removed from the account after a week, not before', () => {
+  const NOW = Date.UTC(2026, 10, 25);
+  const cs = cloudState({ pics: { kept: 1, unused: 1, stale: 1 }, picsUnref: { stale: NOW - 8 * 86400000, kept: NOW - 9 * 86400000 } });
+  const p = cloudPicturePlan(new Set(['kept']), new Set(['kept', 'unused', 'stale']), cs, NOW);
+  assert.deepEqual(plain(p.remove), ['stale']);
+  assert.equal(cs.picsUnref.unused, NOW, 'the week starts now');
+  assert.equal(cs.picsUnref.kept, undefined, 'used again: the clock is reset');
 });

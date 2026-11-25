@@ -23,11 +23,14 @@ export const FAKE = () => {
     cbs.forEach(cb => cb(ev, session));
   };
   const call = (...c) => { db.calls.push(c); keep(); };
+  const server = async q => JSON.parse(await window.__pingServer(JSON.stringify(Object.assign({}, q, { uid: session && session.user.id }))));
   async function run(q) {
     const id = session && session.user.id;
     if (q.table === 'profiles' || q.table === 'account_private') {
       const src = q.table === 'profiles' ? db.profiles : db.priv;
-      return { data: (id && src[id]) || null, error: null };
+      let row = (id && src[id]) || null;
+      if (row && q.table === 'account_private' && window.__pingServer) row = Object.assign({}, row, (await server({ op: 'usage' })).data);
+      return { data: row, error: null };
     }
     if (!window.__pingServer) return { data: q.single ? null : [], error: null };
     return JSON.parse(await window.__pingServer(JSON.stringify(Object.assign({}, q, { uid: id }))));
@@ -67,6 +70,22 @@ export const FAKE = () => {
       async signInWithOAuth(a) { call('oauth', a.provider); return { error: null }; },
     },
     from,
+    storage: {
+      from: bucket => ({
+        async upload(path, blob, o) {
+          const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(blob); });
+          return server({ op: 'storage', act: 'upload', bucket, path, b64, type: (o && o.contentType) || blob.type, size: blob.size, upsert: !!(o && o.upsert) });
+        },
+        async download(path) {
+          const r = await server({ op: 'storage', act: 'download', bucket, path });
+          if (r.error) return r;
+          const bin = atob(r.data.b64), bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          return { data: new Blob([bytes], { type: r.data.type }), error: null };
+        },
+        async remove(paths) { return server({ op: 'storage', act: 'remove', bucket, paths }); },
+      }),
+    },
     async rpc(name, args) {
       call('rpc', name, args);
       if (name === 'username_available') return { data: !db.taken.includes(args.name), error: null };
@@ -84,14 +103,38 @@ export const FAKE = () => {
 
 const RLS = { data: null, error: { code: '42501', message: 'new row violates row-level security policy' } };
 export class FakeServer {
-  constructor() { this.t = Date.now(); this.users = {}; this.offline = false; this.log = []; }
+  constructor() { this.t = Date.now(); this.users = {}; this.offline = false; this.log = []; this.files = new Map(); this.quota = {}; }
   tick() { this.t = Math.max(this.t + 1, Date.now()); return new Date(this.t).toISOString(); }
   table(uid, name) { const u = (this.users[uid] ||= {}); return (u[name] ||= new Map()); }
   rows(uid, name) { return [...this.table(uid, name).values()]; }
+  // Files in a bucket for a user, e.g. paths('u-a', 'boards') -> ['u-a/b1-123.json']
+  paths(uid, bucket) { return [...this.files.keys()].filter(k => k.startsWith(`${bucket}/${uid}/`)).map(k => k.slice(bucket.length + 1)).sort(); }
+  used(uid) { let n = 0; for (const [k, f] of this.files) if (/^(note-images|boards)\//.test(k) && k.split('/')[1] === uid) n += f.size; return n; }
   handle(json) { const q = JSON.parse(json); this.log.push(q); return JSON.stringify(this.run(q)); }
+  storage(q) {
+    if (!q.paths && !String(q.path).startsWith(q.uid + '/')) return RLS;
+    if (q.act === 'upload') {
+      const key = `${q.bucket}/${q.path}`;
+      if (this.files.has(key) && !q.upsert) return { data: null, error: { message: 'The resource already exists', statusCode: '409' } };
+      if (q.bucket !== 'avatars' && this.used(q.uid) >= (this.quota[q.uid] ?? 26214400)) return RLS;   // the quota policy
+      this.files.set(key, { b64: q.b64, type: q.type, size: q.size });
+      return { data: { path: q.path }, error: null };
+    }
+    if (q.act === 'download') {
+      const f = this.files.get(`${q.bucket}/${q.path}`);
+      return f ? { data: { b64: f.b64, type: f.type }, error: null } : { data: null, error: { message: 'Object not found', statusCode: '404' } };
+    }
+    if (q.act === 'remove') {
+      for (const p of q.paths) if (p.startsWith(q.uid + '/')) this.files.delete(`${q.bucket}/${p}`);
+      return { data: [], error: null };
+    }
+    return { data: null, error: { message: 'unknown storage call' } };
+  }
   run(q) {
     if (this.offline) return { data: null, error: { message: 'TypeError: Failed to fetch', status: 0 } };
     if (!q.uid) return { data: null, error: { code: '42501', message: 'permission denied' } };
+    if (q.op === 'storage') return this.storage(q);
+    if (q.op === 'usage') return { data: { quota_bytes: this.quota[q.uid] ?? 26214400, used_bytes: this.used(q.uid) }, error: null };
     const future = Date.now() + 86400000;
     if (q.table === 'user_settings') {
       const t = this.table(q.uid, 'settings');
@@ -104,7 +147,7 @@ export class FakeServer {
       }
       return { data: t.get('s') || null, error: null };
     }
-    if (q.table === 'reminders' || q.table === 'notes') {
+    if (q.table === 'reminders' || q.table === 'notes' || q.table === 'boards') {
       const t = this.table(q.uid, q.table);
       if (q.op === 'upsert') {
         const ok = [];

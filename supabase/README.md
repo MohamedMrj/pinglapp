@@ -81,10 +81,12 @@ Accounts are switched on only for a local copy (and on any address opened once w
   everything and grants exactly what the app needs (e.g. users may update only `language` and `time_zone` in
   `account_private`, never `quota_bytes` or `used_bytes`).
 
-## Still to check on the real project
+## Checked on the real project (staging, 2026-11-25)
 
-PGlite stands in for Supabase's `auth`, `storage` and `cron` schemas, so these need a check on staging:
+PGlite stands in for Supabase's `auth`, `storage` and `cron` schemas, so these were checked by hand on staging:
 
-- that the `track_storage_use` trigger on `storage.objects` is allowed and sees `metadata->>'size'` after an upload;
-- that the `on_auth_user_created` trigger runs for email, Google and Microsoft sign-ups;
-- that `pg_cron` jobs show up under Integrations → Cron.
+- ✅ email sign-up and confirmation; `on_auth_user_created` made the profile (the username from sign-up showed up);
+- ✅ sync of reminders, notes, settings, pictures and boards between two browsers;
+- ✅ the storage meter showed real usage, so the `track_storage_use` trigger on `storage.objects` works;
+- ⬜ Google and Microsoft sign-up (providers not set up yet);
+- ⬜ `pg_cron` jobs under Integrations → Cron.

@@ -204,7 +204,8 @@ test('signing in again on the same device just syncs, without asking', async () 
   await A.page.click('#acctDlg [data-act=acct-merge]');
   await synced(A.page);
   if (await A.page.isHidden('#acctDlg')) await A.page.click('#acctChip');
-  await A.page.click('#acctDlg [data-acct-view=account] [data-act=acct-signout]');
+  await A.page.click('#acctDlg [data-acct-view=account] [data-act=acct-signout-ask]:not([data-all])');
+  await A.page.click('#acctDlg [data-acct-view=signout] [data-act=acct-signout]');
   await A.page.waitForFunction(() => !acct.session);
   assert.deepEqual((await local(A.page)).reminders, [['r1', 'Mine']], 'logging out keeps a copy');
   await A.page.evaluate(() => { S.reminders[0].title = 'Edited while logged out'; save(); });
