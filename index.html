@@ -528,6 +528,7 @@ details.adv[open] { display: grid; gap: 8px; }
 .acct-or { margin: 2px 0 0; text-align: center; font-size: 12.5px; color: var(--muted); }
 .acct-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; }
 .acct-check[hidden] { display: none; }
+.acct-captcha:empty, .acct-captcha[hidden] { display: none; }
 .acct-uname:empty { display: none; }
 .acct-uname.bad { color: var(--danger); }
 .acct-uname.ok { color: var(--ok); }
@@ -1331,6 +1332,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       </div>
       <label class="field"><span data-i18n="acctEmail">E-post</span><input type="email" name="email" autocomplete="email" required></label>
       <label class="field"><span data-i18n="acctPassword">Lösenord</span><input type="password" name="password" autocomplete="current-password" required></label>
+      <div class="acct-captcha" hidden></div>
       <div class="modal-foot">
         <button class="btn ghost sm" type="button" data-act="acct-view" data-to="forgot" data-i18n="acctForgot">Glömt lösenordet?</button>
         <span class="spacer"></span>
@@ -1348,6 +1350,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <p class="hint acct-uname" aria-live="polite"></p>
       <label class="field"><span data-i18n="acctDisplayName">Namn som andra ser (valfritt)</span><input type="text" name="display_name" autocomplete="name" maxlength="50"></label>
       <label class="acct-check"><input type="checkbox" name="terms" required> <span data-i18n="acctTerms">Jag godkänner villkoren och integritetspolicyn och är minst 13 år.</span></label>
+      <div class="acct-captcha" hidden></div>
       <div class="modal-foot">
         <button class="btn ghost sm" type="button" data-act="acct-view" data-to="signin" data-i18n="acctHaveAccount">Jag har redan ett konto</button>
         <span class="spacer"></span>
@@ -1358,6 +1361,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     <form class="acct-view" data-acct-view="forgot" novalidate>
       <p class="hint" data-i18n="acctForgotP">Skriv din e-postadress, så skickar vi en länk där du väljer ett nytt lösenord.</p>
       <label class="field"><span data-i18n="acctEmail">E-post</span><input type="email" name="email" autocomplete="email" required></label>
+      <div class="acct-captcha" hidden></div>
       <div class="modal-foot">
         <button class="btn ghost sm" type="button" data-act="acct-view" data-to="signin" data-i18n="acctBack">Tillbaka</button>
         <span class="spacer"></span>
@@ -7659,8 +7663,9 @@ function renderAll() {
 // here; what a signed-in person may read or write is decided by the database's row-level security.
 // Accounts are switched on only where a project is listed: the staging project on a local copy (localhost), or on any
 // address opened once with ?accounts=staging (?accounts=off switches it off again). pinglapp.com gets production later.
+// `turnstile`: the project's Cloudflare Turnstile site key (public). Empty = no robot check; see acctCaptcha().
 // `var`, not const/let: renderAll() reads `acct` and may run before this point.
-var ACCT_PROJECTS = { staging: { url: 'https://bdvoxzkozkrxefpwuzkr.supabase.co', key: 'sb_publishable_aVOkMdJBJ-t0WtCkoMSaGg_cP2pMALL' } };
+var ACCT_PROJECTS = { staging: { url: 'https://bdvoxzkozkrxefpwuzkr.supabase.co', key: 'sb_publishable_aVOkMdJBJ-t0WtCkoMSaGg_cP2pMALL', turnstile: '0x4AAAAAAGSVtRIpaYSiFBa5' } };
 var ACCT_LIB = { src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js', sri: 'sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O' };
 var ACCT_STORE = 'pinglapp.auth';                 // where supabase-js keeps the session in localStorage
 var ACCT_UNAME = /^[a-z0-9_]{3,20}$/;
@@ -7704,7 +7709,7 @@ const ACCT_T = {
     acctErrLogin: 'Wrong email or password.', acctErrConfirm: 'Confirm your email address first: open the link we sent you.',
     acctErrWeak: 'That password is too easy to guess. Choose a longer one.', acctErrRate: 'Too many attempts. Wait a few minutes and try again.',
     acctErrClosed: 'New accounts can’t be created right now.', acctErrSame: 'The new password must differ from the old one.',
-    acctErrCaptcha: 'The robot check failed. Reload the page and try again.', acctErrExists: 'There’s already an account for that email. Log in instead.',
+    acctErrCaptcha: 'The robot check failed. Reload the page and try again.', acctCaptchaWait: 'Checking that you’re not a robot…', acctErrExists: 'There’s already an account for that email. Log in instead.',
     acctErrOther: m => `Something went wrong: ${m}`,
     acctT_merge: 'Your data on this device', acctT_other: 'Another account’s data',
     cloudOk: d => `Synced with your account ${d}.`, cloudSyncing: 'Syncing…', cloudIdle: 'Not synced yet.',
@@ -7736,7 +7741,7 @@ const ACCT_T = {
     acctErrLogin: 'Fel e-post eller lösenord.', acctErrConfirm: 'Bekräfta din e-postadress först: öppna länken vi skickade.',
     acctErrWeak: 'Lösenordet är för lätt att gissa. Välj ett längre.', acctErrRate: 'För många försök. Vänta några minuter och försök igen.',
     acctErrClosed: 'Det går inte att skapa nya konton just nu.', acctErrSame: 'Det nya lösenordet måste skilja sig från det gamla.',
-    acctErrCaptcha: 'Robotkontrollen misslyckades. Ladda om sidan och försök igen.', acctErrExists: 'Det finns redan ett konto för den e-postadressen. Logga in i stället.',
+    acctErrCaptcha: 'Robotkontrollen misslyckades. Ladda om sidan och försök igen.', acctCaptchaWait: 'Kontrollerar att du inte är en robot…', acctErrExists: 'Det finns redan ett konto för den e-postadressen. Logga in i stället.',
     acctErrOther: m => `Något gick fel: ${m}`,
     acctT_merge: 'Din data på den här enheten', acctT_other: 'Ett annat kontos data',
     cloudOk: d => `Synkat med ditt konto ${d}.`, cloudSyncing: 'Synkar…', cloudIdle: 'Inte synkat än.',
@@ -7893,6 +7898,7 @@ function acctShow(view, msg, kind) {
   }
   if (view === 'username') v.querySelector('[data-terms]').hidden = !!(acct.priv && acct.priv.terms_accepted_at);
   if (view === 'signin' || view === 'signup') acctProviders();
+  if (view === 'signin' || view === 'signup' || view === 'forgot') acctCaptcha(view);
   const first = v.querySelector('input:not([type=checkbox])');
   if (first && !first.value) setTimeout(() => first.focus(), 0);
 }
@@ -7916,6 +7922,63 @@ async function acctProviders() {
   let any = false;
   box.querySelectorAll('[data-provider]').forEach(b => { const on = !!acct.providers[b.dataset.provider]; b.hidden = !on; any = any || on; });
   box.hidden = !any;
+}
+
+// Robot check (Cloudflare Turnstile) on log-in, sign-up and forgot-password, for projects with a `turnstile` site key.
+// Supabase checks the answer (Authentication → Attack protection → Captcha). Order matters: put the site key in the app
+// and publish it first, then switch Captcha on in Supabase; the other way round, nobody can log in until the app catches up.
+// Cloudflare's script can't be pinned or integrity-checked (they change it and forbid copies), so it loads only when one
+// of these forms is shown, and only there. Usually there's nothing to click: the widget appears only if Cloudflare asks.
+// Tests with the stand-in Supabase decide for themselves: a key in PING_ACCOUNTS_FAKE.turnstile and a stand-in in
+// window.turnstile, or no robot check at all.
+var ACCT_TURNSTILE = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+const acctCap = { loading: null, widgets: {} };
+const acctCaptchaKey = () => window.PING_ACCOUNTS_FAKE ? window.PING_ACCOUNTS_FAKE.turnstile || '' : (ACCT_PROJECTS[acct.project] || {}).turnstile || '';
+function acctTurnstile() {
+  if (window.turnstile) return Promise.resolve(window.turnstile);
+  acctCap.loading ||= new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = ACCT_TURNSTILE; s.async = true;
+    s.onload = () => window.turnstile ? res(window.turnstile) : rej(new Error('turnstile'));
+    s.onerror = () => { acctCap.loading = null; s.remove(); rej(new Error('turnstile')); };
+    document.head.appendChild(s);
+  });
+  return acctCap.loading;
+}
+// One widget per form, made the first time the form is shown. Resolves to the widget, or null (no key, or no script).
+function acctCaptcha(view) {
+  const key = acctCaptchaKey(), v = acctView(view), box = v && v.querySelector('.acct-captcha');
+  if (!key || !box) return Promise.resolve(null);
+  const ws = acctCap.widgets;
+  if (!ws[view]) {
+    const w = ws[view] = { id: null, token: '', wait: [] };
+    const done = tok => { w.token = tok; w.wait.splice(0).forEach(f => f(tok)); };
+    w.ready = acctTurnstile().then(ts => {
+      box.hidden = false;
+      const th = document.documentElement.dataset.theme;
+      w.id = ts.render(box, { sitekey: key, action: view, language: lang(), theme: th === 'light' || th === 'dark' ? th : 'auto',
+        size: 'flexible', appearance: 'interaction-only', callback: done, 'expired-callback': () => { w.token = ''; } });
+      return w;
+    }).catch(() => { if (ws[view] === w) delete ws[view]; box.hidden = true; return null; });
+  }
+  return ws[view].ready;
+}
+// The answer to send with this form's request, or undefined without a robot check. An answer works once, so the widget
+// is reset straight away and fetches the next one for a second try.
+async function acctCaptchaToken(view) {
+  if (!acctCaptchaKey()) return undefined;
+  const w = await acctCaptcha(view);
+  if (!w) throw navigator.onLine ? { code: 'captcha_failed' } : new Error('network');
+  let tok = w.token;
+  if (!tok) {
+    acctMsg(t('acctCaptchaWait'));
+    tok = await new Promise(res => { w.wait.push(res); setTimeout(() => res(''), 60000); });
+    acctMsg('');
+  }
+  if (!tok) throw { code: 'captcha_failed' };
+  w.token = '';
+  try { window.turnstile.reset(w.id); } catch (e) { }
+  return tok;
 }
 
 function acctErr(e) {
@@ -7973,7 +8036,8 @@ async function acctSubmit(view, f) {
   try {
     if (view === 'signin') {
       if (!validEmail(val('email')) || !f.elements.password.value) return acctMsg(t('acctFillIn'), 'bad');
-      const { error } = await c.auth.signInWithPassword({ email: val('email'), password: f.elements.password.value });
+      const captchaToken = await acctCaptchaToken(view);
+      const { error } = await c.auth.signInWithPassword({ email: val('email'), password: f.elements.password.value, options: { captchaToken } });
       if (error) return acctMsg(acctErr(error), 'bad');
       f.elements.password.value = '';                         // acctOnAuth takes it from here
     } else if (view === 'signup') {
@@ -7983,7 +8047,8 @@ async function acctSubmit(view, f) {
       if (!ACCT_UNAME.test(name)) return acctMsg(t('acctUnameRules'), 'bad');
       if (!f.elements.terms.checked) return acctMsg(t('acctNeedTerms'), 'bad');
       if (await acctUsernameFree(name) === false) return acctMsg(t('acctUnameTaken', '@' + name), 'bad');
-      const { data, error } = await c.auth.signUp({ email, password: pw, options: { emailRedirectTo: acctHome(),
+      const captchaToken = await acctCaptchaToken(view);
+      const { data, error } = await c.auth.signUp({ email, password: pw, options: { emailRedirectTo: acctHome(), captchaToken,
         data: { username: name, display_name: val('display_name'), lang: lang(), terms: 'true' } } });
       if (error) return acctMsg(acctErr(error), 'bad');
       f.reset(); acctMeter(f); f.querySelector('.acct-uname').textContent = '';
@@ -7992,9 +8057,10 @@ async function acctSubmit(view, f) {
     } else if (view === 'forgot') {
       const email = val('email');
       if (!validEmail(email)) return acctMsg(t('acctBadEmail'), 'bad');
-      const { error } = await c.auth.resetPasswordForEmail(email, { redirectTo: acctHome() + '?reset=1' });
+      const captchaToken = await acctCaptchaToken(view);
+      const { error } = await c.auth.resetPasswordForEmail(email, { redirectTo: acctHome() + '?reset=1', captchaToken });
       // The same answer whether or not there's an account, so nobody can test which addresses have one.
-      if (error && /rate_limit/.test(error.code || '')) return acctMsg(acctErr(error), 'bad');
+      if (error && /rate_limit|captcha/.test(error.code || '')) return acctMsg(acctErr(error), 'bad');
       acctShow('sent', t('acctResetSent'), 'ok');
     } else if (view === 'reset') {
       const pw = f.elements.password.value;

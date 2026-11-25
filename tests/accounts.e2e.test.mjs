@@ -37,7 +37,19 @@ before(async () => {
 });
 after(async () => { await browser?.close(); server?.close(); });
 
-async function open({ session, recovery, url = base, fake = true, route } = {}) {
+// A stand-in for Cloudflare Turnstile: each widget answers "tok-1", "tok-2", … shortly after render() or reset(),
+// unless turnstile.hold is set; then turnstile.solve() answers.
+const FAKE_TURNSTILE = () => {
+  window.PING_ACCOUNTS_FAKE.turnstile = 'test-site-key';
+  const ts = window.turnstile = { n: 0, hold: false, calls: [], opts: {}, pending: [],
+    answer(id) { const o = ts.opts[id], go = () => o.callback('tok-' + (++ts.n)); if (ts.hold) ts.pending.push(go); else setTimeout(go, 20); },
+    render(box, o) { const id = 'w' + Object.keys(ts.opts).length; ts.opts[id] = o; ts.calls.push(['render', o.sitekey, o.action, o.language]); ts.answer(id); return id; },
+    reset(id) { ts.calls.push(['reset', id]); ts.answer(id); },
+    solve() { ts.hold = false; ts.pending.splice(0).forEach(f => f()); },
+    remove() { }, getResponse() { } };
+};
+
+async function open({ session, recovery, url = base, fake = true, route, captcha = false } = {}) {
   const ctx = await browser.newContext({ serviceWorkers: 'block' });
   if (route) await ctx.route(route.pattern, async r => { const f = await fileFor(new URL(r.request().url()).pathname); await r.fulfill({ body: f.body, contentType: f.type }); });
   await ctx.addInitScript(([session, recovery]) => {
@@ -48,6 +60,7 @@ async function open({ session, recovery, url = base, fake = true, route } = {}) 
     if (recovery) sessionStorage.setItem('fakeRecovery', '1');
   }, [session || null, !!recovery]);
   if (fake) await ctx.addInitScript(FAKE);
+  if (captcha) await ctx.addInitScript(FAKE_TURNSTILE);
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(String(e)));
@@ -71,6 +84,8 @@ test('a guest sees "Logga in" and downloads nothing until they open it', async (
   await page.waitForSelector('#acctDlg .acct-oauth:not([hidden])');
   assert.equal(await page.isVisible('[data-provider="google"]'), true, 'Google is on for the project');
   assert.equal(await page.isVisible('[data-provider="azure"]'), false, 'Microsoft is off');
+  assert.equal(await page.locator('script[src*="challenges.cloudflare.com"]').count(), 0, 'no robot check without a site key');
+  assert.equal(await page.isVisible(inView('signin', '.acct-captcha')), false);
   await page.keyboard.press('Escape');
   assert.equal(await page.isVisible('#acctDlg'), false);
   assert.deepEqual(errors, []);
@@ -193,6 +208,68 @@ test('log out: back to "Logga in", the session is gone, the data stays', async (
   assert.equal(await page.evaluate(() => localStorage.getItem('pinglapp.auth')), null);
   assert.ok(await page.evaluate(() => localStorage.getItem('reminder-by-me.v1')));
   assert.match(await page.textContent('#toastMsg'), /Utloggad/);
+  await ctx.close();
+});
+
+test('robot check: with a site key, log-in, sign-up and forgot-password each send a fresh Turnstile answer', async () => {
+  let { ctx, page, errors } = await open({ captcha: true });
+  const ts = () => page.evaluate(() => window.turnstile.calls);
+  await page.click('#acctChip');
+  await page.waitForFunction(() => window.turnstile.calls.length > 0);
+  assert.deepEqual((await ts())[0], ['render', 'test-site-key', 'signin', 'sv']);
+  assert.equal(await page.locator('script[src*="challenges.cloudflare.com"]').count(), 0, 'the stand-in is used, not Cloudflare');
+  // log in: each attempt uses its own answer, and the widget is reset for the next one
+  await page.waitForFunction(() => window.turnstile.n === 1);
+  await page.fill(inView('signin', '[name=email]'), 'a@example.com');
+  await page.fill(inView('signin', '[name=password]'), 'nope');
+  await page.click(inView('signin', '[type=submit]'));
+  await page.waitForFunction(() => document.getElementById('acctMsg').textContent.includes('Fel e-post'));
+  await page.fill(inView('signin', '[name=password]'), 'correct-horse-1');
+  await page.click(inView('signin', '[type=submit]'));
+  await page.waitForFunction(() => acct.view === 'account');
+  assert.deepEqual((await calls(page)).filter(c => c[0] === 'signIn').map(c => c[2]), ['tok-1', 'tok-2']);
+  assert.ok((await ts()).some(c => c[0] === 'reset'));
+  await ctx.close();
+
+  // forgot password: if the answer isn't there yet, it waits for it
+  ({ ctx, page, errors } = await open({ captcha: true }));
+  await page.evaluate(() => { window.turnstile.hold = true; });
+  await page.click('#acctChip');
+  await page.click(inView('signin', '[data-to=forgot]'));
+  await page.fill(inView('forgot', '[name=email]'), 'b@example.com');
+  await page.click(inView('forgot', '[type=submit]'));
+  await page.waitForFunction(() => /inte är en robot/.test(document.getElementById('acctMsg').textContent));
+  await page.evaluate(() => window.turnstile.solve());
+  await page.waitForFunction(() => acct.view === 'sent');
+  const reset = (await calls(page)).find(c => c[0] === 'reset');
+  assert.match(reset[2].captchaToken, /^tok-\d+$/);
+  assert.ok((await ts()).some(c => c[0] === 'render' && c[2] === 'forgot'));
+
+  // sign-up
+  await page.evaluate(() => acctShow('signup'));
+  await page.fill(inView('signup', '[name=email]'), 'new@example.com');
+  await page.fill(inView('signup', '[name=password]'), 'Long-and-Varied-123');
+  await page.fill(inView('signup', '[name=username]'), 'new_user');
+  await page.check(inView('signup', '[name=terms]'));
+  await page.click(inView('signup', '[type=submit]'));
+  await page.waitForFunction(() => acct.view === 'sent');
+  const signUp = (await calls(page)).find(c => c[0] === 'signUp')[1];
+  assert.match(signUp.options.captchaToken, /^tok-\d+$/);
+  assert.notEqual(signUp.options.captchaToken, reset[2].captchaToken, 'answers are never reused');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('robot check: no answer from Cloudflare means a clear message, not a stuck dialog', async () => {
+  const { ctx, page } = await open({ captcha: true });
+  await page.evaluate(() => { window.turnstile.render = () => { throw new Error('blocked'); }; });
+  await page.click('#acctChip');
+  await page.fill(inView('signin', '[name=email]'), 'a@example.com');
+  await page.fill(inView('signin', '[name=password]'), 'correct-horse-1');
+  await page.click(inView('signin', '[type=submit]'));
+  await page.waitForFunction(() => /Robotkontrollen/.test(document.getElementById('acctMsg').textContent));
+  assert.equal((await calls(page)).filter(c => c[0] === 'signIn').length, 0, 'no log-in without an answer');
+  assert.equal(await page.isDisabled(inView('signin', '[type=submit]')), false);
   await ctx.close();
 });
 

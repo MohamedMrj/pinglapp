@@ -43,8 +43,19 @@ Do these in order. Each step is free except the domain.
    (Authentication → Rate limits) from the default if needed.
 5. **Auth settings** (Authentication → URL configuration): Site URL `https://pinglapp.com`, redirect URLs
    `https://pinglapp.com/**` and `http://localhost:*/**` (staging only). Keep "Confirm email" on.
-6. **Turnstile.** Cloudflare dashboard → Turnstile → add a site for `pinglapp.com`. Put the secret key in Supabase:
-   Authentication → Attack protection → Captcha (Turnstile). The site key goes in the app.
+6. **Turnstile (robot check).** The app side is built: log-in, sign-up and forgot-password send a Turnstile answer
+   whenever the project in `ACCT_PROJECTS` (in `index.html`) has a `turnstile` site key. **Do it in this order**, or
+   nobody can log in for a while:
+   1. Cloudflare dashboard → Turnstile → Add widget. Hostnames: `pinglapp.com`, and `localhost` for local testing
+      (if Cloudflare won't accept `localhost`, test locally with Cloudflare's always-pass test keys instead). Widget
+      mode: **Managed**. Pre-clearance: off.
+   2. Put the **site key** in `ACCT_PROJECTS.<project>.turnstile`, then publish it (commit and push). Check in the
+      browser that the dialog still logs you in (no captcha is required yet, so a missing answer can't break anything).
+   3. Then put the **secret key** in Supabase: Authentication → Attack protection → Enable Captcha protection →
+      provider Turnstile. From now on Supabase refuses log-in, sign-up and reset without an answer.
+   Turning it off again is the same in reverse: switch Captcha off in Supabase first, then remove the site key.
+   Cloudflare's script (`challenges.cloudflare.com`) loads only when one of those three forms is shown; mention
+   Cloudflare as a processor in the privacy policy (phase 6).
 7. **Google sign-in.** Google Cloud console → APIs & Services → Credentials → OAuth client (Web). Authorised redirect URI:
    `https://<project-ref>.supabase.co/auth/v1/callback`. Scopes: email, profile only. Paste the client id and secret
    into Supabase → Authentication → Sign In / Providers → Google.
@@ -88,5 +99,7 @@ PGlite stands in for Supabase's `auth`, `storage` and `cron` schemas, so these w
 - ✅ email sign-up and confirmation; `on_auth_user_created` made the profile (the username from sign-up showed up);
 - ✅ sync of reminders, notes, settings, pictures and boards between two browsers;
 - ✅ the storage meter showed real usage, so the `track_storage_use` trigger on `storage.objects` works;
+- ✅ email through Brevo SMTP (sender `no-reply@pinglapp.com`), 2026-11-25;
+- ✅ Turnstile site key in the app; log-in still works (Captcha not yet required in Supabase);
 - ⬜ Google and Microsoft sign-up (providers not set up yet);
 - ⬜ `pg_cron` jobs under Integrations → Cron.

@@ -56,8 +56,8 @@ export const FAKE = () => {
         setTimeout(() => cb(sessionStorage.getItem('fakeRecovery') ? 'PASSWORD_RECOVERY' : 'INITIAL_SESSION', session));
         return { data: { subscription: { unsubscribe() { } } } };
       },
-      async signInWithPassword({ email, password }) {
-        call('signIn', email);
+      async signInWithPassword({ email, password, options }) {
+        call('signIn', email, options && options.captchaToken);
         const u = db.users[email];
         if (!u || u.pw !== password) return { data: {}, error: { code: 'invalid_credentials', status: 400, message: 'Invalid login credentials' } };
         setSession({ user: { id: u.id, email } }, 'SIGNED_IN');
