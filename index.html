@@ -2759,6 +2759,130 @@ function stampChanges(d, base, now = Date.now()) {
 }
 /*SYNC-END*/
 
+/*CLOUD-START*/
+// Sync with a Ping account (Supabase). Pure functions only: no network here, so they can be tested in Node.
+// The local copy stays the source of truth; the same newest-wins rules as the save file apply (mergeData above).
+// The server keeps one row per item: { id, data, updated, deleted, server_at }. `server_at` is set by the server on
+// every write and is the pull cursor (device clocks can't be trusted for "what changed since").
+//
+// Sync state is kept apart from the data (it never goes into the save file or backups):
+//   owner          the account this device's data belongs to (null = a guest's data)
+//   cursor[kind]   the newest server_at seen (ms), pulled again with some overlap
+//   known[kind]    id -> the stamp the server has for it (negative = a tombstone); only differences are pushed
+//   settingsKnown  the settingsUpdated the server has
+const CLOUD_KINDS = ['reminders', 'notes'];
+const CLOUD_OVERLAP_MS = 60000;           // writes that commit out of order can carry a slightly older server_at
+const CLOUD_MAX_CHARS = 1000000;          // the server refuses rows over 4 MB; one character is at most 3 bytes
+function cloudState(o) {
+  o = o && typeof o === 'object' ? o : {};
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  const known = obj(o.known), cursor = obj(o.cursor);
+  return {
+    owner: typeof o.owner === 'string' ? o.owner : null,
+    cursor: { reminders: +cursor.reminders || 0, notes: +cursor.notes || 0, settings: +cursor.settings || 0 },
+    known: { reminders: Object.assign({}, obj(known.reminders)), notes: Object.assign({}, obj(known.notes)) },
+    settingsKnown: +o.settingsKnown || 0,
+  };
+}
+// JSON with object keys sorted at every level. The server's jsonb doesn't keep key order, so plain JSON.stringify
+// would see a pulled item as different from the same item here.
+const canonJson = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x)
+  ? Object.keys(x).sort().reduce((o, kk) => { o[kk] = x[kk]; return o; }, {}) : x);
+
+// What to send: items whose stamp the server doesn't have yet, and tombstones it hasn't seen.
+// A tombstone for an id the server never told us about goes to both tables, since we no longer know its kind.
+function cloudPushSet(d, cs) {
+  const out = { reminders: [], notes: [], settings: null, tooBig: [] };
+  const live = new Set();
+  for (const kind of CLOUD_KINDS) for (const x of d[kind] || []) {
+    live.add(x.id);
+    const s = itemStamp(x);
+    if (cs.known[kind][x.id] === s) continue;
+    if (JSON.stringify(x).length > CLOUD_MAX_CHARS) { out.tooBig.push(x.id); continue; }
+    out[kind].push({ id: x.id, data: x, updated: s, deleted: false });
+  }
+  for (const [id, ts] of Object.entries(d.deleted || {})) {
+    if (live.has(id) || !(ts > 0)) continue;
+    const kinds = CLOUD_KINDS.filter(k => id in cs.known[k]);
+    for (const k of kinds.length ? kinds : CLOUD_KINDS)
+      if (cs.known[k][id] !== -ts) out[k].push({ id, data: {}, updated: ts, deleted: true });
+  }
+  const su = d.settingsUpdated || 0;
+  if (su && su !== cs.settingsKnown) out.settings = { data: sharedSettings(d.settings), settings_updated: su };
+  return out;
+}
+// After a push: the server has now dealt with these stamps, whether it took them or kept a newer copy of its own.
+// Returns, per kind, the ids it didn't take; the app fetches the server's copies of those and applies them.
+function cloudPushed(cs, sent, acceptedIds) {
+  const refetch = { reminders: [], notes: [] };
+  for (const kind of CLOUD_KINDS) {
+    const ok = new Set((acceptedIds && acceptedIds[kind]) || []);
+    for (const r of sent[kind] || []) {
+      cs.known[kind][r.id] = r.deleted ? -r.updated : r.updated;
+      if (!ok.has(r.id)) refetch[kind].push(r.id);
+    }
+  }
+  if (sent.settings) cs.settingsKnown = sent.settings.settings_updated;
+  return refetch;
+}
+// Combine rows from the server with the local data. Returns the new data; also updates cs (known stamps, cursors).
+// Call save() (stampChanges) first and rebase() after, as with the save file: items taken from the server must not
+// look like local edits, or they would be stamped again and sent back forever.
+// On equal stamps with different content the server's copy wins, so every device ends up with the same one.
+function cloudApply(d, pulled, cs, now = Date.now()) {
+  const local = Object.assign({}, d, { reminders: (d.reminders || []).slice(), notes: (d.notes || []).slice() });
+  const remote = { reminders: [], notes: [], deleted: {}, settingsUpdated: 0 };
+  for (const kind of CLOUD_KINDS) {
+    const at = new Map(local[kind].map((x, i) => [x.id, i]));
+    for (const r of (pulled && pulled[kind]) || []) {
+      if (!r || typeof r.id !== 'string' || !(r.updated >= 0)) continue;
+      const t = Date.parse(r.server_at);
+      if (t > cs.cursor[kind]) cs.cursor[kind] = t;
+      cs.known[kind][r.id] = r.deleted ? -r.updated : r.updated;
+      if (r.deleted) { if (!(remote.deleted[r.id] >= r.updated)) remote.deleted[r.id] = r.updated; continue; }
+      if (!r.data || typeof r.data !== 'object' || Array.isArray(r.data)) continue;
+      const x = Object.assign({}, r.data, { id: r.id });
+      const i = at.get(r.id);
+      // Same stamp: settled here, not by mergeData's tie-break, which compares plain JSON and so would swap in the
+      // server's key-reordered copy of an unchanged item. Different content: the server's copy wins.
+      if (i !== undefined && itemStamp(local[kind][i]) === itemStamp(x)) {
+        if (canonJson(local[kind][i]) !== canonJson(x)) local[kind][i] = x;
+        continue;
+      }
+      remote[kind].push(x);
+    }
+  }
+  const s = pulled && pulled.settings;
+  if (s && s.settings_updated > 0) {
+    const t = Date.parse(s.server_at);
+    if (t > cs.cursor.settings) cs.cursor.settings = t;
+    cs.settingsKnown = s.settings_updated;
+    remote.settings = s.data || {}; remote.settingsUpdated = s.settings_updated;
+    if (s.settings_updated === (local.settingsUpdated || 0) && canonJson(sharedSettings(local.settings)) !== canonJson(sharedSettings(remote.settings)))
+      local.settings = Object.assign({}, local.settings, sharedSettings(remote.settings));
+  }
+  return mergeData(local, remote, now);
+}
+// Pull rows changed since this time (ISO), or everything (null).
+const cloudSince = (cs, kind) => cs.cursor[kind] ? new Date(cs.cursor[kind] - CLOUD_OVERLAP_MS).toISOString() : null;
+// Forget stamps of items that are gone everywhere (their tombstone has expired), so the state doesn't grow forever.
+function cloudPrune(d, cs) {
+  const keep = new Set([...(d.reminders || []), ...(d.notes || [])].map(x => x.id).concat(Object.keys(d.deleted || {})));
+  for (const kind of CLOUD_KINDS) for (const id of Object.keys(cs.known[kind])) if (!keep.has(id)) delete cs.known[kind][id];
+}
+// Signing in on this device: what to do with the data already here.
+//   'same'   it already belongs to this account: just sync
+//   'empty'  nothing here: take the account's data
+//   'ask'    a guest's data: ask "Add the reminders and notes on this device to your account?" (default yes)
+//   'other'  it belongs to another account (a shared computer): don't merge; offer a backup, then clear
+function cloudFirstStep(cs, userId, d) {
+  if (cs.owner && cs.owner === userId) return 'same';
+  const live = (d.reminders || []).length + (d.notes || []).length;
+  if (!live) return 'empty';
+  return cs.owner ? 'other' : 'ask';
+}
+/*CLOUD-END*/
+
 // How a reminder sounds and looks. Global defaults live in settings.alert; a reminder can override
 // sound, loop and colour with its own r.sound / r.loop / r.color ('' = use the default).
 const SOUND_IDS = ['chime', 'urgent', 'bell', 'marimba', 'soft', 'pop', 'beep', 'digital', 'alarm'];

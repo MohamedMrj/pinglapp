@@ -13,9 +13,11 @@ export function block(name) {
   return src.slice(a, b);
 }
 
-// Runs the block and returns the named top-level bindings (const/let/function) it defines.
+// Runs the block (or several, in order, e.g. ['SYNC', 'CLOUD']) and returns the named top-level bindings
+// (const/let/function) they define.
 export function load(name, exportsList, globals = {}) {
+  const names = [].concat(name);
   const ctx = vm.createContext(Object.assign({ console }, globals));
-  vm.runInContext(block(name) + `\n;globalThis.__out = { ${exportsList.join(', ')} };`, ctx, { filename: `index.html#${name}` });
+  vm.runInContext(names.map(block).join('\n') + `\n;globalThis.__out = { ${exportsList.join(', ')} };`, ctx, { filename: `index.html#${names.join('+')}` });
   return ctx.__out;
 }
