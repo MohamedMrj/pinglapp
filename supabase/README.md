@@ -1,6 +1,6 @@
-# Ping accounts: backend setup
+# Pinglapp accounts: backend setup
 
-Everything the server side of Ping accounts needs. The plan behind it is `PLAN-accounts.md` (kept outside this repo).
+Everything the server side of Pinglapp accounts needs. The plan behind it is `PLAN-accounts.md` (kept outside this repo).
 Nothing here contains secrets: only the public **anon** key ever goes into the app. The **service_role** key and the
 database password stay in the Supabase dashboard, Edge Function secrets and GitHub secrets.
 
@@ -24,9 +24,11 @@ Tests (in `../tests`, run with `npm test`):
 
 Do these in order. Each step is free except the domain.
 
-1. **Domain.** Buy it, then in the Ping GitHub repo: Settings → Pages → Custom domain, and add the DNS records GitHub
-   shows. Turn on "Enforce HTTPS".
-2. **Supabase projects.** At supabase.com create two free projects, **ping-staging** and **ping-prod**, both in region
+1. **Domain: done (2026-11-25).** `pinglapp.com` is served by GitHub Pages from the `pinglapp` repo. Its DNS is in
+   Cloudflare, every record set to **DNS only** (a proxied record makes Cloudflare proxy the whole name). The old
+   address `mohamedmrj.github.io/ping/` hands people's data over; see `../MOVING.md`. The old `ping` repo must never
+   get a custom domain.
+2. **Supabase projects.** At supabase.com create two free projects, **pinglapp-staging** and **pinglapp-prod**, both in region
    **Stockholm (eu-north-1)**. Save each database password in a password manager.
    Accept the DPA: Organization settings → Legal documents.
 3. **Apply the migrations** to staging first (no Docker needed):
@@ -37,11 +39,11 @@ Do these in order. Each step is free except the domain.
    ```
    (Or paste the three files, in order, into Dashboard → SQL Editor.)
 4. **Email (SMTP).** Create a Brevo or Resend account, add the domain, and add the SPF, DKIM and DMARC records it gives
-   you. In Supabase: Authentication → Emails → SMTP settings, sender `no-reply@<domain>`. Raise the email rate limit
+   you in Cloudflare (DNS only). In Supabase: Authentication → Emails → SMTP settings, sender `no-reply@pinglapp.com`. Raise the email rate limit
    (Authentication → Rate limits) from the default if needed.
-5. **Auth settings** (Authentication → URL configuration): Site URL `https://<domain>`, redirect URLs
-   `https://<domain>/**` and `http://localhost:*/**` (staging only). Keep "Confirm email" on.
-6. **Turnstile.** Cloudflare dashboard → Turnstile → add a site for `<domain>`. Put the secret key in Supabase:
+5. **Auth settings** (Authentication → URL configuration): Site URL `https://pinglapp.com`, redirect URLs
+   `https://pinglapp.com/**` and `http://localhost:*/**` (staging only). Keep "Confirm email" on.
+6. **Turnstile.** Cloudflare dashboard → Turnstile → add a site for `pinglapp.com`. Put the secret key in Supabase:
    Authentication → Attack protection → Captcha (Turnstile). The site key goes in the app.
 7. **Google sign-in.** Google Cloud console → APIs & Services → Credentials → OAuth client (Web). Authorised redirect URI:
    `https://<project-ref>.supabase.co/auth/v1/callback`. Scopes: email, profile only. Paste the client id and secret
@@ -52,7 +54,7 @@ Do these in order. Each step is free except the domain.
 9. **Check:** sign up a test user on staging with a Gmail address. Phase 0 is done when the confirmation email lands in
    the inbox, not spam.
 
-Then repeat steps 3–8 for **ping-prod** when staging works.
+Then repeat steps 3–8 for **pinglapp-prod** when staging works.
 
 ## Things that differ from the plan, and why
 

@@ -1,5 +1,5 @@
 // End-to-end and in-page unit tests: the real index.html in a real browser (Chrome, Edge or Playwright's Chromium).
-// Every test gets a fresh browser profile, so nothing here touches anyone's real Ping data.
+// Every test gets a fresh browser profile, so nothing here touches anyone's real Pinglapp data.
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -35,13 +35,13 @@ before(async () => {
 });
 after(async () => { await browser?.close(); server?.close(); });
 
-// A fresh profile with Ping open. `seed` is put in localStorage before Ping starts.
+// A fresh profile with Pinglapp open. `seed` is put in localStorage before Pinglapp starts.
 async function open({ seed, lang = 'sv', tz = 'Europe/Stockholm', onboarded = true, init } = {}) {
   const ctx = await browser.newContext({ timezoneId: tz, serviceWorkers: 'block' });
   const errors = [];
   if (seed !== undefined || onboarded || lang) {
     await ctx.addInitScript(([seed, lang, onboarded]) => {
-      if (sessionStorage.getItem('seeded')) return;        // only on the first load, so reloads show what Ping saved
+      if (sessionStorage.getItem('seeded')) return;        // only on the first load, so reloads show what Pinglapp saved
       sessionStorage.setItem('seeded', '1');
       if (typeof seed === 'string') localStorage.setItem('reminder-by-me.v1', seed);
       else {
@@ -64,7 +64,7 @@ const tab = (page, name) => page.click(`.tabs [data-tab="${name}"]`);
 const stored = page => page.evaluate(() => JSON.parse(localStorage.getItem('reminder-by-me.v1')));
 
 // ------------------------------------------------------------------ start-up and every screen
-test('Ping starts without errors and every tab and dialog opens, in Swedish and English', async () => {
+test('Pinglapp starts without errors and every tab and dialog opens, in Swedish and English', async () => {
   for (const lang of ['sv', 'en']) {
     const { ctx, page, errors } = await open({ lang });
     for (const k of ['notes', 'settings', 'reminders']) { await tab(page, k); await page.waitForTimeout(50); }
@@ -235,7 +235,7 @@ test('restore from backup: "add" keeps everything and adds what is missing; "rep
 // A stand-in for a file the person picked: behaves like the browser's file handle.
 const FAKE_FILE = () => {
   window.makeFile = (text, opts = {}) => {
-    const f = { text, writes: 0, name: 'Ping-data.json', perm: 'granted', fail: null };
+    const f = { text, writes: 0, name: 'Pinglapp-data.json', perm: 'granted', fail: null };
     f.queryPermission = async () => f.perm;
     f.requestPermission = async () => (f.perm = 'granted');
     f.getFile = async () => { if (f.fail) { const e = new Error(f.fail); e.name = f.fail; throw e; } return { text: async () => f.text }; };
@@ -258,7 +258,7 @@ test('the save file merges two computers: nothing from either side is lost', asy
   await ctx.close();
 });
 
-test('a half-synced save file is never overwritten, and Ping says it will retry', async () => {
+test('a half-synced save file is never overwritten, and Pinglapp says it will retry', async () => {
   const { ctx, page } = await open({ init: FAKE_FILE });
   const r = await page.evaluate(async () => {
     const f = makeFile('{"reminders":[{"id":"a"'); fileHandle = f; fileState = 'ok';
@@ -286,7 +286,7 @@ test('a moved or deleted save file shows the banner, and lost permission only as
   await ctx.close();
 });
 
-test('a file that is not a Ping save file is refused when opened', async () => {
+test('a file that is not a Pinglapp save file is refused when opened', async () => {
   const { ctx, page } = await open({ init: FAKE_FILE });
   const r = await page.evaluate(async () => { const f = makeFile('{"hello":1}'); await useFile(f, true); return { used: fileHandle === f, writes: f.writes }; });
   assert.deepEqual(r, { used: false, writes: 0 });
@@ -361,7 +361,7 @@ test('snoozing a reminder before it goes off moves it: it does not also go off a
   await ctx.close();
 });
 
-test('a repeating reminder missed while Ping was closed fires once and moves to the next time', async () => {
+test('a repeating reminder missed while Pinglapp was closed fires once and moves to the next time', async () => {
   const day = 86400000;
   const { ctx, page } = await open({ seed: { reminders: [{ id: 'd', title: 'daily', due: Date.now() - 3 * day - 1000, repeat: 'daily', tags: [], fired: false, done: false, snoozeUntil: null }], notes: [] } });
   await page.waitForSelector('.alert');
@@ -705,11 +705,11 @@ test('notes: ticking a checkbox keeps the open part and the page where they are 
   await page.locator('#notePreview li.task input').nth(2).scrollIntoViewIfNeeded();
   const y = await page.evaluate(() => scrollY);
   for (const k of [2, 3]) await page.locator('#notePreview li.task input').nth(k).click({ delay: 120 });
-  await page.waitForTimeout(100);       // Edge resets an unfocused editor's cursor on the next frame: Ping must not follow it
+  await page.waitForTimeout(100);       // Edge resets an unfocused editor's cursor on the next frame: Pinglapp must not follow it
   const after = await page.evaluate(() => ({ live: live && { a: live.a, b: live.b }, sel: selNow()[0], y: scrollY, text: noteText.value }));
   assert.match(after.text, /- \[x\] Uppgift 3\n- \[x\] Uppgift 4/);
   assert.deepEqual(after.live, before.live, 'the open part stays open where it was');
-  assert.equal(after.sel, before.sel, 'Ping still has the cursor where it was');
+  assert.equal(after.sel, before.sel, 'Pinglapp still has the cursor where it was');
   assert.equal(after.y, y, 'the page did not scroll');
   // carrying on typing (here via the toolbar, which doesn't move the mouse) writes where the cursor was
   await page.click('#noteTools [data-fmt="bold"]');

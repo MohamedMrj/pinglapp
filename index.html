@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ping</title>
+<title>Pinglapp</title>
 <meta name="description" content="Påminnelser och anteckningar för utvecklare: snabbinmatning med vanligt språk, cron-scheman, taggar och Markdown-anteckningar.">
 <meta name="theme-color" content="#0d7c72">
 <link rel="manifest" href="manifest.webmanifest">
@@ -693,7 +693,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
   <header>
     <div class="brand">
       <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="15" fill="var(--accent)"/><path d="M32 13a3 3 0 0 1 3 3v1.5c6 1.4 9.5 6.4 9.5 12.5v8l4 5.5H15.5l4-5.5v-8c0-6.1 3.5-11.1 9.5-12.5V16a3 3 0 0 1 3-3z" fill="var(--accent-ink)"/><ellipse cx="32" cy="49" rx="5" ry="3.6" fill="var(--accent-ink)"/></svg>
-      <b>Ping</b><small id="clock"></small>
+      <b>Pinglapp</b><small id="clock"></small>
     </div>
     <button class="chip" id="saveChip" type="button"><span class="dot"></span><span id="saveChipText">Sparat</span></button>
     <button class="chip" id="notifChip" type="button"><span class="dot"></span><span id="notifChipText">Aviseringar</span></button>
@@ -703,17 +703,17 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <button role="tab" data-tab="board" aria-selected="false" type="button" data-i18n="tabBoard">Tavla</button>
       <button role="tab" data-tab="settings" aria-selected="false" type="button" class="tab-icon" title="Inställningar" aria-label="Inställningar" data-i18n-title="tabSettings" data-i18n-aria="tabSettings"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </nav>
-    <button class="icon-btn" type="button" data-act="pip-toggle" id="pipBtn" hidden aria-pressed="false" title="Håll Ping ovanpå andra fönster" aria-label="Håll Ping ovanpå andra fönster" data-i18n-title="alSecPip" data-i18n-aria="alSecPip"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="vertical-align:-3px"><rect x="2.5" y="4.5" width="19" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg></button>
+    <button class="icon-btn" type="button" data-act="pip-toggle" id="pipBtn" hidden aria-pressed="false" title="Håll Pinglapp ovanpå andra fönster" aria-label="Håll Pinglapp ovanpå andra fönster" data-i18n-title="alSecPip" data-i18n-aria="alSecPip"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="vertical-align:-3px"><rect x="2.5" y="4.5" width="19" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg></button>
     <button class="icon-btn" type="button" data-act="keys" title="Kortkommandon (?)" aria-label="Kortkommandon" data-i18n-title="keysBtnTitle" data-i18n-aria="keysH">?</button>
   </header>
 
   <div class="banner" id="notifBanner" hidden>
-    <p data-i18n="bannerNotif"><strong>Slå på aviseringar</strong> så att dina påminnelser syns i hörnet av skärmen, även när Ping ligger bakom andra fönster. Ping använder dem bara för påminnelser som du själv skapat, och inget skickas via internet.</p>
+    <p data-i18n="bannerNotif"><strong>Slå på aviseringar</strong> så att dina påminnelser syns i hörnet av skärmen, även när Pinglapp ligger bakom andra fönster. Pinglapp använder dem bara för påminnelser som du själv skapat, och inget skickas via internet.</p>
     <button class="btn primary sm" type="button" data-act="ask-notif" data-i18n="allowNotif">Tillåt aviseringar</button>
     <button class="btn ghost sm" type="button" data-act="hide-banner" data-i18n="notNow">Inte nu</button>
   </div>
   <div class="banner" id="backupBanner" hidden>
-    <p data-i18n="bannerBackup"><strong>Dags att spara en säkerhetskopia.</strong> Dina påminnelser och anteckningar finns bara i den här webbläsaren. Ladda ner en kopia och lägg den i mappen Ping i Google Drive eller OneDrive, så kan du alltid få tillbaka allt med ”Återställ från säkerhetskopia” under Inställningar.</p>
+    <p data-i18n="bannerBackup"><strong>Dags att spara en säkerhetskopia.</strong> Dina påminnelser och anteckningar finns bara i den här webbläsaren. Ladda ner en kopia och lägg den i mappen Pinglapp i Google Drive eller OneDrive, så kan du alltid få tillbaka allt med ”Återställ från säkerhetskopia” under Inställningar.</p>
     <button class="btn primary sm" type="button" data-act="export" data-i18n="backupNow">Ladda ner säkerhetskopia</button>
     <button class="btn ghost sm" type="button" data-act="backup-later" data-i18n="later">Påminn mig i morgon</button>
   </div>
@@ -722,6 +722,11 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     <button class="btn primary sm" type="button" data-act="file-reconnect" id="fileBannerReconnect" data-i18n="reconnect">Återanslut</button>
     <button class="btn primary sm" type="button" data-act="file-open" id="fileBannerOpen" data-i18n="fileOpenAgain">Välj filen igen…</button>
     <button class="btn sm" type="button" data-act="file-create" id="fileBannerCreate" data-i18n="fileCreateNew">Skapa en ny sparfil…</button>
+  </div>
+  <div class="banner" id="moveBanner" hidden>
+    <p id="moveBannerText"></p>
+    <button class="btn primary sm" type="button" data-act="move-start" id="moveStartBtn"></button>
+    <a class="btn sm" id="moveOpenBtn" href="https://pinglapp.com/" target="_blank" rel="noopener" hidden data-i18n="moveOpen">Öppna pinglapp.com</a>
   </div>
 
   <!-- REMINDERS -->
@@ -919,10 +924,10 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
           <label class="field" data-loop-only><span data-i18n="alLoopEvery">Spela igen var</span><select id="alLoopEvery" class="input" data-al></select></label>
           <label class="field" data-loop-only><span data-i18n="alLoopMax">Sluta efter högst</span><select id="alLoopMax" class="input" data-al></select></label>
         </div>
-        <p class="hint" data-i18n="alSoundHint">Ljudet spelas även när Ping ligger i bakgrunden eller är minimerat, så länge Ping är öppet.</p>
+        <p class="hint" data-i18n="alSoundHint">Ljudet spelas även när Pinglapp ligger i bakgrunden eller är minimerad, så länge Pinglapp är öppen.</p>
 
-        <h4 data-i18n="alSecBox">Rutan i Ping-fönstret</h4>
-        <p data-i18n="alSecBoxP">Syns när Ping är framme, eller ovanpå alla andra fönster om du använder ”Håll Ping ovanpå” här nedanför.</p>
+        <h4 data-i18n="alSecBox">Rutan i Pinglapp-fönstret</h4>
+        <p data-i18n="alSecBoxP">Syns när Pinglapp är framme, eller ovanpå alla andra fönster om du använder ”Håll Pinglapp ovanpå” här nedanför.</p>
         <div class="form-grid">
           <label class="field"><span data-i18n="alPosition">Var rutan visas</span><select id="alPosition" class="input" data-al></select></label>
           <label class="field"><span data-i18n="alSize">Storlek på rutan</span><select id="alSize" class="input" data-al></select></label>
@@ -930,16 +935,16 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         </div>
         <div class="field"><span data-i18n="alColor">Färg</span><div class="swatches" id="alColor" role="group" aria-label="Färg" data-i18n-aria="alColor"></div></div>
 
-        <h4 data-i18n="alSecWin">När Ping ligger bakom andra fönster</h4>
+        <h4 data-i18n="alSecWin">När Pinglapp ligger bakom andra fönster</h4>
         <p data-i18n="alSecWinP">Då visar datorn en avisering i skärmens hörn. Hur den ser ut bestämmer Windows eller macOS, men ikonen får påminnelsens färg.</p>
         <label class="check"><input type="checkbox" id="alSticky" data-al> <span data-i18n="alSticky">Aviseringen i skärmens hörn ligger kvar tills jag stänger den</span></label>
-        <label class="check"><input type="checkbox" id="alFlash" data-al> <span data-i18n="alFlash">Blinka fliken när en påminnelse väntar och Ping ligger i bakgrunden</span></label>
+        <label class="check"><input type="checkbox" id="alFlash" data-al> <span data-i18n="alFlash">Blinka fliken när en påminnelse väntar och Pinglapp ligger i bakgrunden</span></label>
 
-        <h4 data-i18n="alSecPip">Håll Ping ovanpå andra fönster</h4>
-        <p data-i18n="alSecPipP">Öppnar ett litet Ping-fönster som ligger ovanpå allt annat du arbetar med. Där visas påminnelserna precis som du har valt här, och vilka som kommer härnäst. Webbläsaren låter bara dig själv öppna det, så klicka på knappen när du har startat webbläsaren.</p>
+        <h4 data-i18n="alSecPip">Håll Pinglapp ovanpå andra fönster</h4>
+        <p data-i18n="alSecPipP">Öppnar ett litet Pinglapp-fönster som ligger ovanpå allt annat du arbetar med. Där visas påminnelserna precis som du har valt här, och vilka som kommer härnäst. Webbläsaren låter bara dig själv öppna det, så klicka på knappen när du har startat webbläsaren.</p>
         <p class="hint" id="pipUnsupported" hidden></p>
         <div class="row">
-          <button class="btn" type="button" data-act="pip-toggle" id="pipSettingsBtn">Håll Ping ovanpå</button>
+          <button class="btn" type="button" data-act="pip-toggle" id="pipSettingsBtn">Håll Pinglapp ovanpå</button>
           <button class="btn primary" type="button" data-act="test-alert" data-i18n="testAlertShow">Visa en testpåminnelse</button>
         </div>
       </div>
@@ -972,12 +977,12 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       </div>
       <div class="card">
         <h3>Outlook</h3>
-        <p data-i18n="outlookP">Varje påminnelse har en ”Outlook”-knapp. Den laddar ner en kalenderfil; öppna den och klicka på <em>Spara och stäng</em> i Outlook. Då påminner Outlook dig på den här datorn och i mobilen, även när Ping är stängt. Intervallupprepningar följer med; för cron-scheman får Outlook bara nästa körning.</p>
+        <p data-i18n="outlookP">Varje påminnelse har en ”Outlook”-knapp. Den laddar ner en kalenderfil; öppna den och klicka på <em>Spara och stäng</em> i Outlook. Då påminner Outlook dig på den här datorn och i mobilen, även när Pinglapp är stängd. Intervallupprepningar följer med; för cron-scheman får Outlook bara nästa körning.</p>
         <label class="check"><input type="checkbox" id="setIcs"> <span data-i18n="icsLabel">Ladda ner en Outlook-kalenderpost automatiskt varje gång jag sparar en påminnelse</span></label>
       </div>
       <div class="card">
         <h3 data-i18n="dataH">Dina data</h3>
-        <p data-i18n="dataP">Allt sparas automatiskt så fort du ändrar något och finns kvar när du stänger fönstret. Det lagras bara på den här datorn. Påminnelser dyker bara upp medan Ping är öppet, så minimera det i stället för att stänga det. Det du missat medan det var stängt visas när du öppnar det igen.</p>
+        <p data-i18n="dataP">Allt sparas automatiskt så fort du ändrar något och finns kvar när du stänger fönstret. Det lagras bara på den här datorn. Påminnelser dyker bara upp medan Pinglapp är öppen, så minimera den i stället för att stänga den. Det du missat medan den var stängd visas när du öppnar den igen.</p>
         <div id="fileCard" class="row" hidden>
           <p style="flex:1 1 100%" id="fileStatus"></p>
           <button class="btn primary" type="button" data-act="file-create" data-i18n="fileCreate">Skapa en sparfil…</button>
@@ -1003,8 +1008,8 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         </div>
       </div>
       <div class="card">
-        <h3 data-i18n="startupH">Öppna Ping när webbläsaren startar</h3>
-        <p data-i18n="startupP">Då är Ping alltid igång och du missar aldrig en påminnelse. En webbsida får inte ändra webbläsarens startinställningar själv, så det tar tre snabba steg; knappen visar hur.</p>
+        <h3 data-i18n="startupH">Öppna Pinglapp när webbläsaren startar</h3>
+        <p data-i18n="startupP">Då är Pinglapp alltid igång och du missar aldrig en påminnelse. En webbsida får inte ändra webbläsarens startinställningar själv, så det tar tre snabba steg; knappen visar hur.</p>
         <div class="row"><button class="btn primary" type="button" data-act="startup-guide" data-i18n="showMe">Visa hur</button></div>
       </div>
     </div>
@@ -1123,7 +1128,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     <h2 id="restoreTitle" data-i18n="restoreH">Återställ från säkerhetskopia</h2>
     <p id="restoreInfo"></p>
     <label class="check"><input type="radio" name="restoreMode" value="add" checked> <span><strong data-i18n="restoreAdd">Lägg till det som saknas</strong><br><span class="hint" data-i18n="restoreAddP">Allt du har nu behålls. Påminnelser och anteckningar från säkerhetskopian som inte finns här läggs till.</span></span></label>
-    <label class="check"><input type="radio" name="restoreMode" value="replace"> <span><strong data-i18n="restoreReplace">Ersätt allt med säkerhetskopian</strong><br><span class="hint" data-i18n="restoreReplaceP">Ping blir som när säkerhetskopian gjordes. Det du har nu ersätts, men du kan ångra direkt efteråt.</span></span></label>
+    <label class="check"><input type="radio" name="restoreMode" value="replace"> <span><strong data-i18n="restoreReplace">Ersätt allt med säkerhetskopian</strong><br><span class="hint" data-i18n="restoreReplaceP">Pinglapp blir som när säkerhetskopian gjordes. Det du har nu ersätts, men du kan ångra direkt efteråt.</span></span></label>
     <div class="modal-foot"><span class="spacer"></span><button class="btn" type="button" data-act="close-restore" data-i18n="cancel">Avbryt</button><button class="btn primary" type="button" data-act="restore-go" data-i18n="restoreGo">Återställ</button></div>
   </div>
 </div>
@@ -1142,7 +1147,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 <div class="scrim" id="histDlg" hidden>
   <div class="modal" role="dialog" aria-labelledby="histTitle" style="width:min(880px,100%)">
     <h2 id="histTitle" data-i18n="histH">Tidigare versioner</h2>
-    <p class="hint" data-i18n="histP">Ping sparar en version när du börjar ändra i en anteckning, högst var femte minut. De 30 senaste finns kvar.</p>
+    <p class="hint" data-i18n="histP">Pinglapp sparar en version när du börjar ändra i en anteckning, högst var femte minut. De 30 senaste finns kvar.</p>
     <div class="hist-body"><ul class="hist-list" id="histList"></ul><pre class="hist-view" id="histView"></pre></div>
     <div class="modal-foot"><span class="spacer"></span><button class="btn" type="button" data-act="close-hist" data-i18n="close">Stäng</button><button class="btn primary" type="button" data-act="hist-restore" id="histRestore" data-i18n="histRestore">Återställ den här versionen</button></div>
   </div>
@@ -1183,7 +1188,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     <div id="setupStep0" class="setup-step modal-scroll">
       <p class="step" data-i18n="step0">Steg 1 av 3</p>
       <h2 id="setupTitle0" data-i18n="driveT">Se till att du aldrig förlorar något</h2>
-      <p data-i18n="driveP1">Ping sparar allt i webbläsaren på den här datorn. Går datorn sönder, byter du dator eller rensas webbläsaren kan allt försvinna. Skyddet är enkelt: låt Ping spara en kopia i en mapp som synkas till molnet, som <strong>Google Drive</strong> eller <strong>OneDrive</strong>. Då finns dina påminnelser och anteckningar kvar även om datorn går sönder, och samma fil finns på alla dina datorer. Båda är gratis.</p>
+      <p data-i18n="driveP1">Pinglapp sparar allt i webbläsaren på den här datorn. Går datorn sönder, byter du dator eller rensas webbläsaren kan allt försvinna. Skyddet är enkelt: låt Pinglapp spara en kopia i en mapp som synkas till molnet, som <strong>Google Drive</strong> eller <strong>OneDrive</strong>. Då finns dina påminnelser och anteckningar kvar även om datorn går sönder, och samma fil finns på alla dina datorer. Båda är gratis.</p>
       <div class="row"><span data-i18n="cloudPick">Välj den tjänst du vill använda:</span>
         <div class="seg" id="cloudSeg" role="group" aria-label="Molntjänst" data-i18n-aria="cloudPickAria">
           <button type="button" data-act="cloud-pick" data-cloud-set="gdrive" aria-pressed="true">Google Drive</button>
@@ -1195,12 +1200,12 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
           <li data-i18n="driveS1"><strong>Ladda ner Google Drive för datorn.</strong> Det finns för Windows och Mac: <a href="https://www.google.com/drive/download/" target="_blank" rel="noopener">google.com/drive/download</a></li>
           <li data-i18n="driveS2"><strong>Installera och logga in.</strong> Öppna filen du laddade ner och följ stegen. Logga in med ditt Google-konto. Har du inget kan du skapa ett gratis på <a href="https://accounts.google.com/signup" target="_blank" rel="noopener">accounts.google.com</a>.</li>
           <li data-i18n="driveS3"><strong>Hitta Google Drive på datorn.</strong> Windows: öppna Utforskaren, klicka på <strong>Google Drive</strong> i vänsterspalten och sedan på <strong>Min enhet</strong>. Mac: öppna Finder, klicka på <strong>Google Drive</strong> under Platser och sedan på <strong>Min enhet</strong>.</li>
-          <li data-i18n="driveS4"><strong>Skapa en mapp som heter Ping.</strong> Högerklicka i <strong>Min enhet</strong> och välj <strong>Nytt → Mapp</strong> (Mac: <strong>Ny mapp</strong>). Skriv Ping och tryck Enter.</li>
-          <li data-i18n="driveS5"><strong>Gör mappen tillgänglig offline.</strong> Högerklicka på mappen Ping och välj <strong>Offlineåtkomst → Tillgänglig offline</strong>. Då kan Ping spara även utan internet, och Google Drive laddar upp ändringarna när du är uppkopplad igen.</li>
+          <li data-i18n="driveS4"><strong>Skapa en mapp som heter Pinglapp.</strong> Högerklicka i <strong>Min enhet</strong> och välj <strong>Nytt → Mapp</strong> (Mac: <strong>Ny mapp</strong>). Skriv Pinglapp och tryck Enter.</li>
+          <li data-i18n="driveS5"><strong>Gör mappen tillgänglig offline.</strong> Högerklicka på mappen Pinglapp och välj <strong>Offlineåtkomst → Tillgänglig offline</strong>. Då kan Pinglapp spara även utan internet, och Google Drive laddar upp ändringarna när du är uppkopplad igen.</li>
         </ol>
         <details>
-          <summary data-i18n="driveMoreT">Vill du använda Ping på fler datorer?</summary>
-          <p data-i18n="driveMoreP">Installera Google Drive på den datorn också och logga in med samma Google-konto. Öppna Ping där, välj ”Jag har redan en sparfil” och välj <strong>Min enhet → Ping → Ping-data.json</strong>. Sedan förs ändringar över automatiskt mellan datorerna.</p>
+          <summary data-i18n="driveMoreT">Vill du använda Pinglapp på fler datorer?</summary>
+          <p data-i18n="driveMoreP">Installera Google Drive på den datorn också och logga in med samma Google-konto. Öppna Pinglapp där, välj ”Jag har redan en sparfil” och välj <strong>Min enhet → Pinglapp → Pinglapp-data.json</strong>. Sedan förs ändringar över automatiskt mellan datorerna.</p>
         </details>
         <div><a class="btn" href="https://www.google.com/drive/download/" target="_blank" rel="noopener" data-i18n="driveDownload">Ladda ner Google Drive</a></div>
       </div>
@@ -1209,19 +1214,19 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
           <li data-i18n="odS1"><strong>Kolla om du redan har OneDrive.</strong> Windows 10 och 11 har det inbyggt: leta efter molnikonen längst ner till höger, vid klockan, eller efter <strong>OneDrive</strong> i Utforskarens vänsterspalt. På Mac laddar du ner det från <a href="https://www.microsoft.com/microsoft-365/onedrive/download" target="_blank" rel="noopener">microsoft.com/onedrive</a> eller App Store.</li>
           <li data-i18n="odS2"><strong>Logga in.</strong> Öppna OneDrive (Windows: Start-menyn → OneDrive) och logga in med ditt Microsoft-konto. Har du inget kan du skapa ett gratis på <a href="https://signup.live.com" target="_blank" rel="noopener">signup.live.com</a>. Följ stegen tills OneDrive säger att det är klart.</li>
           <li data-i18n="odS3"><strong>Hitta OneDrive på datorn.</strong> Windows: öppna Utforskaren och klicka på <strong>OneDrive</strong> i vänsterspalten (den kan heta till exempel ”OneDrive – Personligt”). Mac: öppna Finder och klicka på <strong>OneDrive</strong> under Platser.</li>
-          <li data-i18n="odS4"><strong>Skapa en mapp som heter Ping.</strong> Högerklicka i OneDrive-mappen och välj <strong>Nytt → Mapp</strong> (Mac: <strong>Ny mapp</strong>). Skriv Ping och tryck Enter.</li>
-          <li data-i18n="odS5"><strong>Behåll mappen på datorn.</strong> Högerklicka på mappen Ping och välj <strong>Behåll alltid på den här enheten</strong>. Då kan Ping spara även utan internet, och OneDrive laddar upp ändringarna när du är uppkopplad igen.</li>
+          <li data-i18n="odS4"><strong>Skapa en mapp som heter Pinglapp.</strong> Högerklicka i OneDrive-mappen och välj <strong>Nytt → Mapp</strong> (Mac: <strong>Ny mapp</strong>). Skriv Pinglapp och tryck Enter.</li>
+          <li data-i18n="odS5"><strong>Behåll mappen på datorn.</strong> Högerklicka på mappen Pinglapp och välj <strong>Behåll alltid på den här enheten</strong>. Då kan Pinglapp spara även utan internet, och OneDrive laddar upp ändringarna när du är uppkopplad igen.</li>
         </ol>
         <details>
-          <summary data-i18n="driveMoreT">Vill du använda Ping på fler datorer?</summary>
-          <p data-i18n="odMoreP">Logga in i OneDrive på den datorn också, med samma Microsoft-konto. Öppna Ping där, välj ”Jag har redan en sparfil” och välj <strong>OneDrive → Ping → Ping-data.json</strong>. Sedan förs ändringar över automatiskt mellan datorerna.</p>
+          <summary data-i18n="driveMoreT">Vill du använda Pinglapp på fler datorer?</summary>
+          <p data-i18n="odMoreP">Logga in i OneDrive på den datorn också, med samma Microsoft-konto. Öppna Pinglapp där, välj ”Jag har redan en sparfil” och välj <strong>OneDrive → Pinglapp → Pinglapp-data.json</strong>. Sedan förs ändringar över automatiskt mellan datorerna.</p>
         </details>
         <div><a class="btn" href="https://www.microsoft.com/microsoft-365/onedrive/download" target="_blank" rel="noopener" data-i18n="odDownload">Ladda ner OneDrive</a></div>
       </div>
-      <p data-i18n="driveP2">I nästa steg sparar du Pings fil i mappen <strong>Ping</strong> som du just skapade. Sedan sköter allt sig självt: varje ändring sparas i filen och molntjänsten tar hand om resten.</p>
+      <p data-i18n="driveP2">I nästa steg sparar du Pinglapps fil i mappen <strong>Pinglapp</strong> som du just skapade. Sedan sköter allt sig självt: varje ändring sparas i filen och molntjänsten tar hand om resten.</p>
       <details>
         <summary data-i18n="driveOtherT">Använder du hellre iCloud Drive eller Dropbox?</summary>
-        <p data-i18n="driveOtherP">Det fungerar på samma sätt. Skapa en mapp som heter Ping i den mapp som synkas och välj den i nästa steg. Det viktiga är att filen ligger i en mapp som synkas till molnet, inte bara på datorn.</p>
+        <p data-i18n="driveOtherP">Det fungerar på samma sätt. Skapa en mapp som heter Pinglapp i den mapp som synkas och välj den i nästa steg. Det viktiga är att filen ligger i en mapp som synkas till molnet, inte bara på datorn.</p>
       </details>
       <div class="row">
         <button class="btn primary" type="button" data-act="setup-drive-next" data-i18n="driveNext">Nästa: välj var filen sparas</button>
@@ -1230,13 +1235,13 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     <div id="setupStep1" class="setup-step" hidden>
       <p class="step" data-i18n="step1">Steg 2 av 3</p>
       <h2 id="setupTitle1" data-i18n="setupT1">Spara dina påminnelser säkert</h2>
-      <p data-i18n="setupP1">Ping har ingen server och inget konto. Allt du skriver sparas bara här på din dator, i webbläsaren. Det betyder att det kan försvinna om webbläsarens data rensas eller om du byter dator.</p>
-      <p data-i18n="setupP2">Därför sparar Ping också en kopia i en fil som du själv väljer. Klicka på <strong>Välj plats och spara</strong> och välj mappen <strong>Ping</strong> som du skapade i Google Drive (<strong>Min enhet → Ping</strong>) eller OneDrive (<strong>OneDrive → Ping</strong>), eller en annan mapp som synkas, som iCloud Drive eller Dropbox. Då finns allt kvar även om datorn går sönder, och du kan använda Ping på flera datorer.</p>
+      <p data-i18n="setupP1">Pinglapp har ingen server och inget konto. Allt du skriver sparas bara här på din dator, i webbläsaren. Det betyder att det kan försvinna om webbläsarens data rensas eller om du byter dator.</p>
+      <p data-i18n="setupP2">Därför sparar Pinglapp också en kopia i en fil som du själv väljer. Klicka på <strong>Välj plats och spara</strong> och välj mappen <strong>Pinglapp</strong> som du skapade i Google Drive (<strong>Min enhet → Pinglapp</strong>) eller OneDrive (<strong>OneDrive → Pinglapp</strong>), eller en annan mapp som synkas, som iCloud Drive eller Dropbox. Då finns allt kvar även om datorn går sönder, och du kan använda Pinglapp på flera datorer.</p>
       <details>
         <summary data-i18n="setupWhy">Varför frågar webbläsaren om lov?</summary>
         <ul>
           <li data-i18n="setupLi1">En webbsida får aldrig röra filer på din dator utan att du själv godkänner det. Därför visar webbläsaren en ruta där du väljer plats och godkänner.</li>
-          <li data-i18n="setupLi2">Ping får bara läsa och skriva <strong>den enda fil du väljer</strong> (Ping-data.json). Inga andra filer eller mappar.</li>
+          <li data-i18n="setupLi2">Pinglapp får bara läsa och skriva <strong>den enda fil du väljer</strong> (Pinglapp-data.json). Inga andra filer eller mappar.</li>
           <li data-i18n="setupLi3">Ingenting skickas till någon server, och inte till den som byggt appen. Filen stannar i din egen mapp.</li>
           <li data-i18n="setupLi4">Filen är vanlig text som du kan öppna och läsa själv, och du kan sluta använda den när du vill under Inställningar.</li>
         </ul>
@@ -1246,7 +1251,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
           <button class="btn primary" type="button" data-act="setup-create" data-i18n="setupCreate">Välj plats och spara</button>
           <button class="btn" type="button" data-act="setup-open" data-i18n="setupOpen">Jag har redan en sparfil</button>
         </div>
-        <p class="hint" data-i18n="setupHint">Vill du ha samma påminnelser och anteckningar på flera datorer eller i flera webbläsare? Lägg filen i en mapp som synkas, till exempel Google Drive. Välj sedan ”Jag har redan en sparfil” i de andra webbläsarna och öppna samma Ping-data.json. Ändringar förs över automatiskt.</p>
+        <p class="hint" data-i18n="setupHint">Vill du ha samma påminnelser och anteckningar på flera datorer eller i flera webbläsare? Lägg filen i en mapp som synkas, till exempel Google Drive. Välj sedan ”Jag har redan en sparfil” i de andra webbläsarna och öppna samma Pinglapp-data.json. Ändringar förs över automatiskt.</p>
         <div><button class="btn ghost sm" type="button" data-act="setup-skip" data-i18n="setupSkip">Hoppa över (rekommenderas inte)</button></div>
       </div>
       <div id="setupFileNo" class="setup-step" hidden>
@@ -1256,15 +1261,15 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
           <button class="btn primary" type="button" data-act="export" data-i18n="export">Ladda ner säkerhetskopia (JSON)</button>
           <button class="btn" type="button" data-act="setup-skip" data-i18n="next">Nästa</button>
         </div>
-        <p class="hint" data-i18n="setupNoFileDrive">När säkerhetskopian har laddats ner: flytta den från mappen Hämtade filer till mappen <strong>Ping</strong> i Google Drive eller OneDrive. Då finns den kvar i molnet även om datorn går sönder.</p>
+        <p class="hint" data-i18n="setupNoFileDrive">När säkerhetskopian har laddats ner: flytta den från mappen Hämtade filer till mappen <strong>Pinglapp</strong> i Google Drive eller OneDrive. Då finns den kvar i molnet även om datorn går sönder.</p>
       </div>
     </div>
     <div id="setupStep2" class="setup-step" hidden>
       <p class="step" data-i18n="step2">Steg 3 av 3</p>
       <h2 id="setupTitle2" data-i18n="setupT2">Få en avisering när det är dags</h2>
-      <p data-i18n="setupP3">Tillåt aviseringar så att dina påminnelser syns i hörnet av skärmen, även när Ping ligger bakom andra fönster.</p>
+      <p data-i18n="setupP3">Tillåt aviseringar så att dina påminnelser syns i hörnet av skärmen, även när Pinglapp ligger bakom andra fönster.</p>
       <ul>
-        <li data-i18n="setupLi5">Ping använder aviseringar bara för påminnelser som du själv har skapat. Ingen reklam, inga nyheter.</li>
+        <li data-i18n="setupLi5">Pinglapp använder aviseringar bara för påminnelser som du själv har skapat. Ingen reklam, inga nyheter.</li>
         <li data-i18n="setupLi6">Aviseringarna skapas här på din dator. Inget skickas via internet.</li>
         <li data-i18n="setupLi7">Du kan stänga av dem när du vill i webbläsarens inställningar.</li>
       </ul>
@@ -1276,7 +1281,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <div class="row" id="setupNotifDone" hidden>
         <button class="btn primary" type="button" data-act="setup-done" data-i18n="finished">Klar</button>
       </div>
-      <p class="hint" data-i18n="setupHint2">Tips: minimera Ping i stället för att stänga det. Påminnelser kommer bara när Ping är igång. Under Inställningar finns en guide för att öppna Ping automatiskt när webbläsaren startar.</p>
+      <p class="hint" data-i18n="setupHint2">Tips: minimera Pinglapp i stället för att stänga den. Påminnelser kommer bara när Pinglapp är igång. Under Inställningar finns en guide för att öppna Pinglapp automatiskt när webbläsaren startar.</p>
     </div>
   </div>
 </div>
@@ -1284,9 +1289,24 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 <!-- only one window may edit at a time -->
 <div class="scrim" id="lockDlg" hidden>
   <div class="modal" role="dialog" aria-labelledby="lockTitle">
-    <h2 id="lockTitle" data-i18n="lockT">Ping är redan öppet i ett annat fönster</h2>
-    <p data-i18n="lockP">För att inget du skriver ska skrivas över kan Ping bara användas i ett fönster åt gången. Påminnelserna visas i det andra fönstret.</p>
+    <h2 id="lockTitle" data-i18n="lockT">Pinglapp är redan öppen i ett annat fönster</h2>
+    <p data-i18n="lockP">För att inget du skriver ska skrivas över kan Pinglapp bara användas i ett fönster åt gången. Påminnelserna visas i det andra fönstret.</p>
     <div class="modal-foot"><span class="spacer"></span><button class="btn primary" type="button" data-act="lock-take" data-i18n="lockTake">Använd det här fönstret i stället</button></div>
+  </div>
+</div>
+
+<!-- moving from the old address: shown on pinglapp.com once the data has arrived -->
+<div class="scrim" id="moveDlg" hidden>
+  <div class="modal" role="dialog" aria-labelledby="moveTitle">
+    <h2 id="moveTitle" data-i18n="moveDoneH">Dina data har flyttat hit</h2>
+    <p id="moveDoneInfo"></p>
+    <p id="moveFileStep" class="banner" hidden></p>
+    <p class="hint" data-i18n="moveDoneP">Använd pinglapp.com från och med nu och byt dina bokmärken. Hade du installerat Pinglapp som app, installera den igen härifrån. Fönstret med den gamla adressen kan du stänga.</p>
+    <div class="modal-foot">
+      <button class="btn" type="button" data-act="move-file" id="moveFileBtn" hidden data-i18n="moveFileBtn">Välj sparfilen…</button>
+      <span class="spacer"></span>
+      <button class="btn primary" type="button" data-act="move-close" data-i18n="finished">Klar</button>
+    </div>
   </div>
 </div>
 
@@ -1298,17 +1318,17 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
   </div>
 </div>
 
-<!-- open Ping when the browser starts -->
+<!-- open Pinglapp when the browser starts -->
 <div class="scrim" id="startupDlg" hidden>
   <div class="modal" role="dialog" aria-labelledby="startupTitle">
-    <h2 id="startupTitle" data-i18n="startupH">Öppna Ping när webbläsaren startar</h2>
+    <h2 id="startupTitle" data-i18n="startupH">Öppna Pinglapp när webbläsaren startar</h2>
     <p data-i18n="startupP2">En webbsida får inte ändra webbläsarens inställningar själv. Det är en säkerhetsregel, så du gör det i tre steg:</p>
     <ol class="steps">
-      <li><button class="btn primary sm" type="button" data-act="copy-ping-url" data-i18n="copyPingUrl">Kopiera Pings länk</button> <code id="pingUrl"></code></li>
+      <li><button class="btn primary sm" type="button" data-act="copy-ping-url" data-i18n="copyPingUrl">Kopiera Pinglapps länk</button> <code id="pingUrl"></code></li>
       <li id="startupStep2"><span data-i18n="st2a">Klistra in</span> <code id="settingsUrl">edge://settings/startHomeNTP</code> <span data-i18n="st2b">i adressfältet och tryck Enter.</span> <button class="btn sm" type="button" data-act="copy-settings-url" data-i18n="copy">Kopiera</button></li>
       <li id="startupStep3"></li>
     </ol>
-    <p class="hint" id="startupApp" data-i18n="startupApp">Har du installerat Ping som en app kan du i stället öppna <code>edge://apps</code>, klicka på ⋯ vid Ping och slå på <strong>”Starta automatiskt vid inloggning”</strong>.</p>
+    <p class="hint" id="startupApp" data-i18n="startupApp">Har du installerat Pinglapp som en app kan du i stället öppna <code>edge://apps</code>, klicka på ⋯ vid Pinglapp och slå på <strong>”Starta automatiskt vid inloggning”</strong>.</p>
     <div class="modal-foot"><span class="spacer"></span><button class="btn primary" type="button" data-act="close-startup" data-i18n="finished">Klar</button></div>
   </div>
 </div>
@@ -1975,7 +1995,7 @@ const Hl = (() => {
 // ---------------------------------------------------------------- "looks like code" suggestions in notes
 // Finds words in ordinary note text that are probably code: words you have put in `backticks` somewhere in your
 // notes before ("known"), and words that look like code ("guess": calls, snake_case, camelCase, dotted names, paths).
-// Ping only suggests; nothing changes until you confirm. Plain words are matched carefully so prose doesn't light up:
+// Pinglapp only suggests; nothing changes until you confirm. Plain words are matched carefully so prose doesn't light up:
 // marking `count(*)` only matches count(...) again, and marking `SELECT` only matches SELECT in the same case.
 const Sug = (() => {
   const TOKEN = /(?<![\w\p{L}\p{N}`$.\/\\@#~:-])(?:[A-Za-z]:\\[^\s`'"()<>]*[^\s`'"()<>.,;:!?]|~?\/[\w.-]+(?:\/[\w.-]*)+|[A-Za-z_$][\w$]*(?:(?:\.|::)[A-Za-z_$][\w$]*)*(?:\([^()\n]{0,40}\))?)(?![\w\p{L}\p{N}`])/gu;
@@ -2329,9 +2349,9 @@ const T = {
   en: {
     // static markup
     tabReminders: 'Reminders', tabNotes: 'Notes', tabSettings: 'Settings', keysBtnTitle: 'Keyboard shortcuts (?)', keysH: 'Keyboard shortcuts',
-    bannerNotif: '<strong>Turn on notifications</strong> so your reminders show up in the corner of the screen, even when Ping is behind other windows. Ping only uses them for reminders you created yourself, and nothing is sent over the internet.',
+    bannerNotif: '<strong>Turn on notifications</strong> so your reminders show up in the corner of the screen, even when Pinglapp is behind other windows. Pinglapp only uses them for reminders you created yourself, and nothing is sent over the internet.',
     allowNotif: 'Allow notifications', notNow: 'Not now',
-    bannerFile: '<strong>Ping needs a click to keep saving to your file.</strong> The browser asks for permission again after a restart. That’s a security feature, not an error. Choose “Allow on every visit” to skip the question. Nothing is lost; everything stays in the browser meanwhile.',
+    bannerFile: '<strong>Pinglapp needs a click to keep saving to your file.</strong> The browser asks for permission again after a restart. That’s a security feature, not an error. Choose “Allow on every visit” to skip the question. Nothing is lost; everything stays in the browser meanwhile.',
     reconnect: 'Reconnect', quickPh: 'Check DAG failures every 30 min #airflow !!', add: 'Add', more: 'More…',
     fUpcoming: 'Upcoming', fToday: 'Today', fOverdue: 'Overdue', fRepeat: 'Recurring', fDone: 'Done', fAll: 'All',
     searchPh: 'Search  /', searchAria: 'Search reminders', noteSearchPh: 'Search notes',
@@ -2347,13 +2367,13 @@ const T = {
     palDesertN: 'Desert', palDesert: 'Terracotta, sand and dunes',
     mode: 'Mode', modeAria: 'Light or dark mode', light: 'Light', dark: 'Dark',
     monoLabel: 'Monospace font in the note editor', utcLabel: 'Show the UTC clock next to the name',
-    outlookP: 'Every reminder has an “Outlook” action. It downloads a calendar file; open it and click <em>Save &amp; Close</em> in Outlook. Outlook then reminds you on this PC and your phone, even when Ping is closed. Interval repeats are included; for cron schedules Outlook gets the next run only.',
+    outlookP: 'Every reminder has an “Outlook” action. It downloads a calendar file; open it and click <em>Save &amp; Close</em> in Outlook. Outlook then reminds you on this PC and your phone, even when Pinglapp is closed. Interval repeats are included; for cron schedules Outlook gets the next run only.',
     icsLabel: 'Download an Outlook calendar entry automatically each time I save a reminder',
-    dataH: 'Your data', dataP: 'Everything saves automatically the moment you change it, and stays saved when you close the window. It is kept on this PC only. Reminders pop up only while Ping is open, so minimise it rather than closing it. Anything missed while it was closed appears when you open it again.',
+    dataH: 'Your data', dataP: 'Everything saves automatically the moment you change it, and stays saved when you close the window. It is kept on this PC only. Reminders pop up only while Pinglapp is open, so minimise it rather than closing it. Anything missed while it was closed appears when you open it again.',
     fileCreate: 'Create a save file…', fileOpen: 'Use an existing save file…', fileStop: 'Stop using the file',
     export: 'Download backup (JSON)', exportCsv: 'Export reminders (CSV)', import: 'Restore from backup…',
     snapsLabel: 'Automatic daily copies (last 14 days)', snapsAria: 'Automatic copies', snapRestore: 'Restore this copy', rerunSetup: 'Run the save setup again', driveGuideBtn: 'Guide: save in Google Drive or OneDrive so nothing is ever lost',
-    startupH: 'Open Ping when the browser starts', startupP: 'Then Ping is always running, so you never miss a reminder. A web page isn’t allowed to change the browser’s startup settings itself, so this takes three quick steps; the button shows you how.',
+    startupH: 'Open Pinglapp when the browser starts', startupP: 'Then Pinglapp is always running, so you never miss a reminder. A web page isn’t allowed to change the browser’s startup settings itself, so this takes three quick steps; the button shows you how.',
     showMe: 'Show me how', what: 'What', whatPh: 'What do you want to be reminded about?', when: 'When',
     plus1h: '+1 hour', plus3h: '+3 hours', tonight19: 'Tonight 19:00', tomorrow9: 'Tomorrow 09:00', monday9: 'Monday 09:00',
     repeat: 'Repeat', rNone: 'Does not repeat', rInterval: 'Every N minutes / hours', rWeekdays: 'Every weekday (Mon–Fri)', rCron: 'Cron schedule',
@@ -2369,57 +2389,57 @@ const T = {
     sx4c: 'every 30 min', sx4: 'Intervals: every 2h, every hour', sx5c: 'every weekday at 9', sx5: 'Repeats: every day, every monday, every week, every month',
     sx6: 'Cron schedule (minute hour day month weekday)', sx8c: '!!! or p1', sx8: 'Priority: ! low, !! medium, !!! high', close: 'Close',
     step0: 'Step 1 of 3', driveT: 'Make sure you never lose anything',
-    driveP1: 'Ping saves everything in the browser on this computer. If the computer breaks, you switch computers or the browser is cleared, it can all disappear. The fix is simple: let Ping keep a copy in a folder that syncs to the cloud, like <strong>Google Drive</strong> or <strong>OneDrive</strong>. Then your reminders and notes survive even if the computer breaks, and the same file is on all your computers. Both are free.',
+    driveP1: 'Pinglapp saves everything in the browser on this computer. If the computer breaks, you switch computers or the browser is cleared, it can all disappear. The fix is simple: let Pinglapp keep a copy in a folder that syncs to the cloud, like <strong>Google Drive</strong> or <strong>OneDrive</strong>. Then your reminders and notes survive even if the computer breaks, and the same file is on all your computers. Both are free.',
     cloudPick: 'Choose the service you want to use:', cloudPickAria: 'Cloud service',
     odS1: '<strong>Check whether you already have OneDrive.</strong> Windows 10 and 11 have it built in: look for the cloud icon at the bottom right, by the clock, or for <strong>OneDrive</strong> in the left column of File Explorer. On a Mac, download it from <a href="https://www.microsoft.com/microsoft-365/onedrive/download" target="_blank" rel="noopener">microsoft.com/onedrive</a> or the App Store.',
     odS2: '<strong>Sign in.</strong> Open OneDrive (Windows: Start menu → OneDrive) and sign in with your Microsoft account. If you don’t have one, you can create one for free at <a href="https://signup.live.com" target="_blank" rel="noopener">signup.live.com</a>. Follow the steps until OneDrive says it’s ready.',
     odS3: '<strong>Find OneDrive on your computer.</strong> Windows: open File Explorer and click <strong>OneDrive</strong> in the left column (it may be called, for example, “OneDrive – Personal”). Mac: open Finder and click <strong>OneDrive</strong> under Locations.',
-    odS4: '<strong>Create a folder called Ping.</strong> Right-click inside the OneDrive folder and choose <strong>New → Folder</strong> (Mac: <strong>New Folder</strong>). Type Ping and press Enter.',
-    odS5: '<strong>Keep the folder on this computer.</strong> Right-click the Ping folder and choose <strong>Always keep on this device</strong>. Then Ping can save even without internet, and OneDrive uploads the changes when you’re back online.',
-    odMoreP: 'Sign in to OneDrive on that computer too, with the same Microsoft account. Open Ping there, choose “I already have a save file” and pick <strong>OneDrive → Ping → Ping-data.json</strong>. From then on, changes carry over between the computers automatically.',
+    odS4: '<strong>Create a folder called Pinglapp.</strong> Right-click inside the OneDrive folder and choose <strong>New → Folder</strong> (Mac: <strong>New Folder</strong>). Type Pinglapp and press Enter.',
+    odS5: '<strong>Keep the folder on this computer.</strong> Right-click the Pinglapp folder and choose <strong>Always keep on this device</strong>. Then Pinglapp can save even without internet, and OneDrive uploads the changes when you’re back online.',
+    odMoreP: 'Sign in to OneDrive on that computer too, with the same Microsoft account. Open Pinglapp there, choose “I already have a save file” and pick <strong>OneDrive → Pinglapp → Pinglapp-data.json</strong>. From then on, changes carry over between the computers automatically.',
     odDownload: 'Download OneDrive',
     driveS1: '<strong>Download Google Drive for desktop.</strong> It’s available for Windows and Mac: <a href="https://www.google.com/drive/download/" target="_blank" rel="noopener">google.com/drive/download</a>',
     driveS2: '<strong>Install it and sign in.</strong> Open the file you downloaded and follow the steps. Sign in with your Google account. If you don’t have one, you can create one for free at <a href="https://accounts.google.com/signup" target="_blank" rel="noopener">accounts.google.com</a>.',
     driveS3: '<strong>Find Google Drive on your computer.</strong> Windows: open File Explorer, click <strong>Google Drive</strong> in the left column, then <strong>My Drive</strong>. Mac: open Finder, click <strong>Google Drive</strong> under Locations, then <strong>My Drive</strong>.',
-    driveS4: '<strong>Create a folder called Ping.</strong> Right-click inside <strong>My Drive</strong> and choose <strong>New → Folder</strong> (Mac: <strong>New Folder</strong>). Type Ping and press Enter.',
-    driveS5: '<strong>Make the folder available offline.</strong> Right-click the Ping folder and choose <strong>Offline access → Available offline</strong>. Then Ping can save even without internet, and Google Drive uploads the changes when you’re back online.',
-    driveP2: 'In the next step you save Ping’s file in the <strong>Ping</strong> folder you just created. After that it all takes care of itself: every change is saved to the file and the cloud service does the rest.',
-    driveMoreT: 'Want to use Ping on more computers?',
-    driveMoreP: 'Install Google Drive on that computer too and sign in with the same Google account. Open Ping there, choose “I already have a save file” and pick <strong>My Drive → Ping → Ping-data.json</strong>. From then on, changes carry over between the computers automatically.',
+    driveS4: '<strong>Create a folder called Pinglapp.</strong> Right-click inside <strong>My Drive</strong> and choose <strong>New → Folder</strong> (Mac: <strong>New Folder</strong>). Type Pinglapp and press Enter.',
+    driveS5: '<strong>Make the folder available offline.</strong> Right-click the Pinglapp folder and choose <strong>Offline access → Available offline</strong>. Then Pinglapp can save even without internet, and Google Drive uploads the changes when you’re back online.',
+    driveP2: 'In the next step you save Pinglapp’s file in the <strong>Pinglapp</strong> folder you just created. After that it all takes care of itself: every change is saved to the file and the cloud service does the rest.',
+    driveMoreT: 'Want to use Pinglapp on more computers?',
+    driveMoreP: 'Install Google Drive on that computer too and sign in with the same Google account. Open Pinglapp there, choose “I already have a save file” and pick <strong>My Drive → Pinglapp → Pinglapp-data.json</strong>. From then on, changes carry over between the computers automatically.',
     driveOtherT: 'Prefer iCloud Drive or Dropbox?',
-    driveOtherP: 'It works the same way. Create a folder called Ping in the folder that syncs and choose it in the next step. What matters is that the file is in a folder that syncs to the cloud, not only on the computer.',
+    driveOtherP: 'It works the same way. Create a folder called Pinglapp in the folder that syncs and choose it in the next step. What matters is that the file is in a folder that syncs to the cloud, not only on the computer.',
     driveDownload: 'Download Google Drive', driveNext: 'Next: choose where the file is saved',
-    setupNoFileDrive: 'When the backup has downloaded, move it from your Downloads folder to the <strong>Ping</strong> folder in Google Drive or OneDrive. Then it’s safe in the cloud even if the computer breaks.',
+    setupNoFileDrive: 'When the backup has downloaded, move it from your Downloads folder to the <strong>Pinglapp</strong> folder in Google Drive or OneDrive. Then it’s safe in the cloud even if the computer breaks.',
     step1: 'Step 2 of 3', setupT1: 'Keep your reminders safe',
-    setupP1: 'Ping has no server and no account. Everything you write is saved only here on your computer, in the browser. That means it can disappear if the browser’s data is cleared or you switch computers.',
-    setupP2: 'That’s why Ping also keeps a copy in a file you choose. Click <strong>Choose a place and save</strong> and pick the <strong>Ping</strong> folder you created in Google Drive (<strong>My Drive → Ping</strong>) or OneDrive (<strong>OneDrive → Ping</strong>), or another folder that syncs, like iCloud Drive or Dropbox. Then everything survives even if the computer breaks, and you can use Ping on several computers.',
+    setupP1: 'Pinglapp has no server and no account. Everything you write is saved only here on your computer, in the browser. That means it can disappear if the browser’s data is cleared or you switch computers.',
+    setupP2: 'That’s why Pinglapp also keeps a copy in a file you choose. Click <strong>Choose a place and save</strong> and pick the <strong>Pinglapp</strong> folder you created in Google Drive (<strong>My Drive → Pinglapp</strong>) or OneDrive (<strong>OneDrive → Pinglapp</strong>), or another folder that syncs, like iCloud Drive or Dropbox. Then everything survives even if the computer breaks, and you can use Pinglapp on several computers.',
     setupWhy: 'Why does the browser ask for permission?',
     setupLi1: 'A web page may never touch files on your computer unless you approve it. That’s why the browser shows a box where you choose a place and approve.',
-    setupLi2: 'Ping may only read and write <strong>the one file you choose</strong> (Ping-data.json). No other files or folders.',
+    setupLi2: 'Pinglapp may only read and write <strong>the one file you choose</strong> (Pinglapp-data.json). No other files or folders.',
     setupLi3: 'Nothing is sent to any server, and nothing to whoever built the app. The file stays in your own folder.',
     setupLi4: 'The file is plain text you can open and read yourself, and you can stop using it whenever you like under Settings.',
     setupCreate: 'Choose a place and save', setupOpen: 'I already have a save file',
-    setupHint: 'Want the same reminders and notes on several computers or in several browsers? Put the file in a folder that syncs, such as Google Drive. Then choose “I already have a save file” in the other browsers and open the same Ping-data.json. Changes carry over automatically.',
+    setupHint: 'Want the same reminders and notes on several computers or in several browsers? Put the file in a folder that syncs, such as Google Drive. Then choose “I already have a save file” in the other browsers and open the same Pinglapp-data.json. Changes carry over automatically.',
     setupSkip: 'Skip (not recommended)', next: 'Next',
     setupNoFileBrave: 'Brave turns this off by default. You can turn it on: paste <code>brave://flags/#file-system-access-api</code> into the address bar, choose <strong>Enabled</strong> and restart Brave. Then run the save setup again.',
     setupNotifOn: '✓ Notifications are already on in this browser.',step2: 'Step 3 of 3', setupT2: 'Get a notification when it’s time',
-    setupP3: 'Allow notifications so your reminders show up in the corner of the screen, even when Ping is behind other windows.',
-    setupLi5: 'Ping uses notifications only for reminders you created yourself. No ads, no news.',
+    setupP3: 'Allow notifications so your reminders show up in the corner of the screen, even when Pinglapp is behind other windows.',
+    setupLi5: 'Pinglapp uses notifications only for reminders you created yourself. No ads, no news.',
     setupLi6: 'The notifications are created here on your computer. Nothing is sent over the internet.',
     setupLi7: 'You can turn them off whenever you like in the browser’s settings.',
-    setupHint2: 'Tip: minimise Ping instead of closing it. Reminders only come while Ping is running. Under Settings there’s a guide to open Ping automatically when the browser starts.',
-    lockT: 'Ping is already open in another window', lockP: 'So that nothing you write gets overwritten, Ping can only be used in one window at a time. Your reminders appear in the other window.',
+    setupHint2: 'Tip: minimise Pinglapp instead of closing it. Reminders only come while Pinglapp is running. Under Settings there’s a guide to open Pinglapp automatically when the browser starts.',
+    lockT: 'Pinglapp is already open in another window', lockP: 'So that nothing you write gets overwritten, Pinglapp can only be used in one window at a time. Your reminders appear in the other window.',
     lockTake: 'Use this window instead',
     startupP2: 'A web page isn’t allowed to change the browser’s settings itself. That’s a security rule, so you do it in three steps:',
-    copyPingUrl: 'Copy Ping’s link', st2a: 'Paste', st2b: 'into the address bar and press Enter.',
-    startupApp: 'If you installed Ping as an app, you can instead open <code>edge://apps</code>, click ⋯ next to Ping and turn on <strong>“Auto-start on device login”</strong>.',
+    copyPingUrl: 'Copy Pinglapp’s link', st2a: 'Paste', st2b: 'into the address bar and press Enter.',
+    startupApp: 'If you installed Pinglapp as an app, you can instead open <code>edge://apps</code>, click ⋯ next to Pinglapp and turn on <strong>“Auto-start on device login”</strong>.',
     finished: 'Done',
     alertH: 'Sound and look',
     alertP: 'Choose how a reminder sounds and looks when it’s time. To make one particular reminder sound or look different, choose that when you edit it.',
     alSound: 'Sound', alSoundHigh: 'Sound for high priority', alVolume: 'Volume', alLoop: 'How long the sound plays',
     alLoopEvery: 'Play again every', alLoopMax: 'Stop after at most', alPosition: 'Where the box appears', alSize: 'Size of the box',
     alAutoHide: 'The box disappears', alColor: 'Colour', alSticky: 'The notification in the corner of the screen stays until I close it',
-    alFlash: 'Flash the tab while a reminder is waiting and Ping is in the background', testAlertShow: 'Show a test reminder',
+    alFlash: 'Flash the tab while a reminder is waiting and Pinglapp is in the background', testAlertShow: 'Show a test reminder',
     listen: '▶ Listen', listenTitle: 'Listen',
     noteHist: 'History', share: 'Share ▾', newNoteMenu: 'Templates and other kinds of notes', toolsAria: 'Formatting',
     fmtBold: 'Bold (Ctrl+B)', fmtItalic: 'Italic (Ctrl+I)', fmtStrike: 'Strikethrough', fmtHeading: 'Heading (click again for a smaller heading)',
@@ -2427,41 +2447,41 @@ const T = {
     fmtTable: 'Table', fmtHr: 'Divider', fmtRemind: 'Make a reminder from the line the cursor is on', findOpen: 'Find in this note (Ctrl+F)',
     findPh: 'Find in this note', findPrev: 'Previous (Shift+Enter)', findNext: 'Next (Enter)', findClose: 'Close (Esc)',
     trashH: 'Trash', trashP: 'Deleted notes stay here for 30 days, then they’re removed for good.', trashEmptyAll: 'Empty the trash',
-    histH: 'Earlier versions', histP: 'Ping saves a version when you start changing a note, at most every five minutes. The latest 30 are kept.', histRestore: 'Restore this version',
+    histH: 'Earlier versions', histP: 'Pinglapp saves a version when you start changing a note, at most every five minutes. The latest 30 are kept.', histRestore: 'Restore this version',
     linkH: 'Insert link', linkText: 'Text to show', linkUrl: 'Web address',
     k15: 'Notes: bold / italic', k16: 'Notes: find in the note', k17: 'Notes: turn all code suggestions into code', k18: 'Notes: show or hide the list of notes',
     sideHide: 'Hide the list of notes (Ctrl+Shift+L)', sideShow: 'Show the list of notes (Ctrl+Shift+L)',
     sugMarkAll: 'Mark all', sugShow: 'Show which', sugBarTitle: 'Words you have marked as code before, or that look like code. Click an underlined word to choose.',
     restoreH: 'Restore from backup', restoreAdd: 'Add what’s missing', restoreAddP: 'Everything you have now is kept. Reminders and notes from the backup that aren’t here are added.',
-    restoreReplace: 'Replace everything with the backup', restoreReplaceP: 'Ping goes back to how it was when the backup was made. What you have now is replaced, but you can undo it right after.', restoreGo: 'Restore',
+    restoreReplace: 'Replace everything with the backup', restoreReplaceP: 'Pinglapp goes back to how it was when the backup was made. What you have now is replaced, but you can undo it right after.', restoreGo: 'Restore',
     fileOpenAgain: 'Choose the file again…', fileCreateNew: 'Create a new save file…',
     codeDlgH: 'Insert code', codeLang: 'Language', codeText: 'Code', codePh: 'Paste or type your code here', codeInsertBtn: 'Insert', codeInsert: 'Insert code',
     k13: 'Notes: comment or uncomment code lines', k14: 'Notes: indent (Tab) or unindent (Shift Tab) selected lines',
-    alSecSound: 'Sound', alSoundHint: 'The sound also plays when Ping is in the background or minimised, as long as Ping is open.',
-    alSecBox: 'The box in the Ping window', alSecBoxP: 'Shows when Ping is in front, or on top of every other window if you use “Keep Ping on top” below.',
-    alSecWin: 'When Ping is behind other windows', alSecWinP: 'Then your computer shows a notification in the corner of the screen. Windows or macOS decides how it looks, but the icon gets the reminder’s colour.',
-    alSecPip: 'Keep Ping on top of other windows',
-    alSecPipP: 'Opens a small Ping window that floats on top of everything else you work in. Reminders appear there exactly as you chose here, along with what’s coming up next. The browser only lets you open it yourself, so click the button after starting the browser.',
+    alSecSound: 'Sound', alSoundHint: 'The sound also plays when Pinglapp is in the background or minimised, as long as Pinglapp is open.',
+    alSecBox: 'The box in the Pinglapp window', alSecBoxP: 'Shows when Pinglapp is in front, or on top of every other window if you use “Keep Pinglapp on top” below.',
+    alSecWin: 'When Pinglapp is behind other windows', alSecWinP: 'Then your computer shows a notification in the corner of the screen. Windows or macOS decides how it looks, but the icon gets the reminder’s colour.',
+    alSecPip: 'Keep Pinglapp on top of other windows',
+    alSecPipP: 'Opens a small Pinglapp window that floats on top of everything else you work in. Reminders appear there exactly as you chose here, along with what’s coming up next. The browser only lets you open it yourself, so click the button after starting the browser.',
     // dynamic
-    startupStepEdge: 'Under <strong>“When Microsoft Edge starts”</strong>: choose <strong>“Open these pages”</strong>, click <strong>“Add a new page”</strong> and paste Ping’s link.',
-    startupStepChrome: 'Under <strong>“On startup”</strong>: choose <strong>“Open a specific page or set of pages”</strong>, click <strong>“Add a new page”</strong> and paste Ping’s link.',
-    startupStepFirefox: 'Under <strong>“Homepage and new windows”</strong>: choose <strong>“Custom URLs…”</strong> and paste Ping’s link.',
-    startupStepOther: b => `Open ${b}’s settings and find where you choose what opens when it starts (often called “On startup” or “Homepage”). Add Ping’s link there.`,
-    setupNoFile: b => `${b} can’t let Ping keep a save file on your computer; only Chrome and Edge can. Everything is still saved in ${b}, and Ping will remind you once a week to download a backup. Keep the backups in your Ping folder in Google Drive or OneDrive.`,
-    bannerBackup: '<strong>Time to save a backup.</strong> Your reminders and notes only exist in this browser. Download a copy and put it in your Ping folder in Google Drive or OneDrive, and you can always get everything back with “Restore from backup” under Settings.',
+    startupStepEdge: 'Under <strong>“When Microsoft Edge starts”</strong>: choose <strong>“Open these pages”</strong>, click <strong>“Add a new page”</strong> and paste Pinglapp’s link.',
+    startupStepChrome: 'Under <strong>“On startup”</strong>: choose <strong>“Open a specific page or set of pages”</strong>, click <strong>“Add a new page”</strong> and paste Pinglapp’s link.',
+    startupStepFirefox: 'Under <strong>“Homepage and new windows”</strong>: choose <strong>“Custom URLs…”</strong> and paste Pinglapp’s link.',
+    startupStepOther: b => `Open ${b}’s settings and find where you choose what opens when it starts (often called “On startup” or “Homepage”). Add Pinglapp’s link there.`,
+    setupNoFile: b => `${b} can’t let Pinglapp keep a save file on your computer; only Chrome and Edge can. Everything is still saved in ${b}, and Pinglapp will remind you once a week to download a backup. Keep the backups in your Pinglapp folder in Google Drive or OneDrive.`,
+    bannerBackup: '<strong>Time to save a backup.</strong> Your reminders and notes only exist in this browser. Download a copy and put it in your Pinglapp folder in Google Drive or OneDrive, and you can always get everything back with “Restore from backup” under Settings.',
     backupNow: 'Download backup', later: 'Remind me tomorrow',
     saveFailed: e => 'Could not save: ' + e, chipNotSaved: 'Not saved!', chipNotSavedTitle: e => 'The browser refused to save: ' + e,
     chipSaved: 'Saved', chipSavedFileTitle: n => 'Saved in the browser and in your file ' + n,
     chipNeedsClick: 'Save file needs a click', chipNeedsClickTitle: 'Click to reconnect your save file', chipFileErr: 'Save file error',
     chipBrowserOnly: 'Saved in browser only', chipBrowserOnlyFile: 'Click to also keep a save file in Google Drive or OneDrive, so nothing is lost if the computer breaks', chipBrowserOnlyBackup: 'Download a backup now and then under Settings',
-    noSnaps: 'No copies yet (one is made each day you use Ping)', snapLabel: (r, n) => ` · ${r} reminders, ${n} notes`,
-    persisted: '✓ The browser has promised not to clear Ping’s data on its own.',
-    notPersisted: 'The browser may clear Ping’s data if the disk gets very full. A save file protects you against that.',
-    confirmSnap: d => `Replace everything in Ping with the copy from ${d}? You can undo this right after.`, restoredSnap: d => 'Restored the copy from ' + d,
-    undo: 'Undo', undone: 'Undone', loadedFromFile: 'Picked up changes from the save file', notPingFile: 'That file is not a Ping save file',
+    noSnaps: 'No copies yet (one is made each day you use Pinglapp)', snapLabel: (r, n) => ` · ${r} reminders, ${n} notes`,
+    persisted: '✓ The browser has promised not to clear Pinglapp’s data on its own.',
+    notPersisted: 'The browser may clear Pinglapp’s data if the disk gets very full. A save file protects you against that.',
+    confirmSnap: d => `Replace everything in Pinglapp with the copy from ${d}? You can undo this right after.`, restoredSnap: d => 'Restored the copy from ' + d,
+    undo: 'Undo', undone: 'Undone', loadedFromFile: 'Picked up changes from the save file', notPingFile: 'That file is not a Pinglapp save file',
     savingTo: n => 'Saving to ' + n, couldNotCreate: e => 'Could not create the file: ' + e, couldNotOpen: e => 'Could not open the file: ' + e,
     fileStopped: 'Stopped saving to the file. The file itself is kept',
-    fileNone: 'Extra safety: also keep a save file on your PC. It updates with every change and survives even if the browser’s data is cleared. Put it in your Ping folder in Google Drive or OneDrive (or another folder that syncs to the cloud) and it survives even if the computer breaks. You can then use the same reminders and notes on several computers and browsers: choose “Use an existing save file” in each of them.',
+    fileNone: 'Extra safety: also keep a save file on your PC. It updates with every change and survives even if the browser’s data is cleared. Put it in your Pinglapp folder in Google Drive or OneDrive (or another folder that syncs to the cloud) and it survives even if the computer breaks. You can then use the same reminders and notes on several computers and browsers: choose “Use an existing save file” in each of them.',
     fileOk: (n, w) => `✓ Also saving to “${n}”${w ? ', last saved ' + w : ''}.`,
     fileNeeds: n => `Save file “${n}” needs one click to reconnect (the browser asks again after a restart).`,
     fileErr: (n, e) => `Couldn’t write to “${n}”: ${e}`,
@@ -2494,9 +2514,9 @@ const T = {
     stUnsupported: 'This browser can’t show notifications for this page, so reminders appear as an alert inside this window, with a sound.',
     stDefault: 'Allow notifications so reminders reach you even when this window is behind others.',
     stFailed: e => `The last notification failed: ${e}. Check your computer’s notification settings for this browser, and that “Do not disturb” / Focus is off.`,
-    stRunning: (b, local) => ` (Running in ${b}${local ? ' from a local file' : ''}. Each browser keeps its own copy of your reminders, so always open Ping the same way.)`,
+    stRunning: (b, local) => ` (Running in ${b}${local ? ' from a local file' : ''}. Each browser keeps its own copy of your reminders, so always open Pinglapp the same way.)`,
     thisBrowser: 'this browser', notifUnavailable: 'Notifications are not available here; in-window alerts will be used',
-    notifTesting: 'Test sent. Nothing in the corner of the screen? Check that “Do not disturb” / Focus is off (Windows: press Win+N; Mac: Control Centre)', testNotifTitle: 'Ping notifications work', testNotifBody: 'Reminders will appear like this.',
+    notifTesting: 'Test sent. Nothing in the corner of the screen? Check that “Do not disturb” / Focus is off (Windows: press Win+N; Mac: Control Centre)', testNotifTitle: 'Pinglapp notifications work', testNotifBody: 'Reminders will appear like this.',
     testNotifFailed: e => 'The test notification failed: ' + e,
     notKeptLocal: (b, a) => `${b} answered “${a}”, so it didn’t keep your choice. Browsers often refuse to save notification permission for pages opened as a local file. Until that’s solved you still get the alert in this window and a sound.`,
     notKept: (b, a) => `${b} answered “${a}”. Check that notifications are allowed for this site, and that your computer allows notifications from ${b}.`,
@@ -2539,41 +2559,41 @@ const T = {
     sugKnownTitle: 'You have marked this as code before. Click to choose.', sugGuessTitle: 'This looks like code. Click to choose.',
     imgAlt: 'Screenshot', imgTooBig: 'The picture is too big, even after shrinking (max 1.5 MB)', imgFailed: 'Couldn’t read the picture', imgUnavailable: 'Pictures can’t be saved in this browser',
     restoreInfo: (w, r, n, i) => `The backup is from ${w} and contains ${r} reminders and ${n} notes${i ? `, plus ${i} pictures` : ''}.`, restoredAll: 'Everything was replaced with the backup',
-    bannerFile: '<strong>Ping needs a click to keep saving to your file.</strong> The browser asks for permission again after a restart. That’s a security feature, not an error. Choose “Allow on every visit” to skip the question. Nothing is lost; everything stays in the browser meanwhile.',
-    bannerFileGone: '<strong>Ping can’t find your save file.</strong> It may have been moved, renamed or deleted. Nothing is lost: everything is still here in the browser. Choose the file again, or create a new one.',
+    bannerFile: '<strong>Pinglapp needs a click to keep saving to your file.</strong> The browser asks for permission again after a restart. That’s a security feature, not an error. Choose “Allow on every visit” to skip the question. Nothing is lost; everything stays in the browser meanwhile.',
+    bannerFileGone: '<strong>Pinglapp can’t find your save file.</strong> It may have been moved, renamed or deleted. Nothing is lost: everything is still here in the browser. Choose the file again, or create a new one.',
     fileErr_gone: n => `The save file “${n}” is no longer where it was. It may have been moved, renamed or deleted. Choose it again or create a new one. Everything is still here in the browser.`,
-    fileErr_unreadable: n => `The save file “${n}” couldn’t be read just now, perhaps because it is being synced. Ping tries again by itself and won’t overwrite it.`,
-    fileErr_busy: n => `The save file “${n}” is being used by another program right now. Ping tries again by itself.`,
-    fileErr_full: n => `There is no room on the disk for the save file “${n}”. Free up some space; Ping tries again by itself.`,
+    fileErr_unreadable: n => `The save file “${n}” couldn’t be read just now, perhaps because it is being synced. Pinglapp tries again by itself and won’t overwrite it.`,
+    fileErr_busy: n => `The save file “${n}” is being used by another program right now. Pinglapp tries again by itself.`,
+    fileErr_full: n => `There is no room on the disk for the save file “${n}”. Free up some space; Pinglapp tries again by itself.`,
     chipFileGone: 'Save file missing', chipFileRetry: 'Save file: trying again',
     storageFull: 'the browser’s storage is full. Download a backup now, then delete old notes or pictures you no longer need.', savedAgain: 'Saving works again',
     autoDetect: 'Detect automatically', plainText: 'Plain text', guessed: 'guessed', changeLang: 'Change language',
     wrapTitle: 'Wrap long lines', showAllLines: n => `Show all ${n} lines`, showLess: 'Show less',
     looksLike: n => `Looks like ${n}.`, cantTell: 'Couldn’t tell the language. Choose it above to get colours.', codeEmpty: 'Paste or type some code first',
-    pipOpen: 'Keep Ping on top', pipClose: 'Close the small window', pipOpenMain: 'Open Ping', pipNext: 'Coming up', pipNothing: 'No upcoming reminders',
-    pipUnsupported: b => `${b} can’t keep Ping on top of other windows. It works in Chrome and Edge.`, pipFailed: e => 'Couldn’t open the small window: ' + e,
+    pipOpen: 'Keep Pinglapp on top', pipClose: 'Close the small window', pipOpenMain: 'Open Pinglapp', pipNext: 'Coming up', pipNothing: 'No upcoming reminders',
+    pipUnsupported: b => `${b} can’t keep Pinglapp on top of other windows. It works in Chrome and Edge.`, pipFailed: e => 'Couldn’t open the small window: ' + e,
     noteDeleted: 'Note deleted', testTitle: 'This is a test reminder', testNotes: 'If you can see this, reminders work.',
-    backupDone: 'Backup downloaded', restored: n => 'Restored ' + n + ' items', nothingNew: 'Nothing new in that backup', restoreFailed: 'That backup is damaged and could not be restored. Nothing was changed.', dataUnreadable: 'Your saved data could not be read, so Ping started empty. A copy of it was kept: Settings → Your data → Restore from backup can bring back a backup file.', notBackup: 'That file is not a Ping backup',
+    backupDone: 'Backup downloaded', restored: n => 'Restored ' + n + ' items', nothingNew: 'Nothing new in that backup', restoreFailed: 'That backup is damaged and could not be restored. Nothing was changed.', dataUnreadable: 'Your saved data could not be read, so Pinglapp started empty. A copy of it was kept: Settings → Your data → Restore from backup can bring back a backup file.', notBackup: 'That file is not a Pinglapp backup',
     noLink: 'No link in this reminder'
   },
   sv: {
-    startupStepEdge: 'Under <strong>”När Microsoft Edge startar”</strong>: välj <strong>”Öppna de här sidorna”</strong>, klicka <strong>”Lägg till en ny sida”</strong> och klistra in Pings länk.',
-    startupStepChrome: 'Under <strong>”Vid start”</strong>: välj <strong>”Öppna en viss sida eller uppsättning sidor”</strong>, klicka <strong>”Lägg till en ny sida”</strong> och klistra in Pings länk.',
-    startupStepFirefox: 'Under <strong>”Startsida och nya fönster”</strong>: välj <strong>”Anpassade webbadresser…”</strong> och klistra in Pings länk.',
-    startupStepOther: b => `Öppna inställningarna i ${b} och leta upp var du väljer vad som öppnas vid start (heter ofta ”Vid start” eller ”Startsida”). Lägg till Pings länk där.`,
-    setupNoFile: b => `${b} kan inte låta Ping ha en sparfil på datorn; det kan bara Chrome och Edge. Allt sparas ändå i ${b}, och Ping påminner dig en gång i veckan om att ladda ner en säkerhetskopia. Spara säkerhetskopiorna i mappen Ping i Google Drive eller OneDrive.`,
+    startupStepEdge: 'Under <strong>”När Microsoft Edge startar”</strong>: välj <strong>”Öppna de här sidorna”</strong>, klicka <strong>”Lägg till en ny sida”</strong> och klistra in Pinglapps länk.',
+    startupStepChrome: 'Under <strong>”Vid start”</strong>: välj <strong>”Öppna en viss sida eller uppsättning sidor”</strong>, klicka <strong>”Lägg till en ny sida”</strong> och klistra in Pinglapps länk.',
+    startupStepFirefox: 'Under <strong>”Startsida och nya fönster”</strong>: välj <strong>”Anpassade webbadresser…”</strong> och klistra in Pinglapps länk.',
+    startupStepOther: b => `Öppna inställningarna i ${b} och leta upp var du väljer vad som öppnas vid start (heter ofta ”Vid start” eller ”Startsida”). Lägg till Pinglapps länk där.`,
+    setupNoFile: b => `${b} kan inte låta Pinglapp ha en sparfil på datorn; det kan bara Chrome och Edge. Allt sparas ändå i ${b}, och Pinglapp påminner dig en gång i veckan om att ladda ner en säkerhetskopia. Spara säkerhetskopiorna i mappen Pinglapp i Google Drive eller OneDrive.`,
     saveFailed: e => 'Kunde inte spara: ' + e, chipNotSaved: 'Inte sparat!', chipNotSavedTitle: e => 'Webbläsaren vägrade spara: ' + e,
     chipSaved: 'Sparat', chipSavedFileTitle: n => 'Sparat i webbläsaren och i din fil ' + n,
     chipNeedsClick: 'Sparfilen behöver ett klick', chipNeedsClickTitle: 'Klicka för att återansluta din sparfil', chipFileErr: 'Fel i sparfilen',
     chipBrowserOnly: 'Sparat bara i webbläsaren', chipBrowserOnlyFile: 'Klicka för att även ha en sparfil i Google Drive eller OneDrive, så att inget försvinner om datorn går sönder', chipBrowserOnlyBackup: 'Ladda ner en säkerhetskopia då och då under Inställningar',
-    noSnaps: 'Inga kopior än (en skapas varje dag du använder Ping)', snapLabel: (r, n) => ` · ${r} påminnelser, ${n} anteckningar`,
-    persisted: '✓ Webbläsaren har lovat att inte rensa Pings data på egen hand.',
-    notPersisted: 'Webbläsaren kan rensa Pings data om disken blir väldigt full. En sparfil skyddar dig mot det.',
-    confirmSnap: d => `Ersätta allt i Ping med kopian från ${d}? Du kan ångra direkt efteråt.`, restoredSnap: d => 'Återställde kopian från ' + d,
-    undo: 'Ångra', undone: 'Ångrat', loadedFromFile: 'Hämtade ändringar från sparfilen', notPingFile: 'Den filen är inte en sparfil från Ping',
+    noSnaps: 'Inga kopior än (en skapas varje dag du använder Pinglapp)', snapLabel: (r, n) => ` · ${r} påminnelser, ${n} anteckningar`,
+    persisted: '✓ Webbläsaren har lovat att inte rensa Pinglapps data på egen hand.',
+    notPersisted: 'Webbläsaren kan rensa Pinglapps data om disken blir väldigt full. En sparfil skyddar dig mot det.',
+    confirmSnap: d => `Ersätta allt i Pinglapp med kopian från ${d}? Du kan ångra direkt efteråt.`, restoredSnap: d => 'Återställde kopian från ' + d,
+    undo: 'Ångra', undone: 'Ångrat', loadedFromFile: 'Hämtade ändringar från sparfilen', notPingFile: 'Den filen är inte en sparfil från Pinglapp',
     savingTo: n => 'Sparar till ' + n, couldNotCreate: e => 'Kunde inte skapa filen: ' + e, couldNotOpen: e => 'Kunde inte öppna filen: ' + e,
     fileStopped: 'Slutade spara till filen. Själva filen finns kvar',
-    fileNone: 'Extra säkerhet: ha också en sparfil på datorn. Den uppdateras vid varje ändring och finns kvar även om webbläsarens data rensas. Lägg den i mappen Ping i Google Drive eller OneDrive (eller en annan mapp som synkas till molnet) så finns den kvar även om datorn går sönder. Då kan du också använda samma påminnelser och anteckningar på flera datorer och i flera webbläsare: välj ”Använd en befintlig sparfil” i var och en.',
+    fileNone: 'Extra säkerhet: ha också en sparfil på datorn. Den uppdateras vid varje ändring och finns kvar även om webbläsarens data rensas. Lägg den i mappen Pinglapp i Google Drive eller OneDrive (eller en annan mapp som synkas till molnet) så finns den kvar även om datorn går sönder. Då kan du också använda samma påminnelser och anteckningar på flera datorer och i flera webbläsare: välj ”Använd en befintlig sparfil” i var och en.',
     fileOk: (n, w) => `✓ Sparar också till ”${n}”${w ? ', senast sparad ' + w : ''}.`,
     fileNeeds: n => `Sparfilen ”${n}” behöver ett klick för att återanslutas (webbläsaren frågar igen efter en omstart).`,
     fileErr: (n, e) => `Kunde inte skriva till ”${n}”: ${e}`,
@@ -2606,9 +2626,9 @@ const T = {
     stUnsupported: 'Den här webbläsaren kan inte visa aviseringar för den här sidan, så påminnelser visas som en ruta i fönstret, med ett ljud.',
     stDefault: 'Tillåt aviseringar så att påminnelser når dig även när fönstret ligger bakom andra.',
     stFailed: e => `Den senaste aviseringen misslyckades: ${e}. Kontrollera datorns inställningar för aviseringar från webbläsaren och att ”Stör ej” / fokusläge är avstängt.`,
-    stRunning: (b, local) => ` (Körs i ${b}${local ? ' från en lokal fil' : ''}. Varje webbläsare har sin egen kopia av dina påminnelser, så öppna alltid Ping på samma sätt.)`,
+    stRunning: (b, local) => ` (Körs i ${b}${local ? ' från en lokal fil' : ''}. Varje webbläsare har sin egen kopia av dina påminnelser, så öppna alltid Pinglapp på samma sätt.)`,
     thisBrowser: 'den här webbläsaren', notifUnavailable: 'Aviseringar finns inte här; rutor i fönstret används i stället',
-    notifTesting: 'Testet skickat. Syns inget i skärmens hörn? Kontrollera att ”Stör ej” / fokusläge är avstängt (Windows: tryck Win+N, Mac: Kontrollcenter)', testNotifTitle: 'Pings aviseringar fungerar', testNotifBody: 'Påminnelser kommer att se ut så här.',
+    notifTesting: 'Testet skickat. Syns inget i skärmens hörn? Kontrollera att ”Stör ej” / fokusläge är avstängt (Windows: tryck Win+N, Mac: Kontrollcenter)', testNotifTitle: 'Pinglapps aviseringar fungerar', testNotifBody: 'Påminnelser kommer att se ut så här.',
     testNotifFailed: e => 'Testaviseringen misslyckades: ' + e,
     notKeptLocal: (b, a) => `${b} svarade ”${a}”, så valet sparades inte. Webbläsare vägrar ofta spara aviseringstillstånd för sidor som öppnats som en lokal fil. Tills det är löst får du ändå en ruta i fönstret och ett ljud.`,
     notKept: (b, a) => `${b} svarade ”${a}”. Kontrollera att aviseringar är tillåtna för den här webbplatsen och att datorn tillåter aviseringar från ${b}.`,
@@ -2654,21 +2674,21 @@ const T = {
     dailyLog: 'Dagslogg', newNote: 'Ny anteckning',
     sideHide: 'Dölj listan med anteckningar (Ctrl+Shift+L)', sideShow: 'Visa listan med anteckningar (Ctrl+Shift+L)',
     restoreInfo: (w, r, n, i) => `Säkerhetskopian är från ${w} och innehåller ${r} påminnelser och ${n} anteckningar${i ? ` och ${i} bilder` : ''}.`, restoredAll: 'Allt ersattes med säkerhetskopian',
-    bannerFile: '<strong>Ping behöver ett klick för att fortsätta spara i din fil.</strong> Webbläsaren frågar om lov igen efter en omstart. Det är en säkerhetsfunktion, inte ett fel. Välj gärna ”Tillåt vid varje besök” så slipper du frågan. Inget har försvunnit, allt finns kvar i webbläsaren under tiden.',
-    bannerFileGone: '<strong>Ping hittar inte din sparfil.</strong> Den har kanske flyttats, döpts om eller tagits bort. Inget har försvunnit: allt finns kvar här i webbläsaren. Välj filen igen eller skapa en ny.',
+    bannerFile: '<strong>Pinglapp behöver ett klick för att fortsätta spara i din fil.</strong> Webbläsaren frågar om lov igen efter en omstart. Det är en säkerhetsfunktion, inte ett fel. Välj gärna ”Tillåt vid varje besök” så slipper du frågan. Inget har försvunnit, allt finns kvar i webbläsaren under tiden.',
+    bannerFileGone: '<strong>Pinglapp hittar inte din sparfil.</strong> Den har kanske flyttats, döpts om eller tagits bort. Inget har försvunnit: allt finns kvar här i webbläsaren. Välj filen igen eller skapa en ny.',
     fileErr_gone: n => `Sparfilen ”${n}” finns inte längre där den låg. Den har kanske flyttats, döpts om eller tagits bort. Välj den igen eller skapa en ny. Allt finns kvar här i webbläsaren.`,
-    fileErr_unreadable: n => `Sparfilen ”${n}” gick inte att läsa just nu, kanske för att den håller på att synkas. Ping försöker igen av sig själv och skriver inte över den.`,
-    fileErr_busy: n => `Sparfilen ”${n}” används av ett annat program just nu. Ping försöker igen av sig själv.`,
-    fileErr_full: n => `Det finns inte plats på disken för sparfilen ”${n}”. Frigör utrymme; Ping försöker igen av sig själv.`,
+    fileErr_unreadable: n => `Sparfilen ”${n}” gick inte att läsa just nu, kanske för att den håller på att synkas. Pinglapp försöker igen av sig själv och skriver inte över den.`,
+    fileErr_busy: n => `Sparfilen ”${n}” används av ett annat program just nu. Pinglapp försöker igen av sig själv.`,
+    fileErr_full: n => `Det finns inte plats på disken för sparfilen ”${n}”. Frigör utrymme; Pinglapp försöker igen av sig själv.`,
     chipFileGone: 'Sparfilen saknas', chipFileRetry: 'Sparfilen: försöker igen',
     storageFull: 'webbläsarens lagring är full. Ladda ner en säkerhetskopia nu och ta sedan bort gamla anteckningar eller bilder du inte behöver.', savedAgain: 'Det går att spara igen',
     autoDetect: 'Upptäck automatiskt', plainText: 'Vanlig text', guessed: 'gissat', changeLang: 'Byt språk',
     wrapTitle: 'Radbrytning', showAllLines: n => `Visa alla ${n} rader`, showLess: 'Visa mindre',
     looksLike: n => `Ser ut som ${n}.`, cantTell: 'Kunde inte avgöra språket. Välj det ovan om du vill ha färger.', codeEmpty: 'Klistra in eller skriv kod först',
-    pipOpen: 'Håll Ping ovanpå', pipClose: 'Stäng det lilla fönstret', pipOpenMain: 'Öppna Ping', pipNext: 'Härnäst', pipNothing: 'Inga kommande påminnelser',
-    pipUnsupported: b => `${b} kan inte hålla Ping ovanpå andra fönster. Det fungerar i Chrome och Edge.`, pipFailed: e => 'Kunde inte öppna det lilla fönstret: ' + e,
+    pipOpen: 'Håll Pinglapp ovanpå', pipClose: 'Stäng det lilla fönstret', pipOpenMain: 'Öppna Pinglapp', pipNext: 'Härnäst', pipNothing: 'Inga kommande påminnelser',
+    pipUnsupported: b => `${b} kan inte hålla Pinglapp ovanpå andra fönster. Det fungerar i Chrome och Edge.`, pipFailed: e => 'Kunde inte öppna det lilla fönstret: ' + e,
     noteDeleted: 'Anteckningen togs bort',testTitle: 'Det här är en testpåminnelse', testNotes: 'Ser du det här fungerar påminnelserna.',
-    backupDone: 'Säkerhetskopian har laddats ner', restored: n => 'Återställde ' + n + ' objekt', nothingNew: 'Inget nytt i den säkerhetskopian', restoreFailed: 'Säkerhetskopian är skadad och kunde inte återställas. Inget ändrades.', dataUnreadable: 'Dina sparade data gick inte att läsa, så Ping startade tomt. En kopia har sparats: Inställningar → Dina data → Återställ från säkerhetskopia kan hämta tillbaka en säkerhetskopia.', notBackup: 'Den filen är inte en säkerhetskopia från Ping',
+    backupDone: 'Säkerhetskopian har laddats ner', restored: n => 'Återställde ' + n + ' objekt', nothingNew: 'Inget nytt i den säkerhetskopian', restoreFailed: 'Säkerhetskopian är skadad och kunde inte återställas. Inget ändrades.', dataUnreadable: 'Dina sparade data gick inte att läsa, så Pinglapp startade tomt. En kopia har sparats: Inställningar → Dina data → Återställ från säkerhetskopia kan hämta tillbaka en säkerhetskopia.', notBackup: 'Den filen är inte en säkerhetskopia från Pinglapp',
     noLink: 'Ingen länk i den här påminnelsen'
   }
 };
@@ -2760,7 +2780,7 @@ function stampChanges(d, base, now = Date.now()) {
 /*SYNC-END*/
 
 /*CLOUD-START*/
-// Sync with a Ping account (Supabase). Pure functions only: no network here, so they can be tested in Node.
+// Sync with a Pinglapp account (Supabase). Pure functions only: no network here, so they can be tested in Node.
 // The local copy stays the source of truth; the same newest-wins rules as the save file apply (mergeData above).
 // The server keeps one row per item: { id, data, updated, deleted, server_at }. `server_at` is set by the server on
 // every write and is the pull cursor (device clocks can't be trusted for "what changed since").
@@ -3024,7 +3044,7 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString
 
 // ---------------------------------------------------------------- save file on disk (optional mirror)
 const fileApi = 'showSaveFilePicker' in window && 'indexedDB' in window;
-const FILE_TYPES = [{ description: 'Ping data', accept: { 'application/json': ['.json'] } }];
+const FILE_TYPES = [{ description: 'Pinglapp data', accept: { 'application/json': ['.json'] } }];
 let fileHandle = null, fileState = 'none', fileError = '', fileErrKind = 'other', fileSavedAt = null, fileTimer = null;
 // Turn a browser error into something a person can act on. Lost permission is not an error: it only needs a click.
 function setFileError(e) {
@@ -3049,7 +3069,7 @@ const kv = (() => {
   return { get: k => run('readonly', s => s.get(k)), set: (k, v) => run('readwrite', s => s.put(v, k)), del: k => run('readwrite', s => s.delete(k)), keys: () => run('readonly', s => s.getAllKeys()) };
 })();
 // Browser data that couldn't be read at start is copied into the database before the first save replaces it.
-// It's kept once (the same text read again later isn't stored twice), and you're told, instead of finding Ping empty.
+// It's kept once (the same text read again later isn't stored twice), and you're told, instead of finding Pinglapp empty.
 let unreadableKept = null;
 function keepUnreadable() {
   if (!unreadableRaw) return;
@@ -3115,7 +3135,7 @@ function applyMerged(m) {
   }
   for (const id of [...openAlerts.keys()]) { const r = find(id); if (!r || r.done) closeAlert(id); }
 }
-// A save file picked by the person must look like Ping data before it is merged in.
+// A save file picked by the person must look like Pinglapp data before it is merged in.
 async function readPingFile(h) {
   const txt = await (await h.getFile()).text();
   if (!txt.trim()) return;
@@ -3130,7 +3150,7 @@ async function useFile(h, readFirst) {
   if (fileState === 'ok') toast(t('savingTo', h.name));
 }
 async function fileCreate() {
-  try { await useFile(await showSaveFilePicker({ suggestedName: 'Ping-data.json', types: FILE_TYPES, startIn: 'documents', id: 'ping-data' }), false); }
+  try { await useFile(await showSaveFilePicker({ suggestedName: 'Pinglapp-data.json', types: FILE_TYPES, startIn: 'documents', id: 'ping-data' }), false); }
   catch (e) { if (e.name !== 'AbortError') toast(t('couldNotCreate', e.message)); }
 }
 async function fileOpen() {
@@ -3776,7 +3796,7 @@ function downloadIcs(r) {
   if (r.repeat === 'interval') rr = (r.every % 60 === 0) ? `FREQ=HOURLY;INTERVAL=${r.every / 60}` : `FREQ=MINUTELY;INTERVAL=${r.every}`;
   const start = r.repeat === 'none' ? nextAlert(r) : r.due;
   const desc = [r.notes, r.tags.length ? r.tags.map(t => '#' + t).join(' ') : ''].filter(Boolean).join('\n\n');
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ping//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Pinglapp//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     'BEGIN:VEVENT', 'UID:' + r.id + '@ping-reminders', 'DTSTAMP:' + icsUtc(Date.now()),
     'DTSTART:' + icsDate(start), 'DTEND:' + icsDate(start + 15 * 60000),
     'SUMMARY:' + icsText(r.title)];
@@ -3795,7 +3815,7 @@ function exportCsv() {
   const iso = ms => ms ? new Date(ms).toISOString() : '';
   const head = ['id', 'title', 'next_alert_utc', 'due_utc', 'repeat', 'every_min', 'cron', 'tags', 'priority', 'done', 'completed_at_utc', 'created_utc', 'notes'];
   const rows = S.reminders.map(r => [r.id, r.title, iso(nextAlert(r)), iso(r.due), r.repeat, r.every ?? '', r.cron ?? '', r.tags.join(' '), r.priority, r.done, iso(r.completedAt), iso(r.created), r.notes]);
-  downloadFile('ping-reminders-' + isoDate(new Date()) + '.csv', '\ufeff' + [head, ...rows].map(r => r.map(q).join(',')).join('\r\n'), 'text/csv');
+  downloadFile('pinglapp-reminders-' + isoDate(new Date()) + '.csv', '\ufeff' + [head, ...rows].map(r => r.map(q).join(',')).join('\r\n'), 'text/csv');
   toast(t('csvDone'));
 }
 
@@ -3946,7 +3966,7 @@ function fire(r, occurrence) {
       .catch(e => { notifError = e.message || String(e); updateNotifUi(); });
   }
 }
-// Windows draws its notifications itself; the one thing a page can colour is the icon, so draw Ping's bell in the reminder's colour.
+// Windows draws its notifications itself; the one thing a page can colour is the icon, so draw Pinglapp's bell in the reminder's colour.
 const iconCache = {};
 function coloredIcon(color) {
   if (!color) return null;
@@ -4024,7 +4044,7 @@ function check() {
 let flashOn = false;
 function updateTitle() {
   const n = S.reminders.filter(isOverdue).length;
-  document.title = (flashOn ? '🔔 ' + t('titleCount', openAlerts.size) + ' · ' : (n ? `(${n}) ` : '')) + 'Ping';
+  document.title = (flashOn ? '🔔 ' + t('titleCount', openAlerts.size) + ' · ' : (n ? `(${n}) ` : '')) + 'Pinglapp';
 }
 setInterval(() => {
   flashOn = alertCfg().flash && document.hidden && openAlerts.size > 0 ? !flashOn : false; updateTitle();
@@ -4064,7 +4084,7 @@ const liveEd = $('liveEd');
 let live = null;            // { a, b }: the note lines [a, b) shown in the editor window; null while all of it is formatted
 let liveUnits = [], liveRows = 0, liveTimer = null;
 const liveOpen = () => !!live && !liveEd.hidden;
-// The cursor in the note, as Ping remembers it. While the editor doesn't have the keyboard focus, the browser may
+// The cursor in the note, as Pinglapp remembers it. While the editor doesn't have the keyboard focus, the browser may
 // quietly reset its cursor to the start (Edge does after a checkbox is ticked), and the open part follows the cursor,
 // so the note would jump to its beginning. So the cursor is tracked while you work and put back when you return.
 let liveSel = [0, 0];
@@ -4354,7 +4374,7 @@ function keepCaret(text) {
   let e = 0; while (e < max - s && old.charCodeAt(old.length - 1 - e) === text.charCodeAt(text.length - 1 - e)) e++;
   noteText.setRangeText(text.slice(s, text.length - e), s, old.length - e, 'preserve');
   const end = old.length - e, d = text.length - old.length, move = p => p <= s ? p : p >= end ? p + d : Math.min(p, text.length - e);
-  liveSel = liveSel.map(move);              // Ping's own copy of the cursor moves along the same way
+  liveSel = liveSel.map(move);              // Pinglapp's own copy of the cursor moves along the same way
   noteOverlay.schedule();
 }
 // Change the open note from outside the editor (ticking a box, picking a code language) and save it.
@@ -5137,7 +5157,7 @@ async function exportBackup() {
   const images = await imagesForFile(null), boards = await wbAllBoards();
   let data = withImages(S, images);
   if (boards.length) data = Object.assign({}, data, { boards });     // whiteboards travel in the backup too
-  downloadFile('ping-backup-' + isoDate(new Date()) + '.json', JSON.stringify(data, null, 2), 'application/json');
+  downloadFile('pinglapp-backup-' + isoDate(new Date()) + '.json', JSON.stringify(data, null, 2), 'application/json');
   S.settings.lastBackup = Date.now(); save(); updateBackupBanner();
   toast(t('backupDone'));
 }
@@ -5202,7 +5222,7 @@ const WB_T = {
     wbUntitled: 'Untitled board', wbMore: 'More', wbNoBoards: 'No boards yet.', wbDownloadFile: 'Download as a board file', wbDeleteBoard: 'Delete the board',
     wbSaveFailed: e => 'The board could not be saved: ' + e, wbStopToSwitch: 'This board is shared right now. Stop sharing and open the other board?',
     wbMissing: 'That board could not be opened.', wbCopySuffix: '(copy)', wbDuplicated: 'Board duplicated', wbConfirmDelete: x => `Delete the board “${x}”?`, wbDeleted: 'Board deleted',
-    wbImported: 'Board opened', wbNotBoard: 'That file is not a Ping board', wbNoExport: 'The host has switched off downloading for guests.', wbExported: 'Picture downloaded',
+    wbImported: 'Board opened', wbNotBoard: 'That file is not a Pinglapp board', wbNoExport: 'The host has switched off downloading for guests.', wbExported: 'Picture downloaded',
     wbCopySaved: 'A copy is saved in your own boards (Whiteboard tab).',
     wbNoRoom: 'Couldn’t find the board. The host may have closed it or stopped sharing, or the link is old.',
     wbNoService: 'Couldn’t reach the connection service. Check your internet connection and try again.',
@@ -5227,7 +5247,7 @@ const WB_T = {
     wbPermExport: 'Guests can download the board', wbPermApprove: 'Ask me before someone joins (waiting room)', wbPermFollow: 'Everyone follows my view (I lead)',
     wbLiveNow: n => n === 1 ? 'Live: 1 person has joined' : `Live: ${n} people have joined`, wbLink: 'Link to the board',
     wbLinkHint: 'Send the link to the people you want to invite. The board is live while this window is open; your copy is saved on this computer as usual.',
-    wbShareIntro: 'Invite others to draw with you <strong>live</strong>: everyone sees each other’s drawing, typing and mouse pointer as it happens. Ping makes a link that you send to them. No account is needed.',
+    wbShareIntro: 'Invite others to draw with you <strong>live</strong>: everyone sees each other’s drawing, typing and mouse pointer as it happens. Pinglapp makes a link that you send to them. No account is needed.',
     wbYourName: 'Your name', wbStart: 'Start sharing and make a link', wbStarting: 'Starting…', wbPeopleH: 'People on the board', wbNobodyYet: 'Nobody has joined yet.',
     wbHowH: 'How does sharing work, and is it private?',
     wbHowP: 'Your browser becomes the meeting place. A free public service (PeerJS) only helps the browsers find each other; the drawings then go directly between the browsers, encrypted. If a network blocks direct connections, the encrypted data passes through a relay that can’t read it. Nothing is stored anywhere else: the board lives on your computer, and it is live only while you have it open here. Anyone with the link can ask to join, so share it only with the people you want, use the waiting room, or make a new link to shut old ones out.',
@@ -5253,7 +5273,7 @@ const WB_T = {
     wbUntitled: 'Namnlös tavla', wbMore: 'Mer', wbNoBoards: 'Inga tavlor än.', wbDownloadFile: 'Ladda ner som tavelfil', wbDeleteBoard: 'Ta bort tavlan',
     wbSaveFailed: e => 'Tavlan kunde inte sparas: ' + e, wbStopToSwitch: 'Den här tavlan delas just nu. Sluta dela och öppna den andra tavlan?',
     wbMissing: 'Tavlan gick inte att öppna.', wbCopySuffix: '(kopia)', wbDuplicated: 'Tavlan har duplicerats', wbConfirmDelete: x => `Ta bort tavlan ”${x}”?`, wbDeleted: 'Tavlan togs bort',
-    wbImported: 'Tavlan öppnades', wbNotBoard: 'Den filen är inte en tavla från Ping', wbNoExport: 'Värden har stängt av nedladdning för gäster.', wbExported: 'Bilden har laddats ner',
+    wbImported: 'Tavlan öppnades', wbNotBoard: 'Den filen är inte en tavla från Pinglapp', wbNoExport: 'Värden har stängt av nedladdning för gäster.', wbExported: 'Bilden har laddats ner',
     wbCopySaved: 'En kopia är sparad bland dina egna tavlor (fliken Tavla).',
     wbNoRoom: 'Hittade inte tavlan. Värden har kanske stängt den eller slutat dela, eller så är länken gammal.',
     wbNoService: 'Kunde inte nå anslutningstjänsten. Kontrollera internetanslutningen och försök igen.',
@@ -5278,7 +5298,7 @@ const WB_T = {
     wbPermExport: 'Gäster får ladda ner tavlan', wbPermApprove: 'Fråga mig innan någon går med (väntrum)', wbPermFollow: 'Alla följer min vy (jag leder)',
     wbLiveNow: n => n === 1 ? 'Live: 1 person har gått med' : `Live: ${n} personer har gått med`, wbLink: 'Länk till tavlan',
     wbLinkHint: 'Skicka länken till dem du vill bjuda in. Tavlan är live så länge det här fönstret är öppet; din kopia sparas på datorn som vanligt.',
-    wbShareIntro: 'Bjud in andra att rita med dig <strong>live</strong>: alla ser varandras ritande, skrivande och muspekare medan det händer. Ping skapar en länk som du skickar till dem. Inget konto behövs.',
+    wbShareIntro: 'Bjud in andra att rita med dig <strong>live</strong>: alla ser varandras ritande, skrivande och muspekare medan det händer. Pinglapp skapar en länk som du skickar till dem. Inget konto behövs.',
     wbYourName: 'Ditt namn', wbStart: 'Börja dela och skapa en länk', wbStarting: 'Startar…', wbPeopleH: 'Personer på tavlan', wbNobodyYet: 'Ingen har gått med än.',
     wbHowH: 'Hur fungerar delningen, och är den privat?',
     wbHowP: 'Din webbläsare blir mötesplatsen. En gratis offentlig tjänst (PeerJS) hjälper bara webbläsarna att hitta varandra; ritningarna går sedan direkt mellan webbläsarna, krypterade. Om ett nätverk stoppar direkta anslutningar går den krypterade datan via en relästation som inte kan läsa den. Inget sparas någon annanstans: tavlan finns på din dator och är live bara medan du har den öppen här. Alla med länken kan be om att gå med, så dela den bara med dem du vill, använd väntrummet, eller skapa en ny länk för att stänga ute gamla.',
@@ -5304,7 +5324,7 @@ const WB_PEOPLE = ['#e03131', '#1971c2', '#2f9e44', '#9c36b5', '#f08c00', '#0c85
 const WB_SIZES = [2, 4, 8];
 const WB_LIVE_MS = 35;                                   // how often changes in progress and pointers are sent
 const PEERJS = { src: 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js', sri: 'sha384-x0YgkOr/3UOZP2CRDxGW9e0Q+2Qjyr3uJrm4xU32Y7ZCNAo7Cc7bjhrZMi/dwczu' };
-const PING_HOME = 'https://mohamedmrj.github.io/ping/';
+const PING_HOME = 'https://pinglapp.com/';
 const wbStore = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { } return null; };
 const wbSession = k => { try { let v = sessionStorage.getItem(k); if (!v) { v = Board.rid(12); sessionStorage.setItem(k, v); } return v; } catch (e) { return Board.rid(12); } };
 const wbLocalCid = (() => { let c = wbStore('ping.wbCid'); if (!c) { c = Board.rid(12); wbStore('ping.wbCid', c); } return c; })();
@@ -6351,7 +6371,7 @@ async function wbReloadOpen(changedIds) {
 async function wbExportFile(id) {
   await wbSaveNow();
   const b = id === (wb.board && wb.board.id) ? wb.board : JSON.parse(await kv.get('board-' + id));
-  downloadFile(fileSafe(b.title || t('wbUntitled')) + '.ping-board.json', JSON.stringify({ ping: 'board', version: 1, board: b }), 'application/json');
+  downloadFile(fileSafe(b.title || t('wbUntitled')) + '.pinglapp-board.json', JSON.stringify({ ping: 'board', version: 1, board: b }), 'application/json');
 }
 $('wbImportFile').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -6884,7 +6904,7 @@ $('wbShareDlg').addEventListener('change', e => {
 // (not on iPhone, for example). The list of boards hides in fullscreen until asked for, without changing the
 // remembered choice for the normal view.
 function wbFull() { return document.body.classList.contains('wb-full'); }
-let wbFsApi = false;   // true while the browser's own fullscreen is on because Ping asked for it
+let wbFsApi = false;   // true while the browser's own fullscreen is on because Pinglapp asked for it
 function wbSideShown() {
   const el = $('wb');
   if (wbFull()) return el.classList.contains('full-side');
@@ -6920,7 +6940,7 @@ async function wbSetFull(on) {
     else if (!on && wbFsApi && document.fullscreenElement) { wbFsApi = false; await document.exitFullscreen(); }
   } catch (e) { wbFsApi = false; }   // the browser said no: the board still fills the window
 }
-// Esc (or the browser's own exit) leaves the screen-wide fullscreen: leave Ping's as well.
+// Esc (or the browser's own exit) leaves the screen-wide fullscreen: leave Pinglapp's as well.
 document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && wbFsApi) { wbFsApi = false; wbSetFull(false); } });
 
 // ---------------------------------------------------------------- buttons, tab and start
@@ -6992,7 +7012,7 @@ function applyTheme() {
 // The newer themes need light-dark() (Chrome/Edge 123, Firefox 120, Safari 17.5). Older browsers show Lagoon for them,
 // so their buttons are hidden there.
 if (!(window.CSS && CSS.supports('color', 'light-dark(#000, #fff)'))) document.querySelectorAll('[data-palette-set][data-ld]').forEach(b => b.hidden = true);
-// "System" mode: follow the computer switching between light and dark while Ping is open.
+// "System" mode: follow the computer switching between light and dark while Pinglapp is open.
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', wbThemeChanged); } catch (e) { }
 $('themeSeg').addEventListener('click', e => { const b = e.target.closest('[data-theme-set]'); if (!b) return; S.settings.theme = b.dataset.themeSet; save(); applyTheme(); });
 // ---------------------------------------------------------------- Settings → Sound and look
@@ -7127,6 +7147,9 @@ document.addEventListener('click', e => {
     case 'setup-notif': askNotif().then(finishSetup); break;
     case 'setup-done': finishSetup(); break;
     case 'lock-take': claimWindow(true); break;
+    case 'move-start': moveStart(); break;
+    case 'move-close': $('moveDlg').hidden = true; break;
+    case 'move-file': $('moveDlg').hidden = true; fileOpen(); break;
     case 'startup-guide': openStartupGuide(); break;
     case 'close-startup': $('startupDlg').hidden = true; break;
     case 'copy-ping-url': copyText(pingUrl()); break;
@@ -7176,7 +7199,7 @@ function finishSetup() {
   if (!S.settings.onboarded || !S.settings.driveGuideSeen) { S.settings.onboarded = true; S.settings.driveGuideSeen = true; save(); }
 }
 
-// ---------------------------------------------------------------- open Ping when the browser starts
+// ---------------------------------------------------------------- open Pinglapp when the browser starts
 const pingUrl = () => location.protocol.startsWith('http') ? location.origin + location.pathname.replace(/index\.html$/, '') : location.href;
 // Where each browser keeps its startup setting. Browsers not listed get general instructions.
 const STARTUP = {
@@ -7196,7 +7219,7 @@ function openStartupGuide() {
   $('startupDlg').hidden = false;
 }
 
-// ---------------------------------------------------------------- keep Ping on top (Document Picture-in-Picture: Chrome and Edge)
+// ---------------------------------------------------------------- keep Pinglapp on top (Document Picture-in-Picture: Chrome and Edge)
 // A small window that floats above every other window. While it is open, the alert boxes and the snooze menu
 // move into it (styled exactly as chosen in Settings), with the next few reminders underneath.
 // Browsers only open it from a click, so it can't appear by itself when a reminder fires.
@@ -7210,9 +7233,9 @@ async function togglePip() {
     pipWin = w;
     const d = w.document;
     document.querySelectorAll('style').forEach(st => d.head.appendChild(st.cloneNode(true)));
-    d.title = 'Ping';
+    d.title = 'Pinglapp';
     d.body.className = 'pip';
-    d.body.innerHTML = '<div class="pip-head"><b>Ping</b><button class="btn sm" type="button" id="pipOpenMain"></button></div><section class="pip-next"><h2 id="pipNextH"></h2><ul class="list" id="pipNext"></ul></section>';
+    d.body.innerHTML = '<div class="pip-head"><b>Pinglapp</b><button class="btn sm" type="button" id="pipOpenMain"></button></div><section class="pip-next"><h2 id="pipNextH"></h2><ul class="list" id="pipNext"></ul></section>';
     d.body.prepend(alertsEl); d.body.appendChild(popEl);
     d.getElementById('pipOpenMain').addEventListener('click', () => window.focus());
     d.addEventListener('mousedown', e => { if (!popEl.hidden && !popEl.contains(e.target)) closePop(); });
@@ -7275,9 +7298,10 @@ function setActiveWindow(on) {
 }
 let fileInitDone = false;
 function maybeOnboard() {
-  if (!isActiveWindow || !fileInitDone || !$('setupDlg').hidden) return;
+  if (!isActiveWindow || !fileInitDone || !$('setupDlg').hidden || moveIncoming || !$('moveDlg').hidden) return;   // data moving in: wait for it
+  if (isOldHome) return;                  // the old address only offers the move; setting things up there is wasted
   if (!S.settings.onboarded) openSetup(0);
-  // People who set Ping up before the Google Drive guide existed and still have no save file see the guide once.
+  // People who set Pinglapp up before the Google Drive guide existed and still have no save file see the guide once.
   else if (fileApi && !fileHandle && !S.settings.driveGuideSeen) openSetup(0, true);
 }
 $('keysDlg').addEventListener('mousedown', e => { if (e.target === $('keysDlg')) $('keysDlg').hidden = true; });
@@ -7342,6 +7366,7 @@ document.addEventListener('keydown', e => {
     else if (!$('codeDlg').hidden) closeCodeDlg();
     else if (!$('linkDlg').hidden) closeLinkDlg();
     else if (!$('restoreDlg').hidden) { pendingRestore = null; $('restoreDlg').hidden = true; }
+    else if (!$('moveDlg').hidden) $('moveDlg').hidden = true;
     else if (!$('histDlg').hidden) $('histDlg').hidden = true;
     else if (!$('trashDlg').hidden) $('trashDlg').hidden = true;
     else if (!$('findBar').hidden) closeFind(false);
@@ -7401,7 +7426,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) saveNow();
   else { check(); renderReminders(); syncFile(); }
 });
-// Pick up changes made on another computer: when Ping gets focus, and every 30 seconds while it is on screen.
+// Pick up changes made on another computer: when Pinglapp gets focus, and every 30 seconds while it is on screen.
 addEventListener('focus', () => syncFile());
 setInterval(() => { if (!document.hidden && fileHandle && fileState !== 'needs-permission') syncFile(); }, 30000);
 // Minimised, less often: reminders added on another computer still go off here.
@@ -7420,9 +7445,126 @@ function renderAll() {
   setSide(sideOpen());
   renderAlertSettings();
   updatePipUi();
-  renderReminders(); renderNotes(); updateTitle(); updateNotifUi(); updateBackupBanner();
+  renderReminders(); renderNotes(); updateTitle(); updateNotifUi(); updateBackupBanner(); updateMoveBanner();
   wbUi(); wbRenderList(); wbRenderShare();
 }
+
+// ---------------------------------------------------------------- moving to pinglapp.com
+// Pinglapp used to live at mohamedmrj.github.io/ping/. A browser keeps data per address, so the old address hands each
+// person's data over: it opens pinglapp.com and sends everything with postMessage (the browser's channel between two
+// open windows). pinglapp.com only accepts it from the old address, from the window that opened it, and merges it in
+// with the usual newest-wins rules. Nothing is deleted on either side, so moving twice is harmless.
+// `var`, not const/let: renderAll() reads these and may run before this point; until then the banner just stays hidden.
+var MOVE = { from: 'https://mohamedmrj.github.io', to: 'https://pinglapp.com', url: 'https://pinglapp.com/#move-in', hash: '#move-in' };
+var isOldHome = location.origin === MOVE.from;
+var moveIncoming = location.origin === MOVE.to && location.hash === MOVE.hash && !!window.opener;
+var moveWin = null, moveWatch = null, moveStarted = 0;
+
+T.en.moveOpen = 'Open pinglapp.com'; T.en.moveDoneH = 'Your data has moved here'; T.en.moveFileBtn = 'Choose the save file…';
+T.en.moveDoneP = 'Use pinglapp.com from now on, and update your bookmarks. If you had installed Pinglapp as an app, install it again from here. You can close the window with the old address.';
+Object.assign(T.en, {
+  moveIntro: '<strong>Pinglapp has moved to pinglapp.com.</strong> Move your reminders, notes and boards there with one click. Nothing is deleted here.',
+  moveStart: 'Move my data', moveAgain: 'Move again',
+  moveBusy: 'Moving to pinglapp.com… Leave the new window open for a moment.',
+  moveDoneOld: d => `<strong>Done: your data is on pinglapp.com</strong> (moved ${d}). Use pinglapp.com from now on and update your bookmarks. If you have changed anything here since, click “Move again”.`,
+  moveBlocked: 'The browser blocked the new window. Allow pop-ups for this page and try again.',
+  moveNoAnswer: 'pinglapp.com didn’t answer. Check your internet connection and try again.',
+  moveFailed: 'The move couldn’t be finished. Nothing has changed here; please try again.',
+  moveDoneToast: 'Your data is now on pinglapp.com',
+  moveDoneInfo: (r, n, b) => `${r} reminders, ${n} notes and ${b} boards came over. Anything that was already here is kept.`,
+  moveFileStep: f => `One more step: at the old address, Pinglapp also saved to the file “${f}”. Choose it again here so Pinglapp keeps saving to it.`,
+  moveFailedHere: 'Your data couldn’t be received. Please try again from the old address.',
+});
+Object.assign(T.sv, {
+  moveIntro: '<strong>Pinglapp har flyttat till pinglapp.com.</strong> Flytta dina påminnelser, anteckningar och tavlor dit med ett klick. Inget tas bort här.',
+  moveStart: 'Flytta mina data', moveAgain: 'Flytta igen',
+  moveBusy: 'Flyttar till pinglapp.com… Låt det nya fönstret vara öppet en stund.',
+  moveDoneOld: d => `<strong>Klart, dina data finns på pinglapp.com</strong> (flyttade ${d}). Använd pinglapp.com från och med nu och byt dina bokmärken. Har du ändrat något här sedan dess, klicka på ”Flytta igen”.`,
+  moveBlocked: 'Webbläsaren stoppade det nya fönstret. Tillåt popup-fönster för den här sidan och försök igen.',
+  moveNoAnswer: 'pinglapp.com svarade inte. Kontrollera internetanslutningen och försök igen.',
+  moveFailed: 'Flytten gick inte att slutföra. Inget har ändrats här; försök igen.',
+  moveDoneToast: 'Dina data finns nu på pinglapp.com',
+  moveDoneInfo: (r, n, b) => `${r} påminnelser, ${n} anteckningar och ${b} tavlor har kommit hit. Det som redan fanns här finns kvar.`,
+  moveFileStep: f => `Ett steg till: på den gamla adressen sparade Pinglapp också i filen ”${f}”. Välj den igen här, så fortsätter Pinglapp att spara i den.`,
+  moveFailedHere: 'Dina data gick inte att ta emot. Försök igen från den gamla adressen.',
+});
+
+// The old address: a banner that starts the move, then says where the data went.
+function updateMoveBanner(errKey) {
+  const b = $('moveBanner'); if (!b) return;
+  b.hidden = !(isOldHome && isActiveWindow);
+  if (b.hidden) return;
+  const moved = S.settings.movedAt;
+  $('moveBannerText').innerHTML = errKey ? esc(t(errKey)) : moveWin ? esc(t('moveBusy')) : moved ? t('moveDoneOld', esc(fmtWhen(new Date(moved)))) : t('moveIntro');
+  $('moveStartBtn').textContent = t(moved ? 'moveAgain' : 'moveStart');
+  $('moveStartBtn').disabled = !!moveWin;
+  $('moveOpenBtn').hidden = !moved;
+}
+function moveStart() {
+  if (!isOldHome || moveWin) return;
+  save();
+  const w = window.open(MOVE.url, '_blank');       // not "noopener": the new window answers through window.opener
+  if (!w) { updateMoveBanner('moveBlocked'); return; }
+  moveWin = w; moveStarted = Date.now();
+  clearInterval(moveWatch);
+  moveWatch = setInterval(() => { if (moveWin && (moveWin.closed || Date.now() - moveStarted > 60000)) moveEnd('moveNoAnswer'); }, 1000);
+  updateMoveBanner();
+}
+function moveEnd(errKey) { clearInterval(moveWatch); moveWin = null; updateMoveBanner(errKey); }
+async function moveSend() {
+  const payload = Object.assign({}, withImages(S, await imagesForFile(null)), {
+    boards: await wbAllBoards(), hadSaveFile: fileHandle ? fileHandle.name : null });
+  if (moveWin) moveWin.postMessage({ type: 'pinglapp-move-data', data: JSON.parse(JSON.stringify(payload)) }, MOVE.to);
+}
+
+// pinglapp.com: opened by the old address with #move-in. It becomes the editing window (taking over from another
+// pinglapp.com window if needed), says it's ready, then merges what arrives.
+async function moveAnnounce() {
+  for (let i = 0; i < 100 && !(isActiveWindow && fileInitDone); i++) await new Promise(r => setTimeout(r, 100));
+  if (!moveIncoming) return;
+  if (!isActiveWindow) { moveIncoming = false; moveReply('pinglapp-move-failed'); return; }
+  moveReply('pinglapp-move-ready');
+}
+function moveReply(type) { try { window.opener && window.opener.postMessage({ type }, MOVE.from); } catch (e) { } }
+async function moveReceive(raw) {
+  moveIncoming = false;
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    if (!raw || typeof raw !== 'object' || !(Array.isArray(raw.reminders) || Array.isArray(raw.notes))) throw new Error('not Pinglapp data');
+    const data = normalize(JSON.parse(JSON.stringify(raw)));
+    const hadFile = typeof raw.hadSaveFile === 'string' ? raw.hadSaveFile.slice(0, 200) : '';
+    delete data.images; delete data.boards; delete data.hadSaveFile;
+    // A first visit here takes the old address's settings as they were (language, theme, sounds, "already set up"…);
+    // otherwise only the shared settings, newest wins, as with any merge.
+    const fresh = !S.reminders.length && !S.notes.length && !S.settings.onboarded;
+    if (raw.images) await pullImages(raw.images);
+    const boards = Array.isArray(raw.boards) ? raw.boards.length : 0;
+    if (boards) await wbRestoreBoards(raw.boards, false);
+    save();                                           // stamp anything changed here first
+    const m = mergeData(S, data);
+    if (fresh) { m.settings = Object.assign({}, data.settings); m.settingsUpdated = data.settingsUpdated; delete m.settings.movedAt; }
+    applyMerged(m);                                   // also redraws, in the language and theme that came over
+    $('moveDoneInfo').textContent = t('moveDoneInfo', data.reminders.length, data.notes.filter(isLive).length, boards);
+    const fileStep = !!(hadFile && fileApi && !fileHandle);
+    $('moveFileStep').hidden = !fileStep; $('moveFileBtn').hidden = !fileStep;
+    if (fileStep) $('moveFileStep').textContent = t('moveFileStep', hadFile);
+    $('moveDlg').hidden = false;
+    moveReply('pinglapp-move-done');
+  } catch (e) {
+    console.warn(e); moveReply('pinglapp-move-failed'); toast(t('moveFailedHere'));
+  }
+  maybeOnboard();
+}
+addEventListener('message', e => {
+  const m = e.data && typeof e.data === 'object' ? e.data : {};
+  if (isOldHome && moveWin && e.origin === MOVE.to && e.source === moveWin) {
+    if (m.type === 'pinglapp-move-ready') moveSend().catch(() => moveEnd('moveFailed'));
+    else if (m.type === 'pinglapp-move-done') { S.settings.movedAt = Date.now(); save(); moveEnd(); toast(t('moveDoneToast')); }
+    else if (m.type === 'pinglapp-move-failed') moveEnd('moveFailed');
+  } else if (moveIncoming && e.origin === MOVE.from && e.source === window.opener && m.type === 'pinglapp-move-data') {
+    moveReceive(m.data);
+  }
+});
 
 // ---------------------------------------------------------------- service worker (offline + system notifications)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
@@ -7442,8 +7584,9 @@ updateNoteStatus();
 loadImages();
 updateQuickPreview();
 updateSaveChip();
-if (wbGuestRoom) wbGuestBoot(wbGuestRoom);   // a whiteboard link: this window only shows that board and never touches Ping's own data
-else claimWindow(false);                // become the editing window (or show the "already open" notice)
+if (wbGuestRoom) wbGuestBoot(wbGuestRoom);   // a whiteboard link: this window only shows that board and never touches Pinglapp's own data
+else claimWindow(moveIncoming);         // become the editing window (or show the "already open" notice); data moving in takes over
+if (moveIncoming) moveAnnounce();
 initFile().then(() => {
   fileInitDone = true;
   maybeOnboard();

@@ -1,4 +1,4 @@
-// Pulls one marked block (/*NAME-START*/ … /*NAME-END*/) out of index.html and runs it, so the pure parts of Ping
+// Pulls one marked block (/*NAME-START*/ … /*NAME-END*/) out of index.html and runs it, so the pure parts of Pinglapp
 // can be tested in Node without a browser. Pass `globals` for anything the block expects to find.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';

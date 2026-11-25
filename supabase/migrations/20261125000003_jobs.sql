@@ -1,4 +1,4 @@
--- Ping: scheduled clean-up inside the database (pg_cron is included in Supabase Free).
+-- Pinglapp: scheduled clean-up inside the database (pg_cron is included in Supabase Free).
 -- cron.schedule() with an existing job name replaces that job, so running this file again is safe.
 
 create extension if not exists pg_cron;

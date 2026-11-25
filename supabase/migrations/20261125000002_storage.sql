@@ -1,4 +1,4 @@
--- Ping: file storage (avatars, pictures in notes, whiteboards) and the per-user quota.
+-- Pinglapp: file storage (avatars, pictures in notes, whiteboards) and the per-user quota.
 --
 -- Every file lives under a folder named after its owner's user id: {user_id}/...
 --

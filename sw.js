@@ -1,4 +1,4 @@
-// Ping service worker: makes the app installable and usable offline.
+// Pinglapp service worker: makes the app installable and usable offline.
 // Pages load from the network first (so everyone gets updates), falling back to the cached copy offline.
 const CACHE = 'ping-v2';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
@@ -27,7 +27,7 @@ self.addEventListener('fetch', e => {
   );
 });
 
-// Clicking a notification brings the Ping window to the front.
+// Clicking a notification brings the Pinglapp window to the front.
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {

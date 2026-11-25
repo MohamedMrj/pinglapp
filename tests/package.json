@@ -7,7 +7,7 @@
     "test": "node --test --test-concurrency=1 *.test.mjs *.test.cjs",
     "test:unit": "node --test sync.test.mjs cloud.test.mjs parser.test.mjs board.test.mjs hl.test.cjs sug.test.cjs",
     "test:db": "node --test db.test.mjs",
-    "test:app": "node --test --test-concurrency=1 app.test.mjs board.e2e.test.mjs"
+    "test:app": "node --test --test-concurrency=1 app.test.mjs board.e2e.test.mjs move.e2e.test.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.16",

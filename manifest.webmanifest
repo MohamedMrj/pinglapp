@@ -1,6 +1,6 @@
 {
-  "name": "Ping",
-  "short_name": "Ping",
+  "name": "Pinglapp",
+  "short_name": "Pinglapp",
   "description": "Påminnelser och anteckningar för utvecklare: snabbinmatning med vanligt språk, cron-scheman, taggar och Markdown-anteckningar.",
   "lang": "sv",
   "start_url": "./",

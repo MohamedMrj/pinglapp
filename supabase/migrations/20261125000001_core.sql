@@ -1,11 +1,11 @@
--- Ping: accounts, profiles and synced data.
+-- Pinglapp: accounts, profiles and synced data.
 --
 -- Every table has row-level security (RLS) on. Since 30 Oct 2026 Supabase no longer grants new tables to the API
 -- roles automatically, so each table below revokes everything and then grants exactly what the app needs.
 -- The app only ever holds the public "anon" key; what a signed-in user may touch is decided here.
 --
--- Synced items (reminders, notes, boards) are stored whole as jsonb, so new fields in Ping need no migration.
--- `updated` is Ping's own change stamp (ms). `server_at` is set by the server on every write and is the sync cursor,
+-- Synced items (reminders, notes, boards) are stored whole as jsonb, so new fields in Pinglapp need no migration.
+-- `updated` is Pinglapp's own change stamp (ms). `server_at` is set by the server on every write and is the sync cursor,
 -- because device clocks can't be trusted to say "what changed since".
 
 -- ---------------------------------------------------------------- helpers
@@ -13,7 +13,7 @@
 create or replace function public.is_reserved_username(name text) returns boolean
 language sql immutable set search_path = '' as $$
   select name = any (array[
-    'admin', 'administrator', 'root', 'system', 'support', 'help', 'helpdesk', 'ping', 'pingapp', 'staff', 'team',
+    'admin', 'administrator', 'root', 'system', 'support', 'help', 'helpdesk', 'ping', 'pingapp', 'pinglapp', 'staff', 'team',
     'moderator', 'mod', 'official', 'security', 'abuse', 'postmaster', 'webmaster', 'hostmaster', 'noreply', 'no_reply',
     'info', 'contact', 'mail', 'email', 'api', 'www', 'owner', 'null', 'undefined', 'anonymous', 'guest', 'user', 'users',
     'me', 'settings', 'account', 'accounts', 'login', 'logout', 'signin', 'signup', 'register', 'privacy', 'terms',

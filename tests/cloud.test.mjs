@@ -1,4 +1,4 @@
-// Sync with a Ping account: the CLOUD block of index.html (with the SYNC block it builds on).
+// Sync with a Pinglapp account: the CLOUD block of index.html (with the SYNC block it builds on).
 // A small in-memory server below follows the same rules as the database triggers in supabase/migrations
 // (newest wins, a deletion wins a tie, stamps far in the future refused, server_at moves forward), so whole
 // round trips between devices can be tested without a network.

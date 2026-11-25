@@ -97,6 +97,7 @@ test('anon can check username availability but read nothing', async () => {
   assert.equal(await avail('ALICE'), false);
   assert.equal(await avail('carol_99'), true);
   assert.equal(await avail('support'), false);
+  assert.equal(await avail('pinglapp'), false);
   assert.equal(await avail('ab'), false);
   for (const t of ['reminders', 'notes', 'profiles', 'account_private', 'user_settings', 'blocks', 'reports'])
     await fails(null, `select * from public.${t}`, [], /permission denied/);
