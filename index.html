@@ -1386,12 +1386,31 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 
     <div class="acct-view" data-acct-view="account">
       <p class="acct-who"><b id="acctWhoName"></b> <span id="acctWhoUser"></span><br><span class="hint" id="acctWhoEmail"></span></p>
-      <p class="hint" data-i18n="acctSyncSoon">Synkning mellan dina enheter kommer snart. Tills dess finns allt kvar på den här enheten, som vanligt.</p>
+      <p class="hint" id="acctSyncState" role="status"></p>
       <div class="modal-foot">
         <button class="btn sm" type="button" data-act="acct-signout-all" data-i18n="acctSignOutAll">Logga ut på alla enheter</button>
         <span class="spacer"></span>
         <button class="btn" type="button" data-act="acct-signout" data-i18n="acctSignOut">Logga ut</button>
         <button class="btn primary" type="button" data-act="acct-close" data-i18n="finished">Klar</button>
+      </div>
+    </div>
+
+    <div class="acct-view" data-acct-view="merge">
+      <p data-i18n="acctMergeP">Det finns påminnelser och anteckningar på den här enheten. Vill du lägga till dem i ditt konto? Då finns de på alla dina enheter.</p>
+      <p class="hint" data-i18n="acctMergeHint">Väljer du nej laddas en säkerhetskopia av det som finns här ner först, och sedan visas bara det som finns i kontot.</p>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-act="acct-replace" data-i18n="acctMergeNo">Nej, bara kontots</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="button" data-act="acct-merge" data-i18n="acctMergeYes">Ja, lägg till dem</button>
+      </div>
+    </div>
+
+    <div class="acct-view" data-acct-view="other">
+      <p data-i18n="acctOtherP">Det som finns på den här enheten hör till ett annat konto. För att hålla kontona isär blandas det inte ihop med ditt. En säkerhetskopia av det laddas ner först, sedan visas ditt konto här.</p>
+      <div class="modal-foot">
+        <button class="btn" type="button" data-act="acct-signout" data-i18n="acctSignOut">Logga ut</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="button" data-act="acct-replace" data-i18n="acctOtherGo">Ladda ner kopian och fortsätt</button>
       </div>
     </div>
 
@@ -3072,6 +3091,7 @@ function save() {
   if (!err) { if (lastSaveError) toast(t('savedAgain')); lastSavedAt = S.savedAt; lastSaveError = ''; }
   else { const msg = isQuota(err) ? t('storageFull') : err.message; if (msg !== lastSaveError) toast(t('saveFailed', msg)); lastSaveError = msg; }
   scheduleFileSave();
+  cloudSchedule();
   updateSaveChip();
   snapshotDaily();
 }
@@ -7253,7 +7273,9 @@ document.addEventListener('click', e => {
     case 'setup-notif': askNotif().then(finishSetup); break;
     case 'setup-done': finishSetup(); break;
     case 'lock-take': claimWindow(true); break;
-    case 'acct-open': acctOpen(acct.session ? (acct.profile === null ? 'username' : 'account') : 'signin'); break;
+    case 'acct-open': acctOpen(acctHomeView()); break;
+    case 'acct-merge': cloudMergeHere(); break;
+    case 'acct-replace': cloudReplaceHere(); break;
     case 'acct-view': acctShow(b.dataset.to); break;
     case 'acct-close': $('acctDlg').hidden = true; break;
     case 'acct-oauth': acctOAuth(b.dataset.provider); break;
@@ -7405,7 +7427,7 @@ function setActiveWindow(on) {
   if (!on && was && noteTimer) saveNow();
   isActiveWindow = on;
   $('lockDlg').hidden = on;
-  if (on && !was) { S = load(); keepUnreadable(); rebase(); curNote = null; renderAll(); check(); syncFile().then(maybeOnboard); }
+  if (on && !was) { S = load(); keepUnreadable(); rebase(); curNote = null; renderAll(); check(); syncFile().then(maybeOnboard); cloudSync(); }
   if (!on) [...openAlerts.keys()].forEach(closeAlert);
 }
 let fileInitDone = false;
@@ -7537,10 +7559,10 @@ addEventListener('pagehide', saveNow);
 addEventListener('beforeunload', saveNow);
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) saveNow();
-  else { check(); renderReminders(); syncFile(); }
+  else { check(); renderReminders(); syncFile(); cloudSync(); }
 });
 // Pick up changes made on another computer: when Pinglapp gets focus, and every 30 seconds while it is on screen.
-addEventListener('focus', () => syncFile());
+addEventListener('focus', () => { syncFile(); cloudSync(); });
 setInterval(() => { if (!document.hidden && fileHandle && fileState !== 'needs-permission') syncFile(); }, 30000);
 // Minimised, less often: reminders added on another computer still go off here.
 setInterval(() => { if (document.hidden && fileHandle && fileState !== 'needs-permission') syncFile(); }, 120000);
@@ -7584,8 +7606,12 @@ Object.assign(T.en, {
   acctForgotP: 'Type your email address and we’ll send you a link where you choose a new password.', acctBack: 'Back',
   acctSendLink: 'Send link', acctRepeat: 'Type the password again', acctSavePassword: 'Save the new password',
   acctUsernameP: 'Pick a username. Others can find you by it; your email is never shown.', acctSignOut: 'Log out', acctContinue: 'Continue',
-  acctSyncSoon: 'Syncing between your devices is coming soon. Until then everything stays on this device, as usual.',
   acctSignOutAll: 'Log out on all devices', acctClose: 'Close',
+  acctMergeP: 'There are reminders and notes on this device. Do you want to add them to your account? Then they’re on all your devices.',
+  acctMergeHint: 'If you choose no, a backup of what’s here is downloaded first, and then only what’s in the account is shown.',
+  acctMergeNo: 'No, only the account’s', acctMergeYes: 'Yes, add them',
+  acctOtherP: 'What’s on this device belongs to another account. To keep accounts apart, it isn’t mixed in with yours. A backup of it is downloaded first, then your account is shown here.',
+  acctOtherGo: 'Download the backup and continue',
 });
 const ACCT_T = {
   en: {
@@ -7609,6 +7635,13 @@ const ACCT_T = {
     acctErrClosed: 'New accounts can’t be created right now.', acctErrSame: 'The new password must differ from the old one.',
     acctErrCaptcha: 'The robot check failed. Reload the page and try again.', acctErrExists: 'There’s already an account for that email. Log in instead.',
     acctErrOther: m => `Something went wrong: ${m}`,
+    acctT_merge: 'Your data on this device', acctT_other: 'Another account’s data',
+    cloudOk: d => `Synced with your account ${d}.`, cloudSyncing: 'Syncing…', cloudIdle: 'Not synced yet.',
+    cloudOffline: 'Offline. Your changes are kept here and sync when you’re back online.',
+    cloudError: m => `Syncing failed (${m}). Pinglapp tries again by itself; nothing here is lost.`,
+    cloudTooBig: n => n === 1 ? 'One note is too big to sync (over a million characters). It stays on this device.' : `${n} notes are too big to sync (over a million characters). They stay on this device.`,
+    cloudWaiting: 'Waiting for your answer about the data on this device.',
+    cloudNoPics: 'Pictures in notes and whiteboards don’t sync yet; they stay on this device.',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -7631,6 +7664,13 @@ const ACCT_T = {
     acctErrClosed: 'Det går inte att skapa nya konton just nu.', acctErrSame: 'Det nya lösenordet måste skilja sig från det gamla.',
     acctErrCaptcha: 'Robotkontrollen misslyckades. Ladda om sidan och försök igen.', acctErrExists: 'Det finns redan ett konto för den e-postadressen. Logga in i stället.',
     acctErrOther: m => `Något gick fel: ${m}`,
+    acctT_merge: 'Din data på den här enheten', acctT_other: 'Ett annat kontos data',
+    cloudOk: d => `Synkat med ditt konto ${d}.`, cloudSyncing: 'Synkar…', cloudIdle: 'Inte synkat än.',
+    cloudOffline: 'Offline. Dina ändringar finns kvar här och synkas när du är online igen.',
+    cloudError: m => `Synkningen misslyckades (${m}). Pinglapp försöker igen av sig själv; inget här går förlorat.`,
+    cloudTooBig: n => n === 1 ? 'En anteckning är för stor för att synkas (över en miljon tecken). Den finns kvar på den här enheten.' : `${n} anteckningar är för stora för att synkas (över en miljon tecken). De finns kvar på den här enheten.`,
+    cloudWaiting: 'Väntar på ditt svar om datan på den här enheten.',
+    cloudNoPics: 'Bilder i anteckningar och tavlor synkas inte än; de finns kvar på den här enheten.',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -7699,7 +7739,7 @@ async function acctOnAuth(ev, session) {
   const back = acct.back; acct.back = null;
   if (back) acctCleanUrl();
   if (!session) {
-    acct.profile = undefined; acct.priv = null; updateAcctChip();
+    acct.profile = undefined; acct.priv = null; acct.pendingStep = null; updateAcctChip();
     if (back) acctOpen('signin', t('acctLinkBad'), 'bad');
     else if (!$('acctDlg').hidden && ['account', 'username', 'reset'].includes(acct.view)) acctShow('signin');
     return;
@@ -7713,6 +7753,14 @@ async function acctOnAuth(ev, session) {
   if (!acct.profile) acctOpen('username');                   // e.g. after the first Google sign-in: a username comes first
   else if (back) acctOpen('account', t('acctConfirmed'), 'ok');
   else if (open && (acct.view === 'signin' || acct.view === 'signup')) acctShow('account', t('acctSignedIn'), 'ok');
+  if (acct.profile) cloudStart();                            // may ask about the data on this device first
+}
+// The step the account chip opens: whatever the account still needs, else the account page.
+function acctHomeView() {
+  if (!acct.session) return 'signin';
+  if (acct.profile === null) return 'username';
+  if (acct.pendingStep) return acct.pendingStep === 'ask' ? 'merge' : 'other';
+  return 'account';
 }
 // Your own profile and private account row (row-level security only ever returns your own).
 async function acctLoadProfile() {
@@ -7732,10 +7780,14 @@ function updateAcctChip() {
   const c = $('acctChip'); if (!c || !acct) return;
   c.hidden = !acct.project;
   if (c.hidden) return;
-  const signed = !!acct.session;
-  c.classList.toggle('on', signed);
+  const signed = !!acct.session, st = signed && cloud ? cloud.state : '';
+  c.classList.remove('on', 'off', 'bad');
+  if (st === 'ok') c.classList.add('on');
+  else if (st === 'offline' || st === 'toobig' || st === 'waiting') c.classList.add('off');
+  else if (st === 'error') c.classList.add('bad');
   $('acctChipText').textContent = signed ? (acct.profile ? '@' + acct.profile.username : t('acctAccount')) : t('acctSignIn');
-  c.title = signed ? (acct.session.user && acct.session.user.email) || '' : t('acctChipTitle');
+  c.title = signed ? [(acct.session.user && acct.session.user.email) || '', cloudStatusText()].filter(Boolean).join('\n') : t('acctChipTitle');
+  if (signed && !$('acctDlg').hidden && acct.view === 'account') $('acctSyncState').textContent = cloudStatusText() + ' ' + t('cloudNoPics');
 }
 
 function acctOpen(view, msg, kind) {
@@ -7754,6 +7806,7 @@ function acctShow(view, msg, kind) {
     $('acctWhoName').textContent = p.display_name || '';
     $('acctWhoUser').textContent = p.username ? '@' + p.username : '';
     $('acctWhoEmail').textContent = u.email || '';
+    $('acctSyncState').textContent = cloudStatusText() + ' ' + t('cloudNoPics');
   }
   if (view === 'username') v.querySelector('[data-terms]').hidden = !!(acct.priv && acct.priv.terms_accepted_at);
   if (view === 'signin' || view === 'signup') acctProviders();
@@ -7879,6 +7932,7 @@ async function acctSubmit(view, f) {
       await acctLoadProfile(); updateAcctChip();
       f.reset(); f.querySelector('.acct-uname').textContent = '';
       acctShow('account', t('acctWelcome', '@' + name), 'ok');
+      cloudStart();
     }
   } catch (e) { acctMsg(acctErr(e), 'bad'); }
   finally { btns.forEach(b => { b.disabled = false; }); }
@@ -7892,7 +7946,8 @@ async function acctOAuth(provider) {
 }
 async function acctSignOut(everywhere) {
   try { const c = await acctClient(); await c.auth.signOut({ scope: everywhere ? 'global' : 'local' }); } catch (e) { }
-  acct.session = null; acct.profile = undefined; acct.priv = null;
+  acct.session = null; acct.profile = undefined; acct.priv = null; acct.pendingStep = null;
+  clearTimeout(cloud.timer); cloud.state = 'idle';
   updateAcctChip(); $('acctDlg').hidden = true;
   toast(t('acctSignedOut'));
 }
@@ -7903,6 +7958,173 @@ document.querySelectorAll('#acctDlg form.acct-view').forEach(f => {
     if (e.target.name === 'password') acctMeter(f);
   });
 });
+
+// ---------------------------------------------------------------- sync with the account: reminders, notes, settings
+// The local copy stays the source of truth: the app never waits for the network. A sync pulls what changed on the
+// server since last time, merges it with the usual newest-wins rules (cloudApply), pushes what the server doesn't have
+// (cloudPushSet), and fetches the server's copy of anything it refused because it already had something newer.
+// Only the editing window syncs. Pictures and boards follow in a later step.
+var CLOUD_STORE = 'pinglapp.cloud';               // this device's sync state (see cloudState); never in the save file or backups
+var cloud = { cs: null, busy: false, again: false, timer: null, state: 'idle', error: '', at: 0, tooBig: 0, selfSave: false };
+function cloudLoad() { try { return cloudState(JSON.parse(localStorage.getItem(CLOUD_STORE))); } catch (e) { return cloudState(null); } }
+function cloudKeep() { try { localStorage.setItem(CLOUD_STORE, JSON.stringify(cloud.cs)); } catch (e) { } }
+function cloudStatus(state, err) {
+  cloud.state = state; cloud.error = err ? acctErr(err) : '';
+  if (state === 'ok' || state === 'toobig') cloud.at = Date.now();
+  updateAcctChip();
+}
+function cloudStatusText() {
+  if (!cloud) return '';
+  switch (cloud.state) {
+    case 'ok': return t('cloudOk', fmtTime(new Date(cloud.at)));
+    case 'syncing': return t('cloudSyncing');
+    case 'offline': return t('cloudOffline');
+    case 'toobig': return t('cloudTooBig', cloud.tooBig);
+    case 'waiting': return t('cloudWaiting');
+    case 'error': return t('cloudError', cloud.error);
+    default: return t('cloudIdle');
+  }
+}
+const cloudNetErr = e => navigator.onLine === false || (e && e.status === 0) || /failed to fetch|network|load failed/i.test((e && e.message) || '');
+
+// After signing in (and picking a username): decide what to do with the data already on this device.
+function cloudStart() {
+  if (!cloud || !acct.session || !acct.profile || !isActiveWindow) return;
+  const uid = acct.session.user.id, cs = cloudLoad(), step = cloudFirstStep(cs, uid, S);
+  if (step === 'same') { acct.pendingStep = null; cloudSync(); return; }
+  if (step === 'empty') {
+    // Nothing here yet: take the account's data. Leftover tombstones and guest settings must not overrule it.
+    S.deleted = {}; S.settingsUpdated = 0; rebase(); cloud.selfSave = true; try { save(); } finally { cloud.selfSave = false; }
+    cloud.cs = cloudState({ owner: uid }); cloudKeep();
+    acct.pendingStep = null; cloudSync(); return;
+  }
+  acct.pendingStep = step;                        // 'ask' (a guest's data) or 'other' (another account's)
+  cloudStatus('waiting');
+  acctOpen(step === 'ask' ? 'merge' : 'other');
+}
+// "Yes, add them": this device's data becomes the account's.
+function cloudMergeHere() {
+  if (!acct.session) return;
+  cloud.cs = cloudState({ owner: acct.session.user.id }); cloudKeep();
+  acct.pendingStep = null;
+  acctShow('account'); cloudSync();
+}
+// "No" / another account's data: download a backup of what's here, then show only the account's data.
+async function cloudReplaceHere() {
+  if (!acct.session) return;
+  const uid = acct.session.user.id;
+  await exportBackup();
+  const keep = S.settings;
+  S = normalize({ settings: keep }); S.settingsUpdated = 0;
+  rebase(); curNote = null;                       // rebase first: removing the old items must not leave tombstones to push
+  cloud.selfSave = true; try { save(); } finally { cloud.selfSave = false; }
+  renderAll();
+  cloud.cs = cloudState({ owner: uid }); cloudKeep();
+  acct.pendingStep = null;
+  acctShow('account'); cloudSync();
+}
+// A change was saved: sync a few seconds later (several quick changes go up together).
+function cloudSchedule(ms = 3000) {
+  if (!cloud || !acct || !acct.session || cloud.selfSave) return;
+  if (cloud.busy) { cloud.again = true; return; }
+  clearTimeout(cloud.timer); cloud.timer = setTimeout(cloudSync, ms);
+}
+function cloudMerge(pulled) {
+  const m = cloudApply(S, pulled, cloud.cs);
+  if (syncKey(m) === syncKey(S)) return;
+  cloud.selfSave = true;
+  try { applyMerged(m); } finally { cloud.selfSave = false; }
+}
+async function cloudPull(c, kind, since) {
+  const out = [];
+  let after = since;
+  for (let page = 0; page < 100; page++) {
+    let q = c.from(kind).select('id,data,updated,deleted,server_at').order('server_at', { ascending: true }).limit(500);
+    if (after) q = q.gt('server_at', after);
+    const { data, error } = await q;
+    if (error) throw error;
+    out.push(...(data || []));
+    if (!data || data.length < 500) break;
+    after = data[data.length - 1].server_at;
+  }
+  return out;
+}
+async function cloudFetch(c, kind, ids) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await c.from(kind).select('id,data,updated,deleted,server_at').in('id', ids.slice(i, i + 100));
+    if (error) throw error;
+    out.push(...(data || []));
+  }
+  return out;
+}
+// Rows go up in batches of at most 200 rows or about 1.5 million characters.
+function cloudChunks(rows) {
+  const out = [];
+  let cur = [], size = 0;
+  for (const r of rows) {
+    const n = JSON.stringify(r.data).length;
+    if (cur.length && (cur.length >= 200 || size + n > 1500000)) { out.push(cur); cur = []; size = 0; }
+    cur.push(r); size += n;
+  }
+  if (cur.length) out.push(cur);
+  return out;
+}
+async function cloudPush(c, uid, set) {
+  const accepted = { reminders: [], notes: [] };
+  for (const kind of CLOUD_KINDS) for (const chunk of cloudChunks(set[kind])) {
+    const rows = chunk.map(r => ({ user_id: uid, id: r.id, data: r.data, updated: r.updated, deleted: r.deleted }));
+    const { data, error } = await c.from(kind).upsert(rows, { onConflict: 'user_id,id' }).select('id');
+    if (error) throw error;
+    accepted[kind].push(...(data || []).map(r => r.id));
+  }
+  if (set.settings) {
+    const { error } = await c.from('user_settings')
+      .upsert({ user_id: uid, data: set.settings.data, settings_updated: set.settings.settings_updated }, { onConflict: 'user_id' }).select('user_id');
+    if (error) throw error;
+  }
+  return accepted;
+}
+async function cloudSync() {
+  if (!cloud || !acct) return false;
+  clearTimeout(cloud.timer); cloud.timer = null;
+  if (!acct.session || !acct.client || !acct.profile || acct.pendingStep || !isActiveWindow) return false;
+  if (cloud.busy) { cloud.again = true; return false; }
+  if (!$('editor').hidden) { cloudSchedule(5000); return false; }    // never swap data under an open editor
+  const uid = acct.session.user.id;
+  cloud.cs = cloudLoad();
+  if (cloud.cs.owner !== uid) { cloudStart(); return false; }       // e.g. another window switched accounts
+  cloud.busy = true; cloudStatus('syncing');
+  const c = acct.client;
+  let ok = false;
+  try {
+    cloud.selfSave = true;
+    try { if (noteTimer) { clearTimeout(noteTimer); noteTimer = null; } save(); } finally { cloud.selfSave = false; }   // stamp what's being typed
+    const settings = await c.from('user_settings').select('data,settings_updated,server_at').maybeSingle();
+    if (settings.error) throw settings.error;
+    const pulled = { reminders: await cloudPull(c, 'reminders', cloudSince(cloud.cs, 'reminders')),
+      notes: await cloudPull(c, 'notes', cloudSince(cloud.cs, 'notes')), settings: settings.data };
+    cloudMerge(pulled);
+    const set = cloudPushSet(S, cloud.cs);
+    const refetch = cloudPushed(cloud.cs, set, await cloudPush(c, uid, set));
+    if (refetch.reminders.length || refetch.notes.length)
+      cloudMerge({ reminders: await cloudFetch(c, 'reminders', refetch.reminders), notes: await cloudFetch(c, 'notes', refetch.notes) });
+    cloudPrune(S, cloud.cs);
+    cloud.tooBig = set.tooBig.length;
+    cloudStatus(cloud.tooBig ? 'toobig' : 'ok');
+    ok = true;
+  } catch (e) {
+    console.warn('sync', e);
+    cloudStatus(cloudNetErr(e) ? 'offline' : 'error', e);
+  } finally {
+    cloudKeep();                                  // stamps learned so far are kept even when a later step failed
+    cloud.busy = false;
+    if (cloud.again) { cloud.again = false; cloudSchedule(1000); }
+  }
+  return ok;
+}
+addEventListener('online', () => cloudSync());
+setInterval(() => { if (!document.hidden) cloudSync(); }, 120000);
 
 // ---------------------------------------------------------------- moving to pinglapp.com
 // Pinglapp used to live at mohamedmrj.github.io/ping/. A browser keeps data per address, so the old address hands each

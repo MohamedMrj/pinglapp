@@ -9,6 +9,7 @@ import { join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import { chromium } from 'playwright-core';
+import { FAKE } from './fake-supabase.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
@@ -35,63 +36,6 @@ before(async () => {
   browser = await chromium.launch(findBrowser());
 });
 after(async () => { await browser?.close(); server?.close(); });
-
-// The stand-in: just enough of supabase-js for the screens, recording every call in PING_ACCOUNTS_FAKE.db.calls.
-const FAKE = () => {
-  const db = JSON.parse(sessionStorage.getItem('fakedb') || 'null') || {
-    users: { 'a@example.com': { pw: 'correct-horse-1', id: 'u-a' }, 'b@example.com': { pw: 'correct-horse-2', id: 'u-b' } },
-    profiles: { 'u-a': { username: 'alice', display_name: 'Alice' } }, priv: { 'u-a': { terms_accepted_at: '2026-11-01' }, 'u-b': {} },
-    taken: ['alice', 'admin'], calls: [], created: 0,
-  };
-  const keep = () => sessionStorage.setItem('fakedb', JSON.stringify(db));
-  let cbs = [], session = null;
-  try { session = JSON.parse(localStorage.getItem('pinglapp.auth')); } catch { }
-  const setSession = (s, ev) => {
-    session = s;
-    if (s) localStorage.setItem('pinglapp.auth', JSON.stringify(s)); else localStorage.removeItem('pinglapp.auth');
-    cbs.forEach(cb => cb(ev, session));
-  };
-  const call = (...c) => { db.calls.push(c); keep(); };
-  const client = {
-    auth: {
-      onAuthStateChange(cb) {
-        cbs.push(cb);
-        setTimeout(() => cb(sessionStorage.getItem('fakeRecovery') ? 'PASSWORD_RECOVERY' : 'INITIAL_SESSION', session));
-        return { data: { subscription: { unsubscribe() { } } } };
-      },
-      async signInWithPassword({ email, password }) {
-        call('signIn', email);
-        const u = db.users[email];
-        if (!u || u.pw !== password) return { data: {}, error: { code: 'invalid_credentials', status: 400, message: 'Invalid login credentials' } };
-        setSession({ user: { id: u.id, email } }, 'SIGNED_IN');
-        return { data: {}, error: null };
-      },
-      async signUp(a) { call('signUp', a); return { data: { user: {}, session: null }, error: null }; },
-      async resetPasswordForEmail(email, o) { call('reset', email, o); return { data: {}, error: null }; },
-      async updateUser(a) { call('updateUser', a); return { data: {}, error: null }; },
-      async signOut(o) { call('signOut', o && o.scope); if (!o || o.scope !== 'others') setSession(null, 'SIGNED_OUT'); return { error: null }; },
-      async signInWithOAuth(a) { call('oauth', a.provider); return { error: null }; },
-    },
-    from(table) {
-      return { select() { return { async maybeSingle() {
-        const id = session && session.user.id, src = table === 'profiles' ? db.profiles : db.priv;
-        return { data: (id && src[id]) || null, error: null };
-      } }; } };
-    },
-    async rpc(name, args) {
-      call('rpc', name, args);
-      if (name === 'username_available') return { data: !db.taken.includes(args.name), error: null };
-      if (name === 'set_username') {
-        if (db.taken.includes(args.name)) return { data: null, error: { code: '23505', hint: 'username_taken', message: 'username taken' } };
-        db.profiles[session.user.id] = { username: args.name, display_name: null }; keep();
-        return { data: args.name, error: null };
-      }
-      if (name === 'accept_terms') { db.priv[session.user.id] = { terms_accepted_at: 'now' }; keep(); return { data: null, error: null }; }
-      return { data: null, error: { message: 'unknown rpc ' + name } };
-    },
-  };
-  window.PING_ACCOUNTS_FAKE = { createClient: () => { db.created++; keep(); return client; }, providers: { google: true, azure: false }, db };
-};
 
 async function open({ session, recovery, url = base, fake = true, route } = {}) {
   const ctx = await browser.newContext({ serviceWorkers: 'block' });
