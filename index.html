@@ -514,7 +514,28 @@ details.adv[open] { display: grid; gap: 8px; }
 .modal h2 { margin: 0; font: 600 18px var(--font-display); }
 .field { display: grid; gap: 5px; min-width: 0; }
 .field > span { font-size: 12.5px; font-weight: 600; color: var(--muted); }
-.field input[type=text], .field input[type=number], .field input[type=datetime-local], .field select, .field textarea { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); width: 100%; }
+.field input[type=text], .field input[type=number], .field input[type=datetime-local], .field input[type=email], .field input[type=password], .field select, .field textarea { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); width: 100%; }
+/* account dialog */
+.modal.acct { width: min(440px, 100%); }
+.acct-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.acct-view { display: grid; gap: 12px; }
+.acct-view[hidden] { display: none; }
+.acct-msg { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 13.5px; background: var(--surface-2); }
+.acct-msg.bad { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.acct-msg.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.acct-oauth { display: grid; gap: 8px; }
+.acct-oauth[hidden] { display: none; }
+.acct-or { margin: 2px 0 0; text-align: center; font-size: 12.5px; color: var(--muted); }
+.acct-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; }
+.acct-check[hidden] { display: none; }
+.acct-uname:empty { display: none; }
+.acct-uname.bad { color: var(--danger); }
+.acct-uname.ok { color: var(--ok); }
+.acct-who { margin: 0; }
+.pw-meter { height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: -6px; }
+.pw-meter i { display: block; height: 100%; width: 0; background: var(--danger); transition: width .15s; }
+.pw-meter[data-s="2"] i { background: var(--warn); }
+.pw-meter[data-s="3"] i, .pw-meter[data-s="4"] i { background: var(--ok); }
 .field textarea { min-height: 90px; resize: vertical; }
 .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 #edTitle { font-size: 16px; }
@@ -697,6 +718,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     </div>
     <button class="chip" id="saveChip" type="button"><span class="dot"></span><span id="saveChipText">Sparat</span></button>
     <button class="chip" id="notifChip" type="button"><span class="dot"></span><span id="notifChipText">Aviseringar</span></button>
+    <button class="chip" id="acctChip" type="button" data-act="acct-open" hidden><span class="dot"></span><span id="acctChipText">Logga in</span></button>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="reminders" aria-selected="true" type="button" data-i18n="tabReminders">Påminnelser</button>
       <button role="tab" data-tab="notes" aria-selected="false" type="button" data-i18n="tabNotes">Anteckningar</button>
@@ -1292,6 +1314,90 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     <h2 id="lockTitle" data-i18n="lockT">Pinglapp är redan öppen i ett annat fönster</h2>
     <p data-i18n="lockP">För att inget du skriver ska skrivas över kan Pinglapp bara användas i ett fönster åt gången. Påminnelserna visas i det andra fönstret.</p>
     <div class="modal-foot"><span class="spacer"></span><button class="btn primary" type="button" data-act="lock-take" data-i18n="lockTake">Använd det här fönstret i stället</button></div>
+  </div>
+</div>
+
+<!-- account: log in, create an account, forgot/new password, pick a username, the account page -->
+<div class="scrim" id="acctDlg" hidden>
+  <div class="modal acct" role="dialog" aria-labelledby="acctTitle">
+    <div class="acct-head"><h2 id="acctTitle"></h2><button class="btn ghost sm" type="button" data-act="acct-close" aria-label="Stäng" title="Stäng" data-i18n-aria="acctClose" data-i18n-title="acctClose">✕</button></div>
+    <p class="acct-msg" id="acctMsg" hidden role="status"></p>
+
+    <form class="acct-view" data-acct-view="signin" novalidate>
+      <div class="acct-oauth" hidden>
+        <button class="btn" type="button" data-act="acct-oauth" data-provider="google" hidden data-i18n="acctGoogle">Fortsätt med Google</button>
+        <button class="btn" type="button" data-act="acct-oauth" data-provider="azure" hidden data-i18n="acctMicrosoft">Fortsätt med Microsoft</button>
+        <p class="acct-or" data-i18n="acctOr">eller med e-post</p>
+      </div>
+      <label class="field"><span data-i18n="acctEmail">E-post</span><input type="email" name="email" autocomplete="email" required></label>
+      <label class="field"><span data-i18n="acctPassword">Lösenord</span><input type="password" name="password" autocomplete="current-password" required></label>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="forgot" data-i18n="acctForgot">Glömt lösenordet?</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="submit" data-i18n="acctSignIn">Logga in</button>
+      </div>
+      <p class="hint"><span data-i18n="acctNoAccount">Inget konto än?</span> <button class="btn ghost sm" type="button" data-act="acct-view" data-to="signup" data-i18n="acctCreate">Skapa ett konto</button></p>
+    </form>
+
+    <form class="acct-view" data-acct-view="signup" novalidate>
+      <p class="hint" data-i18n="acctSignupP">Med ett konto finns dina påminnelser och anteckningar på alla dina enheter. Pinglapp fungerar lika bra utan konto.</p>
+      <label class="field"><span data-i18n="acctEmail">E-post</span><input type="email" name="email" autocomplete="email" required></label>
+      <label class="field"><span data-i18n="acctNewPassword">Lösenord (minst 10 tecken)</span><input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+      <div class="pw-meter" aria-hidden="true"><i></i></div>
+      <label class="field"><span data-i18n="acctUsername">Användarnamn</span><input type="text" name="username" autocomplete="username" maxlength="20" spellcheck="false" autocapitalize="none" required></label>
+      <p class="hint acct-uname" aria-live="polite"></p>
+      <label class="field"><span data-i18n="acctDisplayName">Namn som andra ser (valfritt)</span><input type="text" name="display_name" autocomplete="name" maxlength="50"></label>
+      <label class="acct-check"><input type="checkbox" name="terms" required> <span data-i18n="acctTerms">Jag godkänner villkoren och integritetspolicyn och är minst 13 år.</span></label>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="signin" data-i18n="acctHaveAccount">Jag har redan ett konto</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="submit" data-i18n="acctCreate">Skapa ett konto</button>
+      </div>
+    </form>
+
+    <form class="acct-view" data-acct-view="forgot" novalidate>
+      <p class="hint" data-i18n="acctForgotP">Skriv din e-postadress, så skickar vi en länk där du väljer ett nytt lösenord.</p>
+      <label class="field"><span data-i18n="acctEmail">E-post</span><input type="email" name="email" autocomplete="email" required></label>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="signin" data-i18n="acctBack">Tillbaka</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="submit" data-i18n="acctSendLink">Skicka länk</button>
+      </div>
+    </form>
+
+    <form class="acct-view" data-acct-view="reset" novalidate>
+      <label class="field"><span data-i18n="acctNewPassword">Lösenord (minst 10 tecken)</span><input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+      <div class="pw-meter" aria-hidden="true"><i></i></div>
+      <label class="field"><span data-i18n="acctRepeat">Skriv lösenordet igen</span><input type="password" name="password2" autocomplete="new-password" required></label>
+      <div class="modal-foot"><span class="spacer"></span><button class="btn primary" type="submit" data-i18n="acctSavePassword">Spara det nya lösenordet</button></div>
+    </form>
+
+    <form class="acct-view" data-acct-view="username" novalidate>
+      <p class="hint" data-i18n="acctUsernameP">Välj ett användarnamn. Andra kan hitta dig med det; din e-post visas aldrig.</p>
+      <label class="field"><span data-i18n="acctUsername">Användarnamn</span><input type="text" name="username" autocomplete="username" maxlength="20" spellcheck="false" autocapitalize="none" required></label>
+      <p class="hint acct-uname" aria-live="polite"></p>
+      <label class="acct-check" data-terms><input type="checkbox" name="terms"> <span data-i18n="acctTerms">Jag godkänner villkoren och integritetspolicyn och är minst 13 år.</span></label>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-signout" data-i18n="acctSignOut">Logga ut</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="submit" data-i18n="acctContinue">Fortsätt</button>
+      </div>
+    </form>
+
+    <div class="acct-view" data-acct-view="account">
+      <p class="acct-who"><b id="acctWhoName"></b> <span id="acctWhoUser"></span><br><span class="hint" id="acctWhoEmail"></span></p>
+      <p class="hint" data-i18n="acctSyncSoon">Synkning mellan dina enheter kommer snart. Tills dess finns allt kvar på den här enheten, som vanligt.</p>
+      <div class="modal-foot">
+        <button class="btn sm" type="button" data-act="acct-signout-all" data-i18n="acctSignOutAll">Logga ut på alla enheter</button>
+        <span class="spacer"></span>
+        <button class="btn" type="button" data-act="acct-signout" data-i18n="acctSignOut">Logga ut</button>
+        <button class="btn primary" type="button" data-act="acct-close" data-i18n="finished">Klar</button>
+      </div>
+    </div>
+
+    <div class="acct-view" data-acct-view="sent">
+      <div class="modal-foot"><span class="spacer"></span><button class="btn primary" type="button" data-act="acct-close" data-i18n="finished">Klar</button></div>
+    </div>
   </div>
 </div>
 
@@ -7147,6 +7253,12 @@ document.addEventListener('click', e => {
     case 'setup-notif': askNotif().then(finishSetup); break;
     case 'setup-done': finishSetup(); break;
     case 'lock-take': claimWindow(true); break;
+    case 'acct-open': acctOpen(acct.session ? (acct.profile === null ? 'username' : 'account') : 'signin'); break;
+    case 'acct-view': acctShow(b.dataset.to); break;
+    case 'acct-close': $('acctDlg').hidden = true; break;
+    case 'acct-oauth': acctOAuth(b.dataset.provider); break;
+    case 'acct-signout': acctSignOut(false); break;
+    case 'acct-signout-all': acctSignOut(true); break;
     case 'move-start': moveStart(); break;
     case 'move-close': $('moveDlg').hidden = true; break;
     case 'move-file': $('moveDlg').hidden = true; fileOpen(); break;
@@ -7367,6 +7479,7 @@ document.addEventListener('keydown', e => {
     else if (!$('linkDlg').hidden) closeLinkDlg();
     else if (!$('restoreDlg').hidden) { pendingRestore = null; $('restoreDlg').hidden = true; }
     else if (!$('moveDlg').hidden) $('moveDlg').hidden = true;
+    else if (!$('acctDlg').hidden) $('acctDlg').hidden = true;
     else if (!$('histDlg').hidden) $('histDlg').hidden = true;
     else if (!$('trashDlg').hidden) $('trashDlg').hidden = true;
     else if (!$('findBar').hidden) closeFind(false);
@@ -7445,9 +7558,351 @@ function renderAll() {
   setSide(sideOpen());
   renderAlertSettings();
   updatePipUi();
-  renderReminders(); renderNotes(); updateTitle(); updateNotifUi(); updateBackupBanner(); updateMoveBanner();
+  renderReminders(); renderNotes(); updateTitle(); updateNotifUi(); updateBackupBanner(); updateMoveBanner(); updateAcctChip();
   wbUi(); wbRenderList(); wbRenderShare();
 }
+
+// ---------------------------------------------------------------- accounts (Supabase)
+// Signing in is optional: Pinglapp works the same without an account. supabase-js is loaded only when someone opens
+// the account dialog or is already signed in, so guests download nothing extra. Only the public (publishable) key is
+// here; what a signed-in person may read or write is decided by the database's row-level security.
+// Accounts are switched on only where a project is listed: the staging project on a local copy (localhost), or on any
+// address opened once with ?accounts=staging (?accounts=off switches it off again). pinglapp.com gets production later.
+// `var`, not const/let: renderAll() reads `acct` and may run before this point.
+var ACCT_PROJECTS = { staging: { url: 'https://bdvoxzkozkrxefpwuzkr.supabase.co', key: 'sb_publishable_aVOkMdJBJ-t0WtCkoMSaGg_cP2pMALL' } };
+var ACCT_LIB = { src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js', sri: 'sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O' };
+var ACCT_STORE = 'pinglapp.auth';                 // where supabase-js keeps the session in localStorage
+var ACCT_UNAME = /^[a-z0-9_]{3,20}$/;
+var acct = { project: null, client: null, loading: null, session: null, profile: undefined, priv: null, view: 'signin', providers: null, back: null };
+
+Object.assign(T.en, {
+  acctGoogle: 'Continue with Google', acctMicrosoft: 'Continue with Microsoft', acctOr: 'or with email', acctEmail: 'Email',
+  acctPassword: 'Password', acctForgot: 'Forgot your password?', acctNoAccount: 'No account yet?', acctCreate: 'Create an account',
+  acctSignupP: 'With an account, your reminders and notes are on all your devices. Pinglapp works just as well without one.',
+  acctNewPassword: 'Password (at least 10 characters)', acctUsername: 'Username', acctDisplayName: 'Name others see (optional)',
+  acctTerms: 'I accept the terms and the privacy policy, and I am at least 13 years old.', acctHaveAccount: 'I already have an account',
+  acctForgotP: 'Type your email address and we’ll send you a link where you choose a new password.', acctBack: 'Back',
+  acctSendLink: 'Send link', acctRepeat: 'Type the password again', acctSavePassword: 'Save the new password',
+  acctUsernameP: 'Pick a username. Others can find you by it; your email is never shown.', acctSignOut: 'Log out', acctContinue: 'Continue',
+  acctSyncSoon: 'Syncing between your devices is coming soon. Until then everything stays on this device, as usual.',
+  acctSignOutAll: 'Log out on all devices', acctClose: 'Close',
+});
+const ACCT_T = {
+  en: {
+    acctSignIn: 'Log in', acctAccount: 'Account', acctChipTitle: 'Log in or create an account',
+    acctT_signin: 'Log in', acctT_signup: 'Create an account', acctT_forgot: 'Forgot your password', acctT_reset: 'Choose a new password',
+    acctT_username: 'Pick a username', acctT_account: 'Your account', acctT_sent: 'Check your email',
+    acctOffline: 'Can’t reach the server. Check your internet connection and try again.',
+    acctFillIn: 'Fill in your email and password.', acctBadEmail: 'That doesn’t look like an email address.',
+    acctPwShort: 'The password needs at least 10 characters.', acctPwMismatch: 'The two passwords aren’t the same.',
+    acctUnameRules: 'Use 3–20 characters: lower-case letters a–z, digits and _.', acctUnameChecking: 'Checking…',
+    acctUnameFree: n => `${n} is free.`, acctUnameTaken: n => n ? `${n} is taken. Try another one.` : 'That username is taken. Try another one.',
+    acctUnameSoon: 'You can change your username once every 30 days.', acctNeedTerms: 'Please accept the terms to continue.',
+    acctCheckEmail: e => `We’ve sent a link to ${e}. Open it in this browser to confirm your account; then you’re signed in.`,
+    acctResetSent: 'If there’s an account for that email address, we’ve sent it a link. Open it in this browser to choose a new password.',
+    acctPwSaved: 'Your new password is saved. Other devices have been logged out.', acctWelcome: n => `Welcome, ${n}!`,
+    acctSignedIn: 'You’re logged in.', acctConfirmed: 'Your email address is confirmed and you’re logged in.',
+    acctLinkBad: 'That link couldn’t log you in here. It may have expired, or been opened in another browser. If it confirmed your account, just log in.',
+    acctSignedOut: 'Logged out. Everything is still on this device.',
+    acctErrLogin: 'Wrong email or password.', acctErrConfirm: 'Confirm your email address first: open the link we sent you.',
+    acctErrWeak: 'That password is too easy to guess. Choose a longer one.', acctErrRate: 'Too many attempts. Wait a few minutes and try again.',
+    acctErrClosed: 'New accounts can’t be created right now.', acctErrSame: 'The new password must differ from the old one.',
+    acctErrCaptcha: 'The robot check failed. Reload the page and try again.', acctErrExists: 'There’s already an account for that email. Log in instead.',
+    acctErrOther: m => `Something went wrong: ${m}`,
+  },
+  sv: {
+    acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
+    acctT_signin: 'Logga in', acctT_signup: 'Skapa ett konto', acctT_forgot: 'Glömt lösenordet', acctT_reset: 'Välj ett nytt lösenord',
+    acctT_username: 'Välj ett användarnamn', acctT_account: 'Ditt konto', acctT_sent: 'Kolla din e-post',
+    acctOffline: 'Servern går inte att nå. Kontrollera internetanslutningen och försök igen.',
+    acctFillIn: 'Fyll i e-post och lösenord.', acctBadEmail: 'Det ser inte ut som en e-postadress.',
+    acctPwShort: 'Lösenordet behöver minst 10 tecken.', acctPwMismatch: 'De två lösenorden är inte lika.',
+    acctUnameRules: 'Använd 3–20 tecken: små bokstäver a–z, siffror och _.', acctUnameChecking: 'Kontrollerar…',
+    acctUnameFree: n => `${n} är ledigt.`, acctUnameTaken: n => n ? `${n} är upptaget. Prova ett annat.` : 'Det användarnamnet är upptaget. Prova ett annat.',
+    acctUnameSoon: 'Du kan byta användarnamn en gång per 30 dagar.', acctNeedTerms: 'Godkänn villkoren för att fortsätta.',
+    acctCheckEmail: e => `Vi har skickat en länk till ${e}. Öppna den i den här webbläsaren för att bekräfta kontot; sedan är du inloggad.`,
+    acctResetSent: 'Om det finns ett konto för den e-postadressen har vi skickat en länk dit. Öppna den i den här webbläsaren för att välja ett nytt lösenord.',
+    acctPwSaved: 'Ditt nya lösenord är sparat. Andra enheter har loggats ut.', acctWelcome: n => `Välkommen, ${n}!`,
+    acctSignedIn: 'Du är inloggad.', acctConfirmed: 'Din e-postadress är bekräftad och du är inloggad.',
+    acctLinkBad: 'Länken kunde inte logga in dig här. Den kan ha gått ut eller öppnats i en annan webbläsare. Om den bekräftade ditt konto kan du bara logga in.',
+    acctSignedOut: 'Utloggad. Allt finns kvar på den här enheten.',
+    acctErrLogin: 'Fel e-post eller lösenord.', acctErrConfirm: 'Bekräfta din e-postadress först: öppna länken vi skickade.',
+    acctErrWeak: 'Lösenordet är för lätt att gissa. Välj ett längre.', acctErrRate: 'För många försök. Vänta några minuter och försök igen.',
+    acctErrClosed: 'Det går inte att skapa nya konton just nu.', acctErrSame: 'Det nya lösenordet måste skilja sig från det gamla.',
+    acctErrCaptcha: 'Robotkontrollen misslyckades. Ladda om sidan och försök igen.', acctErrExists: 'Det finns redan ett konto för den e-postadressen. Logga in i stället.',
+    acctErrOther: m => `Något gick fel: ${m}`,
+  },
+};
+Object.assign(T.en, ACCT_T.en);
+Object.assign(T.sv, ACCT_T.sv);
+
+function acctProjectName() {
+  try {
+    const q = new URLSearchParams(location.search).get('accounts');
+    if (q === 'off') localStorage.removeItem('pinglapp.accountsProject');
+    else if (q && ACCT_PROJECTS[q]) localStorage.setItem('pinglapp.accountsProject', q);
+    const chosen = localStorage.getItem('pinglapp.accountsProject');
+    if (chosen && ACCT_PROJECTS[chosen]) return chosen;
+  } catch (e) { }
+  return /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'staging' : null;
+}
+const acctHome = () => location.origin + location.pathname.replace(/index\.html$/, '');
+const acctView = name => document.querySelector(`#acctDlg .acct-view[data-acct-view="${name}"]`);
+const validEmail = s => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+
+// supabase-js, loaded once (pinned version, integrity-checked). Tests put a stand-in in window.PING_ACCOUNTS_FAKE.
+async function acctClient() {
+  if (acct.client) return acct.client;
+  const p = ACCT_PROJECTS[acct.project];
+  if (!p) throw new Error('accounts are off here');
+  acct.loading ||= (async () => {
+    let lib = window.PING_ACCOUNTS_FAKE;
+    if (!lib) {
+      if (!window.supabase) await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = ACCT_LIB.src; s.integrity = ACCT_LIB.sri; s.crossOrigin = 'anonymous';
+        s.onload = res; s.onerror = () => rej(new Error('supabase-js'));
+        document.head.appendChild(s);
+      });
+      lib = window.supabase;
+    }
+    const c = lib.createClient(p.url, p.key, { auth: { storageKey: ACCT_STORE, flowType: 'pkce', detectSessionInUrl: true, persistSession: true, autoRefreshToken: true } });
+    c.auth.onAuthStateChange((ev, session) => setTimeout(() => acctOnAuth(ev, session), 0));   // never call Supabase inside this callback
+    return c;
+  })();
+  try { acct.client = await acct.loading; } catch (e) { acct.loading = null; throw e; }
+  return acct.client;
+}
+
+// At start: only someone already signed in, or coming back from an email link or Google/Microsoft, loads supabase-js.
+function acctBoot() {
+  acct.project = acctProjectName();
+  const q = new URLSearchParams(location.search);
+  if (q.has('accounts')) { q.delete('accounts'); acctSetQuery(q); }
+  if (!acct.project) return;
+  if (q.has('code') || q.has('error_description')) acct.back = { error: !!q.get('error_description'), reset: q.has('reset') };
+  let signedIn = false;
+  try { signedIn = !!localStorage.getItem(ACCT_STORE); } catch (e) { }
+  updateAcctChip();
+  if (signedIn || acct.back) acctClient().catch(() => { if (acct.back) acctOpen('signin', t('acctOffline'), 'bad'); });
+}
+function acctSetQuery(q) { history.replaceState(history.state, '', location.pathname + (String(q) ? '?' + q : '') + location.hash); }
+function acctCleanUrl() {
+  const q = new URLSearchParams(location.search);
+  let changed = false;
+  for (const k of ['code', 'error', 'error_code', 'error_description', 'reset', 'type']) if (q.has(k)) { q.delete(k); changed = true; }
+  if (changed) acctSetQuery(q);
+}
+
+async function acctOnAuth(ev, session) {
+  acct.session = session || null;
+  const back = acct.back; acct.back = null;
+  if (back) acctCleanUrl();
+  if (!session) {
+    acct.profile = undefined; acct.priv = null; updateAcctChip();
+    if (back) acctOpen('signin', t('acctLinkBad'), 'bad');
+    else if (!$('acctDlg').hidden && ['account', 'username', 'reset'].includes(acct.view)) acctShow('signin');
+    return;
+  }
+  if (ev === 'PASSWORD_RECOVERY' || (back && back.reset)) { updateAcctChip(); acctLoadProfile().then(updateAcctChip); acctOpen('reset'); return; }
+  if (ev === 'TOKEN_REFRESHED' && acct.profile !== undefined) return;
+  const loaded = await acctLoadProfile();
+  updateAcctChip();
+  if (!loaded) return;
+  const open = !$('acctDlg').hidden;
+  if (!acct.profile) acctOpen('username');                   // e.g. after the first Google sign-in: a username comes first
+  else if (back) acctOpen('account', t('acctConfirmed'), 'ok');
+  else if (open && (acct.view === 'signin' || acct.view === 'signup')) acctShow('account', t('acctSignedIn'), 'ok');
+}
+// Your own profile and private account row (row-level security only ever returns your own).
+async function acctLoadProfile() {
+  const c = acct.client; if (!c || !acct.session) return false;
+  try {
+    const [p, a] = await Promise.all([
+      c.from('profiles').select('username,display_name').maybeSingle(),
+      c.from('account_private').select('terms_accepted_at').maybeSingle(),
+    ]);
+    if (p.error) return false;
+    acct.profile = p.data || null; acct.priv = (a && a.data) || null;
+    return true;
+  } catch (e) { return false; }
+}
+
+function updateAcctChip() {
+  const c = $('acctChip'); if (!c || !acct) return;
+  c.hidden = !acct.project;
+  if (c.hidden) return;
+  const signed = !!acct.session;
+  c.classList.toggle('on', signed);
+  $('acctChipText').textContent = signed ? (acct.profile ? '@' + acct.profile.username : t('acctAccount')) : t('acctSignIn');
+  c.title = signed ? (acct.session.user && acct.session.user.email) || '' : t('acctChipTitle');
+}
+
+function acctOpen(view, msg, kind) {
+  $('acctDlg').hidden = false;
+  acctShow(view, msg, kind);
+  if (!acct.client) acctClient().catch(() => acctMsg(t('acctOffline'), 'bad'));
+}
+function acctShow(view, msg, kind) {
+  acct.view = view;
+  document.querySelectorAll('#acctDlg .acct-view').forEach(v => { v.hidden = v.dataset.acctView !== view; });
+  $('acctTitle').textContent = t('acctT_' + view);
+  acctMsg(msg, kind);
+  const v = acctView(view);
+  if (view === 'account') {
+    const p = acct.profile || {}, u = (acct.session && acct.session.user) || {};
+    $('acctWhoName').textContent = p.display_name || '';
+    $('acctWhoUser').textContent = p.username ? '@' + p.username : '';
+    $('acctWhoEmail').textContent = u.email || '';
+  }
+  if (view === 'username') v.querySelector('[data-terms]').hidden = !!(acct.priv && acct.priv.terms_accepted_at);
+  if (view === 'signin' || view === 'signup') acctProviders();
+  const first = v.querySelector('input:not([type=checkbox])');
+  if (first && !first.value) setTimeout(() => first.focus(), 0);
+}
+function acctMsg(msg, kind) {
+  const m = $('acctMsg');
+  m.hidden = !msg; m.textContent = msg || ''; m.className = 'acct-msg' + (kind ? ' ' + kind : '');
+}
+// Google / Microsoft buttons appear only when they're switched on for the project.
+async function acctProviders() {
+  if (!acct.providers) {
+    try {
+      if (window.PING_ACCOUNTS_FAKE) acct.providers = window.PING_ACCOUNTS_FAKE.providers || {};
+      else {
+        const p = ACCT_PROJECTS[acct.project];
+        const r = await fetch(p.url + '/auth/v1/settings', { headers: { apikey: p.key } });
+        acct.providers = (await r.json()).external || {};
+      }
+    } catch (e) { return; }
+  }
+  const box = document.querySelector('#acctDlg .acct-oauth');
+  let any = false;
+  box.querySelectorAll('[data-provider]').forEach(b => { const on = !!acct.providers[b.dataset.provider]; b.hidden = !on; any = any || on; });
+  box.hidden = !any;
+}
+
+function acctErr(e) {
+  const map = { invalid_credentials: 'acctErrLogin', email_not_confirmed: 'acctErrConfirm', weak_password: 'acctErrWeak',
+    over_email_send_rate_limit: 'acctErrRate', over_request_rate_limit: 'acctErrRate', signup_disabled: 'acctErrClosed',
+    email_address_invalid: 'acctBadEmail', validation_failed: 'acctFillIn', same_password: 'acctErrSame', captcha_failed: 'acctErrCaptcha',
+    user_already_exists: 'acctErrExists', username_taken: 'acctUnameTaken', username_invalid: 'acctUnameRules', username_too_soon: 'acctUnameSoon' };
+  const key = e && (map[e.hint] || map[e.code] || map[e.error_code]);
+  if (key) return t(key);
+  const m = (e && e.message) || String(e);
+  if (!navigator.onLine || (e && e.status === 0) || /failed to fetch|network/i.test(m)) return t('acctOffline');
+  return t('acctErrOther', m);
+}
+async function acctUsernameFree(name) {
+  try { const c = await acctClient(); const r = await c.rpc('username_available', { name }); return r.error ? null : !!r.data; }
+  catch (e) { return null; }
+}
+// Live username check while typing (only true/false comes back; nobody learns anything else about other accounts).
+let acctUnameTimer = null, acctUnameSeq = 0;
+function acctUnameCheck(f) {
+  const input = f.elements.username, out = f.querySelector('.acct-uname');
+  if (input.value !== input.value.toLowerCase()) input.value = input.value.toLowerCase();
+  const name = input.value.trim(), seq = ++acctUnameSeq;
+  clearTimeout(acctUnameTimer); out.className = 'hint acct-uname';
+  if (!name) { out.textContent = ''; return; }
+  if (!ACCT_UNAME.test(name)) { out.textContent = t('acctUnameRules'); out.classList.add('bad'); return; }
+  out.textContent = t('acctUnameChecking');
+  acctUnameTimer = setTimeout(async () => {
+    const free = await acctUsernameFree(name);
+    if (seq !== acctUnameSeq) return;
+    out.textContent = free === null ? '' : free ? t('acctUnameFree', '@' + name) : t('acctUnameTaken', '@' + name);
+    if (free !== null) out.classList.add(free ? 'ok' : 'bad');
+  }, 350);
+}
+// Password strength: length counts most; a mix of kinds of characters helps.
+function pwScore(pw) {
+  if (!pw) return 0;
+  if (pw.length < 10 || /^(.)\1+$/.test(pw) || /^(0123456789|1234567890|password|lösenord|qwerty)/i.test(pw)) return 1;
+  const kinds = [/[a-zåäö]/, /[A-ZÅÄÖ]/, /\d/, /[^A-Za-z0-9åäöÅÄÖ]/].filter(r => r.test(pw)).length;
+  if (pw.length >= 16 && kinds >= 3) return 4;
+  return pw.length >= 14 || kinds >= 3 ? 3 : 2;
+}
+function acctMeter(f) {
+  const m = f.querySelector('.pw-meter'); if (!m) return;
+  const s = pwScore(f.elements.password.value);
+  m.dataset.s = s; m.firstElementChild.style.width = s * 25 + '%';
+}
+
+async function acctSubmit(view, f) {
+  const val = n => (f.elements[n] ? f.elements[n].value : '').trim();
+  const btns = f.querySelectorAll('button');
+  let c;
+  try { c = await acctClient(); } catch (e) { acctMsg(t('acctOffline'), 'bad'); return; }
+  btns.forEach(b => { b.disabled = true; });
+  try {
+    if (view === 'signin') {
+      if (!validEmail(val('email')) || !f.elements.password.value) return acctMsg(t('acctFillIn'), 'bad');
+      const { error } = await c.auth.signInWithPassword({ email: val('email'), password: f.elements.password.value });
+      if (error) return acctMsg(acctErr(error), 'bad');
+      f.elements.password.value = '';                         // acctOnAuth takes it from here
+    } else if (view === 'signup') {
+      const email = val('email'), pw = f.elements.password.value, name = val('username').toLowerCase();
+      if (!validEmail(email)) return acctMsg(t('acctBadEmail'), 'bad');
+      if (pw.length < 10) return acctMsg(t('acctPwShort'), 'bad');
+      if (!ACCT_UNAME.test(name)) return acctMsg(t('acctUnameRules'), 'bad');
+      if (!f.elements.terms.checked) return acctMsg(t('acctNeedTerms'), 'bad');
+      if (await acctUsernameFree(name) === false) return acctMsg(t('acctUnameTaken', '@' + name), 'bad');
+      const { data, error } = await c.auth.signUp({ email, password: pw, options: { emailRedirectTo: acctHome(),
+        data: { username: name, display_name: val('display_name'), lang: lang(), terms: 'true' } } });
+      if (error) return acctMsg(acctErr(error), 'bad');
+      f.reset(); acctMeter(f); f.querySelector('.acct-uname').textContent = '';
+      if (data && data.session) return;                       // email confirmation switched off: signed in right away
+      acctShow('sent', t('acctCheckEmail', email), 'ok');
+    } else if (view === 'forgot') {
+      const email = val('email');
+      if (!validEmail(email)) return acctMsg(t('acctBadEmail'), 'bad');
+      const { error } = await c.auth.resetPasswordForEmail(email, { redirectTo: acctHome() + '?reset=1' });
+      // The same answer whether or not there's an account, so nobody can test which addresses have one.
+      if (error && /rate_limit/.test(error.code || '')) return acctMsg(acctErr(error), 'bad');
+      acctShow('sent', t('acctResetSent'), 'ok');
+    } else if (view === 'reset') {
+      const pw = f.elements.password.value;
+      if (pw.length < 10) return acctMsg(t('acctPwShort'), 'bad');
+      if (pw !== f.elements.password2.value) return acctMsg(t('acctPwMismatch'), 'bad');
+      const { error } = await c.auth.updateUser({ password: pw });
+      if (error) return acctMsg(acctErr(error), 'bad');
+      f.reset(); acctMeter(f);
+      try { await c.auth.signOut({ scope: 'others' }); } catch (e) { }
+      acctShow(acct.profile === null ? 'username' : 'account', t('acctPwSaved'), 'ok');
+    } else if (view === 'username') {
+      const name = val('username').toLowerCase(), terms = f.querySelector('[data-terms]');
+      if (!ACCT_UNAME.test(name)) return acctMsg(t('acctUnameRules'), 'bad');
+      if (!terms.hidden && !f.elements.terms.checked) return acctMsg(t('acctNeedTerms'), 'bad');
+      const r = await c.rpc('set_username', { name });
+      if (r.error) return acctMsg(acctErr(r.error), 'bad');
+      if (!terms.hidden) await c.rpc('accept_terms');
+      await acctLoadProfile(); updateAcctChip();
+      f.reset(); f.querySelector('.acct-uname').textContent = '';
+      acctShow('account', t('acctWelcome', '@' + name), 'ok');
+    }
+  } catch (e) { acctMsg(acctErr(e), 'bad'); }
+  finally { btns.forEach(b => { b.disabled = false; }); }
+}
+async function acctOAuth(provider) {
+  try {
+    const c = await acctClient();
+    const { error } = await c.auth.signInWithOAuth({ provider, options: { redirectTo: acctHome(), scopes: provider === 'azure' ? 'email' : undefined } });
+    if (error) acctMsg(acctErr(error), 'bad');
+  } catch (e) { acctMsg(acctErr(e), 'bad'); }
+}
+async function acctSignOut(everywhere) {
+  try { const c = await acctClient(); await c.auth.signOut({ scope: everywhere ? 'global' : 'local' }); } catch (e) { }
+  acct.session = null; acct.profile = undefined; acct.priv = null;
+  updateAcctChip(); $('acctDlg').hidden = true;
+  toast(t('acctSignedOut'));
+}
+document.querySelectorAll('#acctDlg form.acct-view').forEach(f => {
+  f.addEventListener('submit', e => { e.preventDefault(); acctSubmit(f.dataset.acctView, f); });
+  f.addEventListener('input', e => {
+    if (e.target.name === 'username') acctUnameCheck(f);
+    if (e.target.name === 'password') acctMeter(f);
+  });
+});
 
 // ---------------------------------------------------------------- moving to pinglapp.com
 // Pinglapp used to live at mohamedmrj.github.io/ping/. A browser keeps data per address, so the old address hands each
@@ -7587,6 +8042,7 @@ updateSaveChip();
 if (wbGuestRoom) wbGuestBoot(wbGuestRoom);   // a whiteboard link: this window only shows that board and never touches Pinglapp's own data
 else claimWindow(moveIncoming);         // become the editing window (or show the "already open" notice); data moving in takes over
 if (moveIncoming) moveAnnounce();
+if (!wbGuestRoom) acctBoot();
 initFile().then(() => {
   fileInitDone = true;
   maybeOnboard();

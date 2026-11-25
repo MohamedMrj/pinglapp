@@ -56,6 +56,17 @@ Do these in order. Each step is free except the domain.
 
 Then repeat steps 3–8 for **pinglapp-prod** when staging works.
 
+## Trying accounts on your own computer
+
+Accounts are switched on only for a local copy (and on any address opened once with `?accounts=staging`;
+`?accounts=off` switches it off again). They use the **staging** project.
+
+1. In the staging project: Authentication → URL Configuration. Site URL `https://pinglapp.com`; under Redirect URLs add
+   `http://localhost:8080/**` and `https://pinglapp.com/**`. Without this, links in emails go to the wrong address.
+2. In a terminal: `cd Ping/tests` then `npm run serve`, and open http://localhost:8080.
+3. Click **Logga in** in the header. Until SMTP is set up (step 4 above), Supabase's own test mailer sends only a few
+   emails an hour, from Supabase's address, and they may land in spam. Open the links in the same browser.
+
 ## Things that differ from the plan, and why
 
 - **Quota.** Supabase Storage creates a file's row before it knows the file's size, so a policy can't refuse "this
