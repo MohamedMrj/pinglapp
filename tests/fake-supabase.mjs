@@ -33,6 +33,10 @@ export const FAKE = () => {
       const av = q.values.avatar_path;
       if (av != null && !new RegExp(`^${id}/avatar\\.webp\\?v=\\d{1,15}$`).test(av))
         return { data: null, error: { code: '23514', message: 'new row for relation "profiles" violates check constraint "profiles_avatar_path_own"' } };
+      const st = q.values.avatar_style, N = { s: 6, c: 12, e: 8, m: 8, a: 8, b: 12 };   // as valid_avatar_style()
+      if (st != null && !(st && typeof st === 'object' && st.v === 1 && Object.keys(st).length === 7
+        && Object.entries(N).every(([k, n]) => Number.isInteger(st[k]) && st[k] >= 0 && st[k] < n)))
+        return { data: null, error: { code: '23514', message: 'new row for relation "profiles" violates check constraint "profiles_avatar_style_valid"' } };
       Object.assign(db.profiles[id], q.values); keep();
       return { data: null, error: null };
     }
@@ -145,12 +149,12 @@ export const FAKE = () => {
       if (!me) return { data: null, error: { code: '42501', message: 'permission denied' } };
       const idOf = n => Object.keys(db.profiles).find(k => db.profiles[k].username === String(n).toLowerCase());
       const visible = k => k === me || (db.profiles[k].visibility !== 'private' && !db.blocks.some(([a, b]) => a === k && b === me));
-      const pub = k => { const p = db.profiles[k]; return { username: p.username, display_name: p.display_name || null, avatar_path: p.avatar_path || null, bio: p.bio || null, member_since: '2026-11-01' }; };
+      const pub = k => { const p = db.profiles[k]; return { username: p.username, display_name: p.display_name || null, avatar_path: p.avatar_path || null, avatar_style: p.avatar_style || null, bio: p.bio || null, member_since: '2026-11-01' }; };
       if (name === 'find_profiles') {
         const pre = String(args.prefix).toLowerCase();
         if (!/^[a-z0-9_]{3,20}$/.test(pre)) return { data: [], error: null };
         const ks = Object.keys(db.profiles).filter(k => db.profiles[k].username.startsWith(pre) && visible(k)).sort((a, b) => db.profiles[a].username < db.profiles[b].username ? -1 : 1);
-        return { data: ks.slice(0, 20).map(k => { const { username, display_name, avatar_path } = pub(k); return { username, display_name, avatar_path }; }), error: null };
+        return { data: ks.slice(0, 20).map(k => { const { username, display_name, avatar_path, avatar_style } = pub(k); return { username, display_name, avatar_path, avatar_style }; }), error: null };
       }
       if (name === 'get_profile') { const k = idOf(args.name); return { data: k && visible(k) ? [pub(k)] : [], error: null }; }
       if (name === 'block_user' || name === 'unblock_user') {

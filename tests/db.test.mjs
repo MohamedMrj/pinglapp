@@ -175,6 +175,22 @@ test('profiles: the avatar path can only name your own avatar file, with a versi
   assert.equal((await set(A, null))[0].avatar_path, null);
 });
 
+test('avatars: only a valid spec can be saved; others see it through get_profile and find_profiles', async () => {
+  const ok = { v: 1, s: 5, c: 11, e: 7, m: 7, a: 7, b: 11 };
+  await rows(A, 'update public.profiles set avatar_style = $1 where id = $2', [ok, A]);
+  for (const bad of [{ ...ok, s: 6 }, { ...ok, c: 12 }, { ...ok, v: 2 }, { ...ok, x: 1 }, { v: 1, s: 0 }, { ...ok, e: '1' },
+    { ...ok, m: 1.5 }, { ...ok, a: -1 }, [1, 2], 'smile', { ...ok, b: 100 }]) {
+    await fails(A, 'update public.profiles set avatar_style = $1 where id = $2', [JSON.stringify(bad), A], /avatar_style_valid/);
+  }
+  const [p] = await rows(B, `select * from public.get_profile('alice')`);
+  assert.deepEqual(p.avatar_style, ok);
+  const [f] = await rows(B, `select * from public.find_profiles('ali')`);
+  assert.deepEqual(f.avatar_style, ok);
+  await rows(A, 'update public.profiles set avatar_style = null where id = $1', [A]);   // back to the default
+  assert.equal((await rows(B, `select avatar_style from public.get_profile('alice')`))[0].avatar_style, null);
+  assert.equal((await rows(null, `select has_function_privilege('anon', 'public.get_profile(text)', 'execute') as x`))[0].x, false);
+});
+
 test('set_username: pick, validate, taken, and at most one change per 30 days', async () => {
   await signUp(C, 'c@example.com', { full_name: 'Carol from Google' });   // OAuth-style: no username yet
   assert.equal((await rows(C, 'select * from public.profiles')).length, 0);

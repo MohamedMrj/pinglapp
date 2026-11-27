@@ -566,7 +566,15 @@ body:has(#view-board:not([hidden])) .site-foot, body:has(#view-notes:not([hidden
   overflow: hidden; background: var(--surface-2); color: var(--muted); font-weight: 600; font-size: 16px; }
 .avatar.sm { width: 30px; height: 30px; font-size: 13px; }
 .avatar.xl { width: 72px; height: 72px; font-size: 28px; }
-.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.avatar img, .avatar .av-svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.av-maker { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.av-maker h3 { margin: 0; font-size: 13.5px; }
+.av-top { display: flex; align-items: center; gap: 14px; }
+.av-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; }
+.av-row { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+.av-row > span:first-child { flex: 1; color: var(--muted); }
+.av-row .av-n { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; }
+.av-row .btn { padding: 2px 9px; }
 .pw-meter { height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: -6px; }
 .pw-meter i { display: block; height: 100%; width: 0; background: var(--danger); transition: width .15s; }
 .pw-meter[data-s="2"] i { background: var(--warn); }
@@ -1476,6 +1484,25 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         </div>
       </div>
       <p class="hint" data-i18n="acctPhotoHint">Bilden kan ses av alla som har länken till den, även om din profil är dold.</p>
+      <div class="av-maker">
+        <div class="av-top">
+          <span class="avatar xl" id="acctAvPreview" aria-hidden="true"></span>
+          <div>
+            <h3 data-i18n="avTitle">Din avatar</h3>
+            <p class="hint" data-i18n="avHint">Visas i stället för en bild. Välj delarna själv eller slumpa fram en.</p>
+            <button class="btn sm" type="button" data-act="av-random" data-i18n="avRandom">Slumpa</button>
+          </div>
+        </div>
+        <div class="av-rows">
+          <div class="av-row"><span data-i18n="avPart_s">Form</span><button class="btn ghost sm" type="button" data-act="av-step" data-part="s" data-d="-1" aria-label="Föregående" data-i18n-aria="avPrev">‹</button><span class="av-n" data-n="s"></span><button class="btn ghost sm" type="button" data-act="av-step" data-part="s" data-d="1" aria-label="Nästa" data-i18n-aria="avNext">›</button></div>
+          <div class="av-row"><span data-i18n="avPart_c">Färg</span><button class="btn ghost sm" type="button" data-act="av-step" data-part="c" data-d="-1" aria-label="Föregående" data-i18n-aria="avPrev">‹</button><span class="av-n" data-n="c"></span><button class="btn ghost sm" type="button" data-act="av-step" data-part="c" data-d="1" aria-label="Nästa" data-i18n-aria="avNext">›</button></div>
+          <div class="av-row"><span data-i18n="avPart_e">Ögon</span><button class="btn ghost sm" type="button" data-act="av-step" data-part="e" data-d="-1" aria-label="Föregående" data-i18n-aria="avPrev">‹</button><span class="av-n" data-n="e"></span><button class="btn ghost sm" type="button" data-act="av-step" data-part="e" data-d="1" aria-label="Nästa" data-i18n-aria="avNext">›</button></div>
+          <div class="av-row"><span data-i18n="avPart_m">Mun</span><button class="btn ghost sm" type="button" data-act="av-step" data-part="m" data-d="-1" aria-label="Föregående" data-i18n-aria="avPrev">‹</button><span class="av-n" data-n="m"></span><button class="btn ghost sm" type="button" data-act="av-step" data-part="m" data-d="1" aria-label="Nästa" data-i18n-aria="avNext">›</button></div>
+          <div class="av-row"><span data-i18n="avPart_a">Tillbehör</span><button class="btn ghost sm" type="button" data-act="av-step" data-part="a" data-d="-1" aria-label="Föregående" data-i18n-aria="avPrev">‹</button><span class="av-n" data-n="a"></span><button class="btn ghost sm" type="button" data-act="av-step" data-part="a" data-d="1" aria-label="Nästa" data-i18n-aria="avNext">›</button></div>
+          <div class="av-row"><span data-i18n="avPart_b">Bakgrund</span><button class="btn ghost sm" type="button" data-act="av-step" data-part="b" data-d="-1" aria-label="Föregående" data-i18n-aria="avPrev">‹</button><span class="av-n" data-n="b"></span><button class="btn ghost sm" type="button" data-act="av-step" data-part="b" data-d="1" aria-label="Nästa" data-i18n-aria="avNext">›</button></div>
+        </div>
+        <p class="hint" id="acctAvPhotoNote" hidden data-i18n="avPhotoNote">Just nu visas din bild. Ta bort bilden för att visa avataren i stället.</p>
+      </div>
       <label class="field"><span data-i18n="acctShownName">Namn som andra ser</span><input type="text" name="display_name" autocomplete="name" maxlength="50"></label>
       <label class="field"><span data-i18n="acctBio">Om dig (valfritt)</span><textarea name="bio" maxlength="300" rows="3"></textarea></label>
       <label class="field"><span data-i18n="acctUsername">Användarnamn</span><input type="text" name="username" autocomplete="username" maxlength="20" spellcheck="false" autocapitalize="none" required></label>
@@ -7522,6 +7549,8 @@ document.addEventListener('click', e => {
     case 'acct-report-cancel': $('acctReportBox').hidden = true; break;
     case 'acct-report-send': acctReport(); break;
     case 'acct-export': acctExport(); break;
+    case 'av-step': acctAvChange(avatarStep(acct.avDraft, b.dataset.part, +b.dataset.d)); break;
+    case 'av-random': acctAvChange(avatarRandom()); break;
     case 'move-start': moveStart(); break;
     case 'move-close': $('moveDlg').hidden = true; break;
     case 'move-file': $('moveDlg').hidden = true; fileOpen(); break;
@@ -7883,6 +7912,9 @@ Object.assign(T.en, {
   setupAcctP: 'With an account, your reminders, notes, pictures and boards are kept in your account and are on all your devices. Nothing to install, and nothing is lost if the computer breaks.',
   setupAcctHave: 'I already have an account', setupAcctPrivacy: 'How we handle your data',
   setupNoAcctT: 'Or without an account: a save file in the cloud',
+  avTitle: 'Your avatar', avHint: 'Shown instead of a photo. Pick the parts yourself or shuffle one up.', avRandom: 'Shuffle',
+  avPart_s: 'Shape', avPart_c: 'Colour', avPart_e: 'Eyes', avPart_m: 'Mouth', avPart_a: 'Accessory', avPart_b: 'Background',
+  avPrev: 'Previous', avNext: 'Next', avPhotoNote: 'Your photo is shown right now. Remove the photo to show the avatar instead.',
   setupP1Acct: 'Without an account, everything you write is saved only here on your computer, in the browser. It can disappear if the browser’s data is cleared or you change computers.',
 });
 const ACCT_T = {
@@ -8096,7 +8128,7 @@ async function acctLoadProfile() {
   const c = acct.client; if (!c || !acct.session) return false;
   try {
     const [p, a] = await Promise.all([
-      c.from('profiles').select('username,display_name,bio,avatar_path,visibility').maybeSingle(),
+      c.from('profiles').select('username,display_name,bio,avatar_path,avatar_style,visibility').maybeSingle(),
       c.from('account_private').select('language,time_zone,terms_accepted_at,quota_bytes,used_bytes').maybeSingle(),
     ]);
     if (p.error) return false;
@@ -8344,8 +8376,10 @@ async function acctSubmit(view, f) {
     } else if (view === 'profile') {
       const name = val('username').toLowerCase(), me = acct.profile || {};
       if (!ACCT_UNAME.test(name)) return acctMsg(t('acctUnameRules'), 'bad');
-      const r = await c.from('profiles').update({ display_name: val('display_name') || null, bio: f.elements.bio.value.trim() || null,
-        visibility: f.elements.findable.checked ? 'users' : 'private' }).eq('id', acct.session.user.id);
+      const changes = { display_name: val('display_name') || null, bio: f.elements.bio.value.trim() || null,
+        visibility: f.elements.findable.checked ? 'users' : 'private' };
+      if (acct.avTouched) changes.avatar_style = avatarSpec(acct.avDraft);   // untouched: keep the saved one (or the default)
+      const r = await c.from('profiles').update(changes).eq('id', acct.session.user.id);
       if (r.error) return acctMsg(acctErr(r.error), 'bad');
       if (name !== me.username) {
         const u = await c.rpc('set_username', { name });
@@ -8396,16 +8430,107 @@ async function acctSubmit(view, f) {
 }
 // ---- profiles (phase 5). Everything that comes from other users goes into the page as text (textContent), never as
 // HTML, and a picture is only ever loaded from Pinglapp's own avatars bucket.
+/*AVATAR-START*/
+// Creative avatars: a round character drawn by Pinglapp's own code from a small spec (the database accepts exactly
+// this shape, see migration …_avatars.sql): body s, colour c, eyes e, mouth m, accessory a, background b.
+// Without a saved spec, everyone gets a stable default made from their username, so nobody is just a grey letter.
+const AV_N = { s: 6, c: 12, e: 8, m: 8, a: 8, b: 12 };
+const AV_KEYS = ['s', 'c', 'e', 'm', 'a', 'b'];
+function avatarSpec(x) {                          // a valid spec, or null
+  if (!x || typeof x !== 'object' || Array.isArray(x) || x.v !== 1 || Object.keys(x).length !== 7) return null;
+  const o = { v: 1 };
+  for (const k of AV_KEYS) { const n = x[k]; if (!Number.isInteger(n) || n < 0 || n >= AV_N[k]) return null; o[k] = n; }
+  return o;
+}
+function avatarDefault(seed) {                    // the same seed always gives the same avatar
+  let h = 2166136261;
+  for (const ch of String(seed || '?')) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  const o = { v: 1 };
+  for (const k of AV_KEYS) { h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0; o[k] = h % AV_N[k]; }
+  if (h % 3) o.a = 0;                             // two in three defaults wear nothing; the rest pick something
+  return o;
+}
+function avatarRandom(rnd = Math.random) {
+  const o = { v: 1 };
+  for (const k of AV_KEYS) o[k] = Math.floor(rnd() * AV_N[k]) % AV_N[k];
+  return o;
+}
+function avatarStep(spec, part, d) {             // the next/previous choice for one part, wrapping around
+  const o = Object.assign({}, avatarSpec(spec) || avatarDefault(''));
+  o[part] = (o[part] + d + AV_N[part]) % AV_N[part];
+  return o;
+}
+/*AVATAR-END*/
+const AV_COLORS = ['#ff8a65', '#ffb74d', '#ffd54f', '#aed581', '#4db6ac', '#4fc3f7', '#7986cb', '#ba68c8', '#f06292', '#a1887f', '#90a4ae', '#81c784'];
+const AV_BGS = ['#fde2d8', '#fff1d6', '#fff8cc', '#e8f5d8', '#d6f2ee', '#dbf1fb', '#e3e6f6', '#f1e0f5', '#fde0ea', '#ece5e1', '#e6ecef', '#1f2a44'];
+const AV_INK = '#2b2b33', AV_PINK = '#ef6f86';
+// Each part is a list of [tag, attributes]; `col` is the body colour. Drawn on a 100 × 100 canvas.
+const AV_LINE = { fill: 'none', stroke: AV_INK, 'stroke-width': 3.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
+const AV_PARTS = {
+  s: [
+    col => [['circle', { cx: 50, cy: 60, r: 32, fill: col }]],
+    col => [['rect', { x: 18, y: 28, width: 64, height: 64, rx: 24, fill: col }]],
+    col => [['path', { d: 'M18 94V58a32 32 0 0 1 64 0v36l-8-6-8 6-8-6-8 6-8-6-8 6-8-6z', fill: col }]],
+    col => [['path', { d: 'M22 44 30 14 48 32z', fill: col }], ['path', { d: 'M78 44 70 14 52 32z', fill: col }], ['circle', { cx: 50, cy: 60, r: 32, fill: col }]],
+    col => [['circle', { cx: 26, cy: 34, r: 11, fill: col }], ['circle', { cx: 74, cy: 34, r: 11, fill: col }], ['circle', { cx: 50, cy: 60, r: 32, fill: col }]],
+    col => [['ellipse', { cx: 50, cy: 60, rx: 30, ry: 34, fill: col }]],
+  ],
+  e: [
+    () => [['circle', { cx: 39, cy: 56, r: 4.5, fill: AV_INK }], ['circle', { cx: 61, cy: 56, r: 4.5, fill: AV_INK }]],
+    () => [38, 62].flatMap(x => [['circle', { cx: x, cy: 55, r: 8, fill: '#fff' }], ['circle', { cx: x + 1, cy: 56, r: 4, fill: AV_INK }], ['circle', { cx: x + 2.5, cy: 54.5, r: 1.5, fill: '#fff' }]]),
+    () => [['path', Object.assign({ d: 'M32 58q6-8 12 0M56 58q6-8 12 0' }, AV_LINE)]],
+    () => [['path', Object.assign({ d: 'M32 56q6 5 12 0M56 56q6 5 12 0' }, AV_LINE)]],
+    () => [['circle', { cx: 39, cy: 56, r: 4.5, fill: AV_INK }], ['path', Object.assign({ d: 'M56 58q6-8 12 0' }, AV_LINE)]],
+    () => [['ellipse', { cx: 39, cy: 55, rx: 3, ry: 6, fill: AV_INK }], ['ellipse', { cx: 61, cy: 55, rx: 3, ry: 6, fill: AV_INK }]],
+    () => [33, 55].map(x => ['path', { d: `M${x + 6} 61l-6-6a3.6 3.6 0 0 1 6-4.5a3.6 3.6 0 0 1 6 4.5z`, fill: '#e53956' }]),
+    () => [['circle', { cx: 50, cy: 54, r: 11, fill: '#fff' }], ['circle', { cx: 51, cy: 55, r: 5.5, fill: AV_INK }], ['circle', { cx: 53, cy: 53, r: 2, fill: '#fff' }]],
+  ],
+  m: [
+    () => [['path', Object.assign({ d: 'M40 70q10 9 20 0' }, AV_LINE)]],
+    () => [['path', { d: 'M38 68h24q0 13-12 13t-12-13z', fill: AV_INK }], ['ellipse', { cx: 50, cy: 77.5, rx: 5, ry: 2.6, fill: AV_PINK }]],
+    () => [['ellipse', { cx: 50, cy: 72, rx: 4, ry: 5, fill: AV_INK }]],
+    () => [['path', Object.assign({ d: 'M42 72h16' }, AV_LINE)]],
+    () => [['path', { d: 'M46 73v4a4 4 0 0 0 8 0v-4z', fill: AV_PINK }], ['path', Object.assign({ d: 'M40 70q10 9 20 0' }, AV_LINE)]],
+    () => [['path', Object.assign({ d: 'M42 72q9 5 17-3' }, AV_LINE)]],
+    () => [['rect', { x: 40, y: 67, width: 20, height: 10, rx: 4, fill: '#fff', stroke: AV_INK, 'stroke-width': 2.5 }], ['path', { d: 'M40 72h20M50 67v10', stroke: AV_INK, 'stroke-width': 1.5 }]],
+    () => [['path', Object.assign({ d: 'M41 70q4.5 6 9 0q4.5 6 9 0' }, AV_LINE)]],
+  ],
+  a: [
+    () => [],
+    () => [['circle', { cx: 38, cy: 55, r: 9.5, fill: 'rgba(255,255,255,.25)', stroke: AV_INK, 'stroke-width': 2.5 }], ['circle', { cx: 62, cy: 55, r: 9.5, fill: 'rgba(255,255,255,.25)', stroke: AV_INK, 'stroke-width': 2.5 }], ['path', { d: 'M47.5 54h5', stroke: AV_INK, 'stroke-width': 2.5 }]],
+    () => [['rect', { x: 27, y: 49, width: 20, height: 12, rx: 5, fill: AV_INK }], ['rect', { x: 53, y: 49, width: 20, height: 12, rx: 5, fill: AV_INK }], ['path', { d: 'M47 53h6', stroke: AV_INK, 'stroke-width': 3 }], ['path', { d: 'M31 52l5 0', stroke: '#fff', 'stroke-width': 1.5, opacity: .6 }]],
+    () => [['path', { d: 'M19 42a31 24 0 0 1 62 0z', fill: '#e53956' }], ['rect', { x: 17, y: 37, width: 66, height: 9, rx: 4.5, fill: '#c62842' }], ['circle', { cx: 50, cy: 16, r: 6, fill: '#fff' }]],
+    () => [['path', { d: 'M30 33 34 14 42 26 50 10 58 26 66 14 70 33z', fill: '#ffc928', stroke: '#e0a800', 'stroke-width': 1.5, 'stroke-linejoin': 'round' }], ['circle', { cx: 50, cy: 25, r: 2.6, fill: '#e53956' }]],
+    () => [['path', { d: 'M19 58a31 34 0 0 1 62 0', fill: 'none', stroke: '#37474f', 'stroke-width': 5 }], ['rect', { x: 11, y: 50, width: 13, height: 21, rx: 6, fill: '#37474f' }], ['rect', { x: 76, y: 50, width: 13, height: 21, rx: 6, fill: '#37474f' }]],
+    () => [['path', { d: 'M65 25l-11-8v16zM65 25l11-8v16z', fill: '#f06292', 'stroke-linejoin': 'round' }], ['circle', { cx: 65, cy: 25, r: 3.6, fill: '#d81b60' }]],
+    () => [['path', { d: 'M50 29V13', stroke: AV_INK, 'stroke-width': 3, 'stroke-linecap': 'round' }], ['circle', { cx: 50, cy: 10, r: 5, fill: '#ffd54f', stroke: AV_INK, 'stroke-width': 2 }]],
+  ],
+};
+// An <svg> for a spec. Built with DOM calls from Pinglapp's own shapes only: nothing from the spec becomes markup.
+function avatarSvg(spec) {
+  const s = avatarSpec(spec) || avatarDefault(''), NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('class', 'av-svg');
+  const add = ([tag, attrs]) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); svg.appendChild(e); };
+  add(['rect', { width: 100, height: 100, fill: AV_BGS[s.b] }]);
+  AV_PARTS.s[s.s](AV_COLORS[s.c]).forEach(add);
+  [['ellipse', { cx: 29, cy: 67, rx: 5.5, ry: 3.2, fill: '#ff8fa3', opacity: .45 }], ['ellipse', { cx: 71, cy: 67, rx: 5.5, ry: 3.2, fill: '#ff8fa3', opacity: .45 }]].forEach(add);
+  AV_PARTS.e[s.e]().forEach(add);
+  AV_PARTS.m[s.m]().forEach(add);
+  AV_PARTS.a[s.a]().forEach(add);
+  return svg;
+}
 const ACCT_AVATAR = /^[A-Za-z0-9-]{1,64}\/avatar\.webp\?v=\d{1,15}$/;   // the database allows only {own id}/avatar.webp?v=…
 function acctAvatarUrl(path) {
   if (!path || !ACCT_AVATAR.test(path)) return '';
   const base = window.PING_ACCOUNTS_FAKE ? 'https://storage.invalid' : ACCT_PROJECTS[acct.project].url;
   return base + '/storage/v1/object/public/avatars/' + path;
 }
-// The picture, or the first letter of the name while there's none (or it doesn't load).
+// The photo, else the creative avatar (the saved one, or the default for the username); the avatar also shows
+// while a photo loads or if it can't.
 function acctAvatar(el, p) {
   p = p || {};
-  el.textContent = ([...String(p.display_name || p.username || '').trim()][0] || '?').toUpperCase();
+  el.replaceChildren(avatarSvg(avatarSpec(p.avatar_style) || avatarDefault(p.username || p.display_name)));
   const url = acctAvatarUrl(p.avatar_path);
   if (!url) return;
   const img = document.createElement('img');
@@ -8443,7 +8568,7 @@ async function acctSetAvatar(file) {
     const r = await c.from('profiles').update({ avatar_path: path }).eq('id', uid);
     if (r.error) return acctMsg(acctErr(r.error), 'bad');
     acct.profile = Object.assign({}, acct.profile, { avatar_path: path });
-    acctAvatar($('acctProfAvatar'), acct.profile); $('acctAvatarRemove').hidden = false;
+    acctAvRender();
     acctMsg(t('acctPhotoSaved'), 'ok');
   } catch (e) { acctMsg(acctErr(e), 'bad'); }
 }
@@ -8455,7 +8580,7 @@ async function acctRemoveAvatar() {
     if (r.error) return acctMsg(acctErr(r.error), 'bad');
     await c.storage.from('avatars').remove([uid + '/avatar.webp']);
     acct.profile = Object.assign({}, acct.profile, { avatar_path: null });
-    acctAvatar($('acctProfAvatar'), acct.profile); $('acctAvatarRemove').hidden = true;
+    acctAvRender();
     acctMsg(t('acctPhotoRemoved'), 'ok');
   } catch (e) { acctMsg(acctErr(e), 'bad'); }
 }
@@ -8466,10 +8591,20 @@ function acctFillProfile(f) {
   f.elements.username.value = p.username || '';
   f.elements.findable.checked = p.visibility !== 'private';
   f.querySelector('.acct-uname').textContent = '';
-  acctAvatar($('acctProfAvatar'), p);
-  $('acctAvatarRemove').hidden = !p.avatar_path;
+  acct.avDraft = avatarSpec(p.avatar_style) || avatarDefault(p.username); acct.avTouched = false;
+  acctAvRender();
   acctLoadBlocks();
 }
+// The avatar maker: live preview, "3 / 8" per part, and the profile picture at the top (the photo wins if there is one).
+function acctAvRender() {
+  const p = Object.assign({}, acct.profile, { avatar_style: acct.avDraft });
+  acctAvatar($('acctAvPreview'), { avatar_style: acct.avDraft });
+  acctAvatar($('acctProfAvatar'), p);
+  document.querySelectorAll('#acctDlg .av-n').forEach(n => { const k = n.dataset.n; n.textContent = `${acct.avDraft[k] + 1} / ${AV_N[k]}`; });
+  $('acctAvatarRemove').hidden = !p.avatar_path;
+  $('acctAvPhotoNote').hidden = !p.avatar_path;
+}
+function acctAvChange(spec) { acct.avDraft = spec; acct.avTouched = true; acctAvRender(); }
 // People you've blocked, with a button to unblock each.
 async function acctLoadBlocks() {
   const box = acctView('profile').querySelector('.acct-blocked'), list = $('acctBlockedList');

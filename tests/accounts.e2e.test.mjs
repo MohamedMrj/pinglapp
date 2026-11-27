@@ -283,7 +283,7 @@ test('profile: edit name, about, visibility and username; the picture is a 256 p
   await ctx.route('https://storage.invalid/**', r => r.fulfill({ body: PNG_1PX, contentType: 'image/png' }));   // the public avatar address
   await page.waitForFunction(() => document.getElementById('acctChipText').textContent === '@alice');
   await page.click('#acctChip');
-  assert.equal(await page.textContent('#acctMyAvatar'), 'A', 'the first letter while there is no picture');
+  assert.equal(await page.locator('#acctMyAvatar svg.av-svg').count(), 1, 'the creative avatar while there is no picture');
   await page.click(inView('account', '[data-to=profile]'));
   assert.equal(await page.textContent('#acctTitle'), 'Din profil');
   assert.equal(await page.inputValue(inView('profile', '[name=display_name]')), 'Alice');
@@ -457,6 +457,53 @@ test('back from Google/Microsoft without a session: Supabase\'s reason is shown 
   assert.match(await msg(page), /Länken kunde inte logga in dig här.*\(Error getting user email <img src=x onerror=alert\(1\)>\)$/);
   assert.equal(await page.locator('#acctMsg img').count(), 0, 'shown as text, never as HTML');
   assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('creative avatars: a default for everyone; the maker steps, shuffles and saves a valid spec that others then see', async () => {
+  const { ctx, page, errors } = await open(ALICE);
+  await page.waitForFunction(() => /^@/.test(document.getElementById('acctChipText').textContent));
+  await page.click('#acctChip');
+  assert.equal(await page.locator('#acctMyAvatar svg.av-svg').count(), 1, 'the account page shows an avatar, not a letter');
+  await page.click(inView('account', '[data-to=profile]'));
+  const counter = part => page.textContent(`#acctDlg .av-n[data-n="${part}"]`);
+  const def = await page.evaluate(() => avatarDefault('alice'));
+  assert.equal(await counter('s'), `${def.s + 1} / 6`, 'starts from the default for the username');
+  await page.click('[data-act="av-step"][data-part="s"][data-d="1"]');
+  assert.equal(await counter('s'), `${(def.s + 1) % 6 + 1} / 6`);
+  await page.click('[data-act="av-step"][data-part="a"][data-d="-1"]');
+  assert.equal(await counter('a'), `${(def.a + 7) % 8 + 1} / 8`);
+  await page.click('[data-act="av-random"]');
+  const draft = await page.evaluate(() => acct.avDraft);
+  assert.ok(await page.evaluate(d => !!avatarSpec(d), draft));
+  assert.equal(await page.locator('#acctAvPreview svg.av-svg').count(), 1);
+  assert.equal(await page.isVisible('#acctAvPhotoNote'), false, 'no photo, so no "your photo is shown" note');
+  await page.click(inView('profile', '[type=submit]'));
+  await page.waitForFunction(() => acct.view === 'account');
+  const upd = (await calls(page)).filter(c => c[0] === 'update' && c[1] === 'profiles').pop();
+  assert.deepEqual(upd[2].avatar_style, draft);
+  // The public profile (what others get from get_profile) shows exactly that avatar.
+  await page.evaluate(() => acctOpenPerson('alice'));
+  await page.waitForFunction(() => acct.view === 'person');
+  assert.equal(await page.evaluate(() => document.querySelector('#acctPersonAvatar svg').outerHTML),
+    await page.evaluate(d => avatarSvg(d).outerHTML, draft));
+  // People in search results get their (default) avatar too.
+  await page.click(inView('person', '[data-to=people]'));
+  await page.fill('#acctPeopleQ', 'car');
+  await page.waitForSelector('#acctPeopleList .acct-person');
+  assert.equal(await page.locator('#acctPeopleList .avatar svg.av-svg').count(), 1);
+  assert.equal(await page.evaluate(() => document.querySelector('#acctPeopleList .avatar svg').outerHTML),
+    await page.evaluate(() => avatarSvg(avatarDefault('carol')).outerHTML), 'carol has no saved avatar: her default');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('avatars: the database refuses a broken spec (the stand-in does too), and the app never saves one', async () => {
+  const { ctx, page } = await open(ALICE);
+  await page.waitForFunction(() => /^@/.test(document.getElementById('acctChipText').textContent));
+  const r = await page.evaluate(async () => (await acct.client.from('profiles').update({ avatar_style: { v: 1, s: 9 } }).eq('id', 'u-a')).error);
+  assert.match(r.message, /avatar_style_valid/);
+  assert.equal(await page.evaluate(() => avatarSpec({ v: 1, s: 9 })), null);
   await ctx.close();
 });
 
