@@ -94,8 +94,17 @@ Then repeat steps 3–8 for **pinglapp-prod** when staging works.
 
 ## Trying accounts on your own computer
 
-Accounts are switched on only for a local copy (and on any address opened once with `?accounts=staging`;
-`?accounts=off` switches it off again). They use the **staging** project.
+Which project the app uses (`acctProjectName()` in `index.html`; projects are listed in `ACCT_PROJECTS`):
+
+| Address | Project |
+|---|---|
+| `pinglapp.com` | **prod** (`qezhjjcxarugwgqahlik`, eu-west-1) |
+| `localhost` / `127.0.0.1` (a local copy) | **staging** (`bdvoxzkozkrxefpwuzkr`, eu-west-1) |
+| anything else, e.g. the old address | none (no accounts) |
+
+Opening any address once with `?accounts=staging` or `?accounts=prod` switches that browser to that project, and
+`?accounts=off` switches accounts off there. The choice is remembered until `?accounts=default`. So a local copy tries
+prod with http://localhost:8080/?accounts=prod (prod must then list `http://localhost:8080/**` as a redirect URL).
 
 1. In the staging project: Authentication → URL Configuration. Site URL `https://pinglapp.com`; under Redirect URLs add
    `http://localhost:8080/**` and `https://pinglapp.com/**`. Without this, links in emails go to the wrong address.

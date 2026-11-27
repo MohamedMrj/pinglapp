@@ -409,19 +409,37 @@ test('find people, view a profile, block, unblock and report; text from other us
   await ctx.close();
 });
 
-test('accounts are off on pinglapp.com until switched on with ?accounts=staging (and off again)', async () => {
+test('pinglapp.com uses prod; ?accounts=staging / off / default switch it (remembered), and a guest still loads nothing', async () => {
   const route = { pattern: 'https://pinglapp.com/**' };
+  const project = page => page.evaluate(() => acct.project);
+  const ready = page => page.waitForFunction(() => typeof fileInitDone !== 'undefined' && fileInitDone);
   let { ctx, page } = await open({ url: 'https://pinglapp.com/', route, fake: false });
-  assert.equal(await page.isVisible('#acctChip'), false);
-  await page.goto('https://pinglapp.com/?accounts=staging');
-  await page.waitForFunction(() => typeof acct !== 'undefined' && acct.project === 'staging');
+  assert.equal(await project(page), 'prod');
   assert.equal(await page.isVisible('#acctChip'), true);
+  assert.equal(await page.locator('script[src*="supabase"]').count(), 0, 'a guest downloads nothing for accounts');
+  await page.goto('https://pinglapp.com/?accounts=staging');
+  await ready(page);
+  assert.equal(await project(page), 'staging');
   assert.equal(new URL(page.url()).search, '', 'the switch is removed from the address');
   await page.goto('https://pinglapp.com/');
-  await page.waitForFunction(() => typeof acct !== 'undefined' && acct.project === 'staging');
+  await ready(page);
+  assert.equal(await project(page), 'staging', 'remembered');
   await page.goto('https://pinglapp.com/?accounts=off');
-  await page.waitForFunction(() => typeof fileInitDone !== 'undefined' && fileInitDone);
+  await ready(page);
   assert.equal(await page.isVisible('#acctChip'), false);
+  await page.goto('https://pinglapp.com/');
+  await ready(page);
+  assert.equal(await page.isVisible('#acctChip'), false, 'off is remembered too');
+  await page.goto('https://pinglapp.com/?accounts=default');
+  await ready(page);
+  assert.equal(await project(page), 'prod');
+  await ctx.close();
+});
+
+test('a local copy can try prod with ?accounts=prod', async () => {
+  const { ctx, page } = await open({ url: base + '?accounts=prod', fake: false });
+  assert.equal(await page.evaluate(() => acct.project), 'prod');
+  assert.equal(await page.evaluate(() => ACCT_PROJECTS.prod.url), 'https://qezhjjcxarugwgqahlik.supabase.co');
   await ctx.close();
 });
 

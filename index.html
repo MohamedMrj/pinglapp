@@ -7821,11 +7821,15 @@ function renderAll() {
 // Signing in is optional: Pinglapp works the same without an account. supabase-js is loaded only when someone opens
 // the account dialog or is already signed in, so guests download nothing extra. Only the public (publishable) key is
 // here; what a signed-in person may read or write is decided by the database's row-level security.
-// Accounts are switched on only where a project is listed: the staging project on a local copy (localhost), or on any
-// address opened once with ?accounts=staging (?accounts=off switches it off again). pinglapp.com gets production later.
+// Which project: pinglapp.com uses prod, a local copy (localhost) uses staging, anything else (e.g. the old address) has
+// no accounts. Opening any address once with ?accounts=staging or ?accounts=prod picks that project on this browser,
+// and ?accounts=off switches accounts off here (both remembered; ?accounts=default forgets the choice).
 // `turnstile`: the project's Cloudflare Turnstile site key (public). Empty = no robot check; see acctCaptcha().
 // `var`, not const/let: renderAll() reads `acct` and may run before this point.
-var ACCT_PROJECTS = { staging: { url: 'https://bdvoxzkozkrxefpwuzkr.supabase.co', key: 'sb_publishable_aVOkMdJBJ-t0WtCkoMSaGg_cP2pMALL', turnstile: '0x4AAAAAAGSVtRIpaYSiFBa5' } };
+var ACCT_PROJECTS = {
+  staging: { url: 'https://bdvoxzkozkrxefpwuzkr.supabase.co', key: 'sb_publishable_aVOkMdJBJ-t0WtCkoMSaGg_cP2pMALL', turnstile: '0x4AAAAAAGSVtRIpaYSiFBa5' },
+  prod: { url: 'https://qezhjjcxarugwgqahlik.supabase.co', key: 'sb_publishable_KBPMUAUlNAoyp38KymNQRQ_4M1ljFau', turnstile: '0x4AAAAAAGSVtRIpaYSiFBa5' },
+};
 var ACCT_LIB = { src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js', sri: 'sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O' };
 var ACCT_STORE = 'pinglapp.auth';                 // where supabase-js keeps the session in localStorage
 var ACCT_UNAME = /^[a-z0-9_]{3,20}$/;
@@ -7976,11 +7980,13 @@ Object.assign(T.sv, ACCT_T.sv);
 function acctProjectName() {
   try {
     const q = new URLSearchParams(location.search).get('accounts');
-    if (q === 'off') localStorage.removeItem('pinglapp.accountsProject');
-    else if (q && ACCT_PROJECTS[q]) localStorage.setItem('pinglapp.accountsProject', q);
+    if (q === 'default') localStorage.removeItem('pinglapp.accountsProject');
+    else if (q === 'off' || (q && ACCT_PROJECTS[q])) localStorage.setItem('pinglapp.accountsProject', q);
     const chosen = localStorage.getItem('pinglapp.accountsProject');
+    if (chosen === 'off') return null;
     if (chosen && ACCT_PROJECTS[chosen]) return chosen;
   } catch (e) { }
+  if (/^(www\.)?pinglapp\.com$/.test(location.hostname)) return 'prod';
   return /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'staging' : null;
 }
 const acctHome = () => location.origin + location.pathname.replace(/index\.html$/, '');
