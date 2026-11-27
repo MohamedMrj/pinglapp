@@ -1392,6 +1392,11 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 
     <form class="acct-view" data-acct-view="signup" novalidate>
       <p class="hint" data-i18n="acctSignupP">Med ett konto finns dina påminnelser och anteckningar på alla dina enheter. Pinglapp fungerar lika bra utan konto.</p>
+      <div class="acct-oauth" hidden>
+        <button class="btn" type="button" data-act="acct-oauth" data-provider="google" hidden data-i18n="acctGoogle">Fortsätt med Google</button>
+        <button class="btn" type="button" data-act="acct-oauth" data-provider="azure" hidden data-i18n="acctMicrosoft">Fortsätt med Microsoft</button>
+        <p class="acct-or" data-i18n="acctOr">eller med e-post</p>
+      </div>
       <label class="field"><span data-i18n="acctEmail">E-post</span><input type="email" name="email" autocomplete="email" required></label>
       <label class="field"><span data-i18n="acctNewPassword">Lösenord (minst 10 tecken)</span><input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
       <div class="pw-meter" aria-hidden="true"><i></i></div>
@@ -8161,10 +8166,11 @@ async function acctProviders() {
       }
     } catch (e) { return; }
   }
-  const box = document.querySelector('#acctDlg .acct-oauth');
-  let any = false;
-  box.querySelectorAll('[data-provider]').forEach(b => { const on = !!acct.providers[b.dataset.provider]; b.hidden = !on; any = any || on; });
-  box.hidden = !any;
+  document.querySelectorAll('#acctDlg .acct-oauth').forEach(box => {   // on both the log-in and the sign-up screen
+    let any = false;
+    box.querySelectorAll('[data-provider]').forEach(b => { const on = !!acct.providers[b.dataset.provider]; b.hidden = !on; any = any || on; });
+    box.hidden = !any;
+  });
 }
 
 // Robot check (Cloudflare Turnstile) on log-in, sign-up and forgot-password, for projects with a `turnstile` site key.

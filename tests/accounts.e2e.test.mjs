@@ -443,6 +443,19 @@ test('a local copy can try prod with ?accounts=prod', async () => {
   await ctx.close();
 });
 
+test('the sign-up screen offers Google / Microsoft too (only those switched on), as the log-in screen does', async () => {
+  const { ctx, page, errors } = await open();
+  await page.click('#acctChip');
+  await page.click(inView('signin', '[data-to=signup]'));
+  await page.waitForSelector(inView('signup', '.acct-oauth:not([hidden])'));
+  assert.equal(await page.isVisible(inView('signup', '[data-provider="google"]')), true);
+  assert.equal(await page.isVisible(inView('signup', '[data-provider="azure"]')), false, 'Microsoft is off in this stand-in');
+  await page.click(inView('signup', '[data-provider="google"]'));
+  await page.waitForFunction(() => window.PING_ACCOUNTS_FAKE.db.calls.some(c => c[0] === 'oauth' && c[1] === 'google'));
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('first-run guide: a guest is offered a free account first; the save file stays as the way without one', async () => {
   const { ctx, page, errors } = await open();
   await page.evaluate(() => { S.settings.onboarded = false; openSetup(0); });

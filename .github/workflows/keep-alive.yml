@@ -1,0 +1,48 @@
+# Keeps the Supabase projects awake. Free projects are paused after 7 days without activity, and then nobody can log
+# in or sync until the project is restored by hand in the dashboard. Every 3 days this asks each project's database a
+# harmless question (is the username "keepalive_ping" free?) through the public API.
+#
+# No secrets: the URLs and publishable keys are the public ones that are also in index.html (ACCT_PROJECTS).
+# If a project doesn't answer, the run fails and GitHub emails the repo owner.
+# Note: GitHub switches off scheduled workflows in a repo with no commits for 60 days; it emails before it does, and
+# one click (Actions → this workflow → Enable) turns it back on.
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: '17 6 */3 * *'   # 06:17 UTC on every third day of the month
+  workflow_dispatch: {}       # "Run workflow" button, for trying it by hand
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: prod
+            url: https://qezhjjcxarugwgqahlik.supabase.co
+            key: sb_publishable_KBPMUAUlNAoyp38KymNQRQ_4M1ljFau
+          - name: staging
+            url: https://bdvoxzkozkrxefpwuzkr.supabase.co
+            key: sb_publishable_aVOkMdJBJ-t0WtCkoMSaGg_cP2pMALL
+    name: ping ${{ matrix.name }}
+    steps:
+      - name: Ask the database a question
+        env:
+          URL: ${{ matrix.url }}
+          KEY: ${{ matrix.key }}
+        run: |
+          for try in 1 2 3; do
+            code=$(curl -s -o answer.txt -w '%{http_code}' --max-time 30 -X POST \
+              -H "apikey: $KEY" -H 'content-type: application/json' \
+              -d '{"name":"keepalive_ping"}' "$URL/rest/v1/rpc/username_available")
+            echo "try $try: HTTP $code, answer $(cat answer.txt)"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 20
+          done
+          echo "::error::${{ matrix.name }} did not answer. If it is paused, restore it in the Supabase dashboard."
+          exit 1
