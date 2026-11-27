@@ -443,6 +443,23 @@ test('a local copy can try prod with ?accounts=prod', async () => {
   await ctx.close();
 });
 
+test('back from Google/Microsoft without a session: Supabase\'s reason is shown (as text), and "confirm your email" is explained', async () => {
+  let { ctx, page, errors } = await open({ url: base + '?error=server_error&error_description=' +
+    encodeURIComponent('Unverified email with azure. A confirmation email has been sent to your azure email') });
+  await page.waitForFunction(() => acct.view === 'signin' && !document.getElementById('acctDlg').hidden);
+  assert.match(await msg(page), /Nästan klart: vi har skickat ett mejl/);
+  assert.equal(await page.getAttribute('#acctMsg', 'class'), 'acct-msg ok');
+  assert.equal(await page.evaluate(() => location.search), '', 'the error is removed from the address');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  ({ ctx, page, errors } = await open({ url: base + '?error=server_error&error_description=' + encodeURIComponent('Error getting user email <img src=x onerror=alert(1)>') }));
+  await page.waitForFunction(() => acct.view === 'signin' && !document.getElementById('acctDlg').hidden);
+  assert.match(await msg(page), /Länken kunde inte logga in dig här.*\(Error getting user email <img src=x onerror=alert\(1\)>\)$/);
+  assert.equal(await page.locator('#acctMsg img').count(), 0, 'shown as text, never as HTML');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('the sign-up screen offers Google / Microsoft too (only those switched on), as the log-in screen does', async () => {
   const { ctx, page, errors } = await open();
   await page.click('#acctChip');

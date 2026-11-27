@@ -7935,6 +7935,7 @@ const ACCT_T = {
     acctDelMismatch: 'That isn’t your username. Type it exactly to delete the account.', acctDeleting: 'Deleting the account…',
     acctDeleted: 'Your account is deleted. What was on this device is still here, without an account.',
     acctExportNote: 'The file has everything on this device and in your account, plus your profile.',
+    acctProviderConfirm: 'Almost there: we’ve sent an email to your address to confirm it. Open the link in it in this browser, and you’re logged in.',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -7985,6 +7986,7 @@ const ACCT_T = {
     acctDelMismatch: 'Det är inte ditt användarnamn. Skriv det exakt för att radera kontot.', acctDeleting: 'Raderar kontot…',
     acctDeleted: 'Ditt konto är raderat. Det som fanns på den här enheten finns kvar här, utan konto.',
     acctExportNote: 'Filen innehåller allt på den här enheten och i ditt konto, och din profil.',
+    acctProviderConfirm: 'Nästan klart: vi har skickat ett mejl till din adress för att bekräfta den. Öppna länken i mejlet i den här webbläsaren, så är du inloggad.',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -8038,7 +8040,8 @@ function acctBoot() {
   if (!acct.project) return;
   // Back from an email link or Google/Microsoft. A change of email address comes back with ?email=1 (with secure email
   // change, the first of its two links brings no ?code, only a #message).
-  if (q.has('code') || q.has('error_description') || q.has('email')) acct.back = { error: !!q.get('error_description'), reset: q.has('reset'), email: q.has('email') };
+  if (q.has('code') || q.has('error_description') || q.has('email')) acct.back = { error: !!q.get('error_description'), reset: q.has('reset'), email: q.has('email'),
+    why: String(q.get('error_description') || '').slice(0, 300) };   // Supabase's own reason, shown as text
   let signedIn = false;
   try { signedIn = !!localStorage.getItem(ACCT_STORE); } catch (e) { }
   updateAcctChip();
@@ -8059,7 +8062,7 @@ async function acctOnAuth(ev, session) {
   if (back) acctCleanUrl();
   if (!session) {
     acct.profile = undefined; acct.priv = null; acct.pendingStep = null; acct.blocks = null; updateAcctChip();
-    if (back) acctOpen('signin', t('acctLinkBad'), 'bad');
+    if (back) acctOpen('signin', acctBackError(back.why), /confirmation email has been sent/i.test(back.why) ? 'ok' : 'bad');
     else if (!$('acctDlg').hidden && ['account', 'username', 'reset', 'profile', 'people', 'person', 'email', 'password', 'delete'].includes(acct.view)) acctShow('signin');
     return;
   }
@@ -8074,6 +8077,12 @@ async function acctOnAuth(ev, session) {
   else if (back) acctOpen('account', t('acctConfirmed'), 'ok');
   else if (open && (acct.view === 'signin' || acct.view === 'signup')) acctShow('account', t('acctSignedIn'), 'ok');
   if (acct.profile) cloudStart();                            // may ask about the data on this device first
+}
+// Coming back without a session: say why. Google/Microsoft sign-in where the provider doesn't vouch for the email
+// address makes Supabase email a confirmation link instead; anything else shows Supabase's own reason after ours.
+function acctBackError(why) {
+  if (/confirmation email has been sent/i.test(why || '')) return t('acctProviderConfirm');
+  return why ? t('acctLinkBad') + ' (' + why + ')' : t('acctLinkBad');
 }
 // The step the account chip opens: whatever the account still needs, else the account page.
 function acctHomeView() {
