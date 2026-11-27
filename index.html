@@ -726,6 +726,11 @@ a.btn { color: var(--ink); text-decoration: none; }
 .wb-plist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .wb-plist li { display: flex; gap: 8px; align-items: center; }
 .wb-plist .av { margin: 0; cursor: default; }
+.wb-invite { display: grid; gap: 6px; }
+.wb-invite[hidden] { display: none; }
+.wb-invite h4 { margin: 4px 0 0; }
+.wb-invite-list b { overflow-wrap: anywhere; }
+.wb-invite-list .spacer { flex: 1; }
 .wb-plist b { flex: 1; }
 .wb-live-line { margin: 0; color: var(--ok); font-weight: 700; }
 .wb-name { display: flex; gap: 8px; align-items: center; }
@@ -5759,6 +5764,7 @@ const wb = {
   pointers: new Map(), space: false,
   role: 'local', net: null, room: null, me: { cid: wbLocalCid, name: '', color: WB_PEOPLE[0], canEdit: true, pid: 'host' },
   perms: Board.defaultPerms(), people: new Map(), guests: [], admitted: new Set(), banned: new Set(), granted: new Set(), revoked: new Set(), colorN: 0,
+  invited: new Set(), inviteFriends: null, inviteLoading: false,
   follow: false, hostView: null, timerEnd: null, vote: null, cursors: new Map(), lasers: new Map(), images: new Map(),
   saveTimer: null, liveTimer: null, live: new Map(), curTimer: null, curPending: null, laserPending: [], viewTimer: null, ended: null,
 };
@@ -7293,7 +7299,8 @@ function wbRenderShare() {
   body.innerHTML = `
     ${host ? `<p class="wb-live-line">● ${esc(t('wbLiveNow', people.length))}</p>
       <div class="row"><input class="input wide" id="wbLinkInput" readonly value="${esc(wbLink())}" aria-label="${esc(t('wbLink'))}"><button type="button" class="btn primary" data-wb-share="copy">${esc(t('copy'))}</button></div>
-      <p class="hint">${esc(t('wbLinkHint'))}</p>`
+      <p class="hint">${esc(t('wbLinkHint'))}</p>
+      <div class="wb-invite" id="wbInviteBox" hidden></div>`
     : `<p>${t('wbShareIntro')}</p>
       <div class="row"><label class="wb-name">${esc(t('wbYourName'))} <input class="input" id="wbHostName" maxlength="40" value="${esc(wbMyName())}" placeholder="${esc(t('wbHostName'))}"></label></div>
       <div class="row"><button type="button" class="btn primary" data-wb-share="start"${wb.sharing ? ' disabled' : ''}>${esc(t(wb.sharing ? 'wbStarting' : 'wbStart'))}</button></div>`}
@@ -7305,8 +7312,52 @@ function wbRenderShare() {
       <button type="button" class="btn sm" data-wb-share="toggle" data-pid="${esc(x.pid)}">${esc(t(x.canEdit ? 'wbMakeViewer' : 'wbMakeEditor'))}</button><button type="button" class="btn sm ghost danger" data-wb-share="kick" data-pid="${esc(x.pid)}">${esc(t('wbRemoveShort'))}</button></li>`).join('')}</ul>` : `<p class="hint">${esc(t('wbNobodyYet'))}</p>`}` : ''}
     <details><summary>${esc(t('wbHowH'))}</summary><p class="hint">${esc(t('wbHowP'))}</p></details>
     <div class="modal-foot">${host ? `<button type="button" class="btn ghost danger" data-wb-share="stop">${esc(t('wbStop'))}</button>` : ''}${wb.board.room ? `<button type="button" class="btn ghost" data-wb-share="newlink">${esc(t('wbNewLink'))}</button>` : ''}<span class="spacer"></span><button type="button" class="btn" data-wb-share="close">${esc(t('close'))}</button></div>`;
+  wbRenderInvite();
 }
-function wbOpenShare() { if (!wb.board || wbGuest()) return; $('wbShareDlg').hidden = false; wbRenderShare(); }
+// ---- invite a friend to this live board (social S4). Only while sharing and signed in. Friends' names are other
+// people's text, so this part is built with DOM calls, never innerHTML. The friend's app builds the link itself.
+const wbInviteReady = () => !!(acct && acct.session && acct.profile && acct.client);
+async function wbLoadInviteFriends() {
+  wb.inviteLoading = true;
+  let r;
+  try { r = await acct.client.rpc('my_friends'); } catch (e) { r = { error: e }; }
+  wb.inviteLoading = false;
+  wb.inviteFriends = r.error ? [] : (r.data || []);
+  wbRenderInvite();
+}
+function wbRenderInvite() {
+  const box = $('wbInviteBox'); if (!box) return;
+  if (!wbHosting() || !wbInviteReady()) { box.hidden = true; return; }
+  box.hidden = false;
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const kids = [el('h4', '', t('wbInviteH'))];
+  if (!wb.inviteFriends) { if (!wb.inviteLoading) wbLoadInviteFriends(); kids.push(el('p', 'hint', t('friendsLoading'))); }
+  else if (!wb.inviteFriends.length) kids.push(el('p', 'hint', t('wbInviteNone')));
+  else {
+    const ul = el('ul', 'wb-plist wb-invite-list');
+    for (const f of wb.inviteFriends) {
+      const li = el('li'), av = el('span', 'avatar sm'), done = wb.invited.has(wb.board.room + ':' + f.username);
+      av.setAttribute('aria-hidden', 'true'); acctAvatar(av, f);
+      const nm = el('b', '', f.display_name || '@' + f.username);
+      const b = el('button', 'btn sm' + (done ? ' ghost' : ''), t(done ? 'wbInvited' : 'wbInvite'));
+      b.type = 'button'; b.dataset.wbShare = 'invite'; b.dataset.name = f.username; b.disabled = done;
+      li.append(av, nm, el('span', 'spacer'), b); ul.append(li);
+    }
+    kids.push(ul, el('p', 'hint', t('wbInviteHint')));
+  }
+  box.replaceChildren(...kids);
+}
+async function wbInvite(name) {
+  if (!wbHosting() || !wbInviteReady() || !wb.board.room) return;
+  const room = wb.board.room;
+  let r;
+  try { r = await acct.client.rpc('send_board_invite', { name, room, title: (wb.board.title || '').slice(0, 80) }); } catch (e) { r = { error: e }; }
+  if (r.error) return toast(acctErr(r.error));
+  wb.invited.add(room + ':' + name);
+  toast(t('wbInviteSent', '@' + name));
+  wbRenderInvite();
+}
+function wbOpenShare() { if (!wb.board || wbGuest()) return; wb.inviteFriends = null; $('wbShareDlg').hidden = false; wbRenderShare(); }
 $('wbShareDlg').addEventListener('mousedown', e => { if (e.target === $('wbShareDlg')) $('wbShareDlg').hidden = true; });
 $('wbShareDlg').addEventListener('click', e => {
   const b = e.target.closest('[data-wb-share]'); if (!b) return;
@@ -7316,6 +7367,7 @@ $('wbShareDlg').addEventListener('click', e => {
   else if (k === 'copy') copyText(wbLink());
   else if (k === 'stop') wbStopSharing();
   else if (k === 'newlink') wbNewLink();
+  else if (k === 'invite') wbInvite(b.dataset.name);
   else if (k === 'toggle' || k === 'kick') {
     const p = wb.people.get(b.dataset.pid); if (!p) return;
     if (k === 'kick') { wb.banned.add(p.cid); wb.net.send(p.pid, { k: 'kick' }); wb.net.drop(p.pid); wbOnLeave(p.pid); }
@@ -7603,6 +7655,7 @@ document.addEventListener('click', e => {
     case 'send-go': acctSendGo(); break;
     case 'inbox-add': inboxAdd(+b.dataset.id); break;
     case 'inbox-decline': inboxDecline(+b.dataset.id); break;
+    case 'inbox-join': inboxJoin(+b.dataset.id); break;
     case 'av-step': acctAvChange(avatarStep(acct.avDraft, b.dataset.part, +b.dataset.d)); break;
     case 'av-random': acctAvChange(avatarRandom()); break;
     case 'move-start': moveStart(); break;
@@ -8040,6 +8093,11 @@ const ACCT_T = {
     reminderFrom: n => `From ${n}`,
     errSendNotFriend: 'You can only send reminders to friends.', errSendText: 'The reminder needs 1–300 characters.',
     errSendLimit: 'You’ve sent a lot of reminders today. Try again tomorrow.',
+    wbInviteH: 'Invite a friend', wbInvite: 'Invite', wbInvited: 'Invited ✓', wbInviteSent: n => `Invitation sent to ${n}.`,
+    wbInviteHint: 'They get it in their inbox. It works for a day, and only while you’re sharing.',
+    wbInviteNone: 'No friends in Pinglapp yet. Add friends under Account → Find people.',
+    inboxBoardInvite: n => `invites you to the board “${n}”`, inboxJoin: 'Join', inboxJoinBad: 'That invitation doesn’t work.',
+    errSendRoom: 'The board link isn’t valid. Make a new link and try again.',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -8108,6 +8166,11 @@ const ACCT_T = {
     reminderFrom: n => `Från ${n}`,
     errSendNotFriend: 'Du kan bara skicka påminnelser till vänner.', errSendText: 'Påminnelsen behöver 1–300 tecken.',
     errSendLimit: 'Du har skickat många påminnelser i dag. Försök igen i morgon.',
+    wbInviteH: 'Bjud in en vän', wbInvite: 'Bjud in', wbInvited: 'Inbjuden ✓', wbInviteSent: n => `Inbjudan skickad till ${n}.`,
+    wbInviteHint: 'Inbjudan hamnar i din väns inkorg. Den gäller i ett dygn, och bara medan du delar.',
+    wbInviteNone: 'Du har inga vänner i Pinglapp än. Lägg till vänner under Konto → Hitta personer.',
+    inboxBoardInvite: n => `bjuder in dig till tavlan ”${n}”`, inboxJoin: 'Gå med', inboxJoinBad: 'Den inbjudan fungerar inte.',
+    errSendRoom: 'Tavlans länk är ogiltig. Gör en ny länk och försök igen.',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -8373,7 +8436,7 @@ function acctErr(e) {
     user_already_exists: 'acctErrExists', username_taken: 'acctUnameTaken', username_invalid: 'acctUnameRules', username_too_soon: 'acctUnameSoon',
     report_limit: 'acctErrReportLimit', avatar_bad: 'acctPhotoBad', email_exists: 'acctErrEmailTaken', confirm_mismatch: 'acctDelMismatch',
     friend_unknown: 'errFriendUnknown', friend_blocked: 'errFriendBlocked', friend_limit: 'errFriendLimit',
-    send_not_friend: 'errSendNotFriend', send_text_bad: 'errSendText', send_limit: 'errSendLimit' };
+    send_not_friend: 'errSendNotFriend', send_text_bad: 'errSendText', send_limit: 'errSendLimit', send_room_bad: 'errSendRoom' };
   const key = e && (map[e.hint] || map[e.code] || map[e.error_code]);
   if (key) return t(key);
   const m = (e && e.message) || String(e);
@@ -8895,6 +8958,18 @@ async function inboxAdd(id) {
   acctMsg(t('inboxAdded', fmtWhen(new Date(r.due))), 'ok');
   maybeAskNotif();
 }
+// "Gå med": the app builds the board link from the room id (checked again here); the page then opens the board as a
+// guest, as if the link had been clicked. The host must still be sharing; if not, the guest view says so.
+const WB_ROOM_RE = /^[a-z0-9]{12,40}$/;
+async function inboxJoin(id) {
+  const it = (acct.inbox || []).find(x => x.id === id);
+  if (!it) return;
+  const room = String((it.payload && it.payload.room) || '');
+  if (!WB_ROOM_RE.test(room)) { await inboxAnswer(id); return acctMsg(t('inboxJoinBad'), 'bad'); }
+  await inboxAnswer(id);
+  inboxGo('#wb=' + room);
+}
+function inboxGo(hash) { if (location.hash === hash) location.reload(); else location.hash = hash; }   // hashchange reloads into the board
 async function inboxDecline(id) {
   if (await inboxAnswer(id)) acctMsg(t('inboxDeclined'), 'ok');
 }
@@ -8926,6 +9001,7 @@ function inboxRender() {
     const when = document.createElement('span'); when.className = 'when'; when.textContent = it.created_at ? fmtWhen(new Date(it.created_at)) : '';
     if (it.kind === 'friend_request') what.append(who, ' ' + t('inboxFriendReq'));
     else if (it.kind === 'reminder') what.append(who, ' ' + t('inboxReminder'));
+    else if (it.kind === 'board_invite') what.append(who, ' ' + t('inboxBoardInvite', String((it.payload && it.payload.title) || '') || t('wbUntitled')));
     else what.append(who);
     body.append(what);
     if (it.kind === 'reminder') {
@@ -8936,7 +9012,8 @@ function inboxRender() {
     body.append(when);
     const acts = document.createElement('div'); acts.className = 'acts';
     const pairs = it.kind === 'friend_request' ? [['friendAccept', 'friend-accept', 'primary'], ['friendDecline', 'friend-decline', 'ghost']]
-      : it.kind === 'reminder' ? [['inboxAdd', 'inbox-add', 'primary'], ['inboxNoThanks', 'inbox-decline', 'ghost']] : [];
+      : it.kind === 'reminder' ? [['inboxAdd', 'inbox-add', 'primary'], ['inboxNoThanks', 'inbox-decline', 'ghost']]
+      : it.kind === 'board_invite' ? [['inboxJoin', 'inbox-join', 'primary'], ['inboxNoThanks', 'inbox-decline', 'ghost']] : [];
     for (const [key, act, cls] of pairs) {
       const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + cls; b.dataset.act = act; b.textContent = t(key);
       if (it.kind === 'friend_request') b.dataset.name = it.username; else b.dataset.id = String(it.id);
@@ -9030,6 +9107,8 @@ async function acctAccountInfo() {
     blocked,
     inbox_reminders: (acct.inbox || []).filter(i => i.kind === 'reminder')
       .map(i => ({ from: i.username, text: (i.payload && i.payload.text) || '', sent_at: i.created_at })),
+    inbox_board_invites: (acct.inbox || []).filter(i => i.kind === 'board_invite')
+      .map(i => ({ from: i.username, title: (i.payload && i.payload.title) || '', sent_at: i.created_at })),
   };
 }
 

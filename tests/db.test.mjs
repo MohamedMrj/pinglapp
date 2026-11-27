@@ -450,6 +450,53 @@ test('reminders to friends: at most 50 a day; old and answered items are removed
   assert.ok(await rows(U, `select public.send_reminder('vera', 'new day')`));
 });
 
+test('board invites: friends only, a valid room id, shown for a day, no duplicates, own daily limit', async () => {
+  const H1 = '00000000-0000-4000-8000-000000000f41', G1 = '00000000-0000-4000-8000-000000000f42', X1 = '00000000-0000-4000-8000-000000000f43';
+  await signUp(H1, 'h1@example.com', { username: 'hosta', display_name: 'Hosta' });
+  await signUp(G1, 'g1@example.com', { username: 'gesta' });
+  await signUp(X1, 'x1@example.com', { username: 'xena' });
+  const call = (uid, sql, p) => rows(uid, sql, p).then(r => Object.values(r[0])[0]);
+  const inbox = uid => rows(uid, 'select * from public.my_inbox()');
+  const ROOM = 'abcdefghij0123456789';
+  await fails(H1, `select public.send_board_invite('gesta', $1, 'Plan')`, [ROOM], /send_not_friend/);
+  await call(H1, `select public.friend_request('gesta')`);
+  await call(G1, `select public.friend_respond('hosta', true)`);
+
+  const id = Number(await call(H1, `select public.send_board_invite('gesta', $1, $2)`, [ROOM, '  Planering  ']));
+  assert.deepEqual((await inbox(G1)).map(i => [i.kind, Number(i.id), i.username, i.payload]),
+    [['board_invite', id, 'hosta', { room: ROOM, title: 'Planering' }]]);
+  assert.equal(Number(await call(H1, `select public.send_board_invite('gesta', $1, 'Again')`, [ROOM])), id, 'inviting again: same invite');
+  assert.equal((await inbox(G1)).length, 1);
+  // Room ids must look like the app's; titles are cut to 80; an empty title is fine.
+  for (const bad of ['short', 'ABCDEFGHIJ0123456789', 'abcdefghij012345678/', 'https://evil.example/x', 'a'.repeat(41)])
+    await fails(H1, `select public.send_board_invite('gesta', $1, 'x')`, [bad], /send_room_bad/);
+  await fails(H1, `select public.send_board_invite('gesta', null, 'x')`, [], /send_room_bad/);
+  const id2 = await call(H1, `select public.send_board_invite('gesta', $1, $2)`, ['zzzzzzzzzzzz', 'T'.repeat(200)]);
+  const [long] = (await db.query('select payload from public.inbox_items where id = $1', [id2])).rows;
+  assert.equal(long.payload.title.length, 80);
+  assert.ok(await call(H1, `select public.send_board_invite('gesta', 'yyyyyyyyyyyy', '')`));
+  await fails(X1, `select public.send_board_invite('gesta', $1, 'x')`, [ROOM], /send_not_friend/);
+  await fails(null, `select public.send_board_invite('gesta', $1, 'x')`, [ROOM]);
+  // The table's own checks hold even for the service role.
+  await assert.rejects(db.query(`insert into public.inbox_items (sender, recipient, kind, payload) values ($1, $2, 'board_invite', '{"room":"bad","title":""}')`, [H1, G1]));
+  await assert.rejects(db.query(`insert into public.inbox_items (sender, recipient, kind, payload) values ($1, $2, 'board_invite', $3)`, [H1, G1, { room: ROOM, title: '', url: 'x' }]));
+  await assert.rejects(db.query(`insert into public.inbox_items (sender, recipient, kind, payload) values ($1, $2, 'other', '{}')`, [H1, G1]));
+
+  // Answering works as for reminders; a day-old invite is no longer shown, but reminders are.
+  assert.equal(await call(G1, 'select public.answer_item($1)', [id]), true);
+  await call(H1, `select public.send_reminder('gesta', 'still here')`);
+  await db.query(`update public.inbox_items set created_at = now() - interval '25 hours' where sender = $1`, [H1]);
+  assert.deepEqual((await inbox(G1)).map(i => i.kind), ['reminder']);
+  // After a day, inviting to the same room makes a new invite.
+  assert.notEqual(Number(await call(H1, `select public.send_board_invite('gesta', $1, 'Plan')`, [ROOM])), id);
+
+  // Invites and reminders have separate daily limits.
+  await db.query(`delete from public.inbox_items where sender = $1`, [H1]);
+  for (let i = 0; i < 50; i++) await rows(H1, `select public.send_board_invite('gesta', $1, 'x')`, ['room' + String(i).padStart(10, '0')]);
+  await fails(H1, `select public.send_board_invite('gesta', 'roomxxxxxxxxxx', 'x')`, [], /send_limit/);
+  assert.ok(await call(H1, `select public.send_reminder('gesta', 'a reminder still goes')`));
+});
+
 test('deleting an account removes all its rows', async () => {
   const E2 = '00000000-0000-4000-8000-0000000000e2';
   await signUp(E2, 'e2@example.com', { username: 'eve2' });

@@ -715,6 +715,90 @@ test('inbox: a double click on "Lägg till" adds the reminder once', async () =>
   await ctx.close();
 });
 
+// ---- social S4: invite a friend to a live whiteboard (live sharing through the local stand-in for PeerJS)
+const localBoards = async (ctx, page) => { await ctx.addInitScript(() => { window.PING_WB_LOCAL = true; }); await page.evaluate(() => { window.PING_WB_LOCAL = true; }); };
+
+test('board invite: while sharing, invite a friend from Dela; their name is text; inviting twice is one invite', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await localBoards(ctx, page);
+  await fakeDb(page, { friends: FRIENDS_AC, profiles: { 'u-a': { username: 'alice', display_name: 'Alice' }, 'u-c': { username: 'carol', display_name: '<b>Carol</b>' } } });
+  await page.click('.tabs [data-tab="board"]');
+  await page.waitForFunction(() => wb.board);
+  await page.evaluate(() => { wb.board.title = 'Planering'; });
+  // Not sharing yet: no invite part.
+  await page.click('#wbShareBtn');
+  assert.equal(await page.locator('#wbInviteBox').count(), 0);
+  await page.click('[data-wb-share="start"]');
+  await page.waitForSelector('#wbInviteBox [data-wb-share="invite"]');
+  assert.match(await page.textContent('#wbInviteBox'), /Bjud in en vän<b>Carol<\/b>Bjud in/);
+  assert.equal(await page.locator('#wbInviteBox b b').count(), 0, 'a name is text, never HTML');
+  await page.click('#wbInviteBox [data-wb-share="invite"]');
+  await page.waitForSelector('#wbInviteBox [data-wb-share="invite"][disabled]');
+  assert.equal(await page.textContent('#wbInviteBox [data-wb-share="invite"]'), 'Inbjuden ✓');
+  const room = await page.evaluate(() => wb.board.room);
+  assert.deepEqual(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.items.map(i => [i.from, i.to, i.kind, i.payload])),
+    [['u-a', 'u-c', 'board_invite', { room, title: 'Planering' }]]);
+  // Still invited after the dialog re-renders (someone joins, permissions change).
+  await page.evaluate(() => wbRenderShare());
+  assert.equal(await page.locator('#wbInviteBox [data-wb-share="invite"][disabled]').count(), 1);
+  // A new link means a new room: the friend can be invited to it.
+  await page.evaluate(() => { window.confirm = () => true; });
+  await page.click('[data-wb-share="newlink"]');
+  await page.waitForFunction(r => wb.board.room !== r && wbHosting(), room);
+  await page.waitForSelector('#wbInviteBox [data-wb-share="invite"]:not([disabled])');
+  // Stopping hides it.
+  await page.click('[data-wb-share="stop"]');
+  assert.equal(await page.locator('#wbInviteBox').count(), 0);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('board invite: no friends says how to add some; a refused invite is explained', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await localBoards(ctx, page);
+  await page.click('.tabs [data-tab="board"]');
+  await page.waitForFunction(() => wb.board);
+  await page.click('#wbShareBtn');
+  await page.click('[data-wb-share="start"]');
+  await page.waitForFunction(() => /inga vänner/.test(($('wbInviteBox') || {}).textContent || ''));
+  await fakeDb(page, { friends: FRIENDS_AC, sendLimit: true });
+  await page.click('[data-wb-share="close"]');
+  await page.click('#wbShareBtn');
+  await page.waitForSelector('#wbInviteBox [data-wb-share="invite"]');
+  await page.click('#wbInviteBox [data-wb-share="invite"]');
+  await page.waitForFunction(() => /många/.test($('toastMsg').textContent));
+  assert.equal(await page.locator('#wbInviteBox [data-wb-share="invite"][disabled]').count(), 0);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('inbox: a board invite shows the title as text; "Gå med" answers it and opens the board as a guest', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await localBoards(ctx, page);
+  const ROOM = 'abcdefghij0123456789';
+  await fakeDb(page, { friends: FRIENDS_AC, items: [
+    { id: 5, from: 'u-c', to: 'u-a', kind: 'board_invite', payload: { room: ROOM, title: '<i>Plan</i>' }, at: new Date().toISOString(), answered: false },
+    { id: 6, from: 'u-c', to: 'u-a', kind: 'board_invite', payload: { room: 'oldoldoldold', title: 'Old' }, at: new Date(Date.now() - 2 * 86400000).toISOString(), answered: false },
+    { id: 8, from: 'u-c', to: 'u-a', kind: 'board_invite', payload: { room: 'https://evil.example', title: 'Bad' }, at: new Date().toISOString(), answered: false }] });
+  await page.evaluate(() => inboxRefresh());
+  await page.click('#inboxBtn');
+  await page.waitForSelector('#inboxList [data-id="5"][data-act="inbox-join"]');
+  assert.equal(await page.locator('#inboxList li').count(), 2, 'a day-old invite is not shown');
+  assert.match(await page.textContent('#inboxList'), /Carol bjuder in dig till tavlan ”<i>Plan<\/i>”/);
+  assert.equal(await page.locator('#inboxList i').count(), 0);
+  assert.equal(await page.locator('#inboxList a').count(), 0, 'no links from other people');
+  // A room id that isn't one the app makes is refused by the app too (the database already refuses it).
+  await page.click('#inboxList [data-id="8"][data-act="inbox-join"]');
+  await page.waitForFunction(() => /fungerar inte/.test($('acctMsg').textContent));
+  assert.equal(await page.evaluate(() => location.hash), '');
+  await Promise.all([page.waitForEvent('load'), page.click('#inboxList [data-id="5"][data-act="inbox-join"]')]);
+  await page.waitForFunction(() => typeof wbGuestRoom !== 'undefined');
+  assert.equal(await page.evaluate(() => wbGuestRoom), ROOM);
+  assert.deepEqual(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.items.filter(i => i.answered).map(i => i.id).sort()), [5, 8]);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('the reminder parser reads a friend\'s text relative to when it was sent; repeating ones start from now', async () => {
   const { ctx, page } = await signedInAlice();
   const res = await page.evaluate(() => {

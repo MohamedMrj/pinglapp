@@ -209,6 +209,17 @@ export const FAKE = () => {
         db.items.push({ id, from: me, to: k, kind: 'reminder', payload: { text: body }, at: new Date().toISOString(), answered: false }); keep();
         return { data: id, error: null };
       }
+      if (name === 'send_board_invite') {   // following the board_invites migration
+        const k = idOf(args.name), room = String(args.room ?? ''), title = String(args.title ?? '').trim().slice(0, 80);
+        if (!k || k === me || !isFriend(k)) return err('send_not_friend');
+        if (!/^[a-z0-9]{12,40}$/.test(room)) return err('send_room_bad');
+        const old = db.items.find(i => i.from === me && i.to === k && i.kind === 'board_invite' && i.payload.room === room && !i.answered);
+        if (old) return { data: old.id, error: null };
+        if (db.sendLimit) return err('send_limit');
+        const id = (db.items.reduce((m, i) => Math.max(m, i.id), 0) || 0) + 1;
+        db.items.push({ id, from: me, to: k, kind: 'board_invite', payload: { room, title }, at: new Date().toISOString(), answered: false }); keep();
+        return { data: id, error: null };
+      }
       if (name === 'answer_item') {
         const it = db.items.find(i => i.id === args.item && i.to === me && !i.answered);
         if (it) { it.answered = true; keep(); }
@@ -218,7 +229,8 @@ export const FAKE = () => {
         const row = (kind, id, k, payload, at) => { const p = pub(k); return { kind, id, username: p.username, display_name: p.display_name, avatar_path: p.avatar_path, avatar_style: p.avatar_style, payload, created_at: at }; };
         const reqs = db.friends.filter(f => f.status === 'pending' && f.by !== me && (f.a === me || f.b === me))
           .map(f => row('friend_request', null, f.by, null, '2026-11-28T10:00:00Z'));
-        const items = db.items.filter(i => i.to === me && !i.answered && isFriend(i.from) && db.profiles[i.from])
+        const fresh = i => Date.now() - Date.parse(i.at) < (i.kind === 'board_invite' ? 1 : 30) * 86400000;
+        const items = db.items.filter(i => i.to === me && !i.answered && fresh(i) && isFriend(i.from) && db.profiles[i.from])
           .map(i => row(i.kind, i.id, i.from, i.payload, i.at));
         return { data: [...reqs, ...items].sort((a, b) => a.created_at < b.created_at ? 1 : -1), error: null };
       }
