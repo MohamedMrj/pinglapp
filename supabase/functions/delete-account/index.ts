@@ -2,7 +2,8 @@
 // Pinglapp: delete the signed-in user's account for good.
 //
 // Called by the app (account page → "Radera kontot") with the user's own session and { confirm: <their username> }.
-// Order matters: first every file in the user's folder of each bucket, then the user. Deleting the user removes all
+// Order matters: first every file in the user's folder of each bucket (and the pictures of notes they shared, in
+// note-images/shared/{note id}/), then the user. Deleting the user removes all
 // their rows (every table references auth.users with on delete cascade; reports they sent keep the text with no
 // reporter). Storage files are not rows we own, so they must go first, through the Storage API.
 //
@@ -52,10 +53,15 @@ async function deleteAccount(admin, jwt, confirm) {
   const expected = prof ? prof.username : String(user.email || '').toLowerCase();
   if (!expected || String(confirm || '').trim().replace(/^@/, '').toLowerCase() !== expected) return [400, { error: 'confirm_mismatch' }];
 
+  // Notes this user shared keep their pictures in shared/{note id}/ (note-images): those go too.
+  const { data: owned, error: ownErr } = await admin.from('shared_notes').select('id').eq('owner', user.id);
+  if (ownErr) return [500, { error: 'server' }];
+  const folders = { 'note-images': [user.id, ...(owned || []).map(n => `shared/${n.id}`)] };
+
   for (const bucket of BUCKETS) {
     const store = admin.storage.from(bucket);
-    let files;
-    try { files = await listFiles(store, user.id); } catch (e) { return [500, { error: 'storage' }]; }
+    let files = [];
+    try { for (const f of folders[bucket] || [user.id]) files.push(...await listFiles(store, f)); } catch (e) { return [500, { error: 'storage' }]; }
     for (let i = 0; i < files.length; i += 1000) {
       const { error } = await store.remove(files.slice(i, i + 1000));
       if (error) return [500, { error: 'storage' }];

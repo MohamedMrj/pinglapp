@@ -799,6 +799,166 @@ test('inbox: a board invite shows the title as text; "Gå med" answers it and op
   await ctx.close();
 });
 
+// ---- social S5: shared notes and lists. Alice's page; Carol's side is played by changing the fake server's rows.
+const SHARE_PROFILES = { 'u-a': { username: 'alice', display_name: 'Alice' }, 'u-c': { username: 'carol', display_name: '<b>Carol</b>' } };
+const openNoteTab = async (page, text) => {
+  await page.click('.tabs [data-tab="notes"]');
+  if (text != null) await page.evaluate(tx => { const n = { id: 'n-' + Date.now(), text: tx, created: Date.now(), modified: Date.now(), pinned: false, history: [{ t: 1, text: 'private old version' }] }; S.notes.unshift(n); save(); loadNote(n); }, text);
+};
+const sharedRow = (page, id) => page.evaluate(i => JSON.parse(JSON.stringify(window.PING_ACCOUNTS_FAKE.db.shared[i] || null)), id);
+const syncShared = page => page.evaluate(() => sharedSync(acct.client));
+const typeInNote = (page, text) => page.evaluate(tx => { noteText.value = tx; noteText.dispatchEvent(new Event('input')); }, text);
+const carolSaves = (page, id, text) => page.evaluate(([i, tx]) => { const s = window.PING_ACCOUNTS_FAKE.db.shared[i]; s.data = { text: tx, history: s.data.history || [] }; s.rev++; sessionStorage.setItem('fakedb', JSON.stringify(window.PING_ACCOUNTS_FAKE.db)); }, [id, text]);
+
+test('shared notes: share a note with a friend from Dela; names are text; earlier versions stay private', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await fakeDb(page, { friends: FRIENDS_AC, profiles: SHARE_PROFILES });
+  await openNoteTab(page, 'Inköp\n- [ ] mjölk');
+  await page.click('#noteShareBtn');
+  await page.click('#pop button:has-text("Dela med vänner")');
+  await page.waitForSelector('#noteShareBody [data-ns-pick="carol"]');
+  assert.equal(await page.locator('#noteShareBody b b').count(), 0, 'a name is text, never HTML');
+  assert.match(await page.textContent('#noteShareBody'), /<b>Carol<\/b>/);
+  await page.click('#noteShareBody [data-ns="go"]');
+  await page.waitForFunction(() => /Välj minst en vän/.test($('toastMsg').textContent));
+  await page.check('#noteShareBody [data-ns-pick="carol"]');
+  await page.selectOption('#noteShareBody [data-ns-role="carol"]', 'read');
+  await page.click('#noteShareBody [data-ns="go"]');
+  await page.waitForFunction(() => curNote && curNote.id.startsWith('sh-') && curNote.shared.people.length === 2);
+  const id = await page.evaluate(() => curNote.id);
+  const row = await sharedRow(page, id);
+  assert.deepEqual([row.owner, row.members, row.data], ['u-a', { 'u-c': 'read' }, { text: 'Inköp\n- [ ] mjölk', history: [] }], 'the old versions are not shared');
+  assert.equal(await page.isVisible('#noteShareDlg'), false);
+  assert.match(await page.textContent('#noteStatus'), /Delad med @carol/);
+  assert.match(await page.textContent('#noteList'), /👥 Inköp/);
+  // One note in the list (the original is kept, hidden, with its private versions; the history shows them to you).
+  assert.equal(await page.evaluate(() => liveNotes().filter(n => n.text.startsWith('Inköp')).length), 1);
+  assert.equal(await page.evaluate(id => S.notes.find(n => n.sharedAs === id).history[0].text, id), 'private old version');
+  await page.evaluate(() => openHistory());
+  assert.match(await page.textContent('#histList'), /privat, från innan du delade den/);
+  await page.evaluate(() => { $('histDlg').hidden = true; });
+  // Never pushed to Alice's own notes.
+  assert.equal(await page.evaluate(id => cloudPushSet(S, cloudState({})).notes.some(r => r.id === id), id), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('shared notes: a friend\'s note arrives; edits on both sides are combined line by line; a clash keeps yours in the history', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  const ID = 'sh-carolsnote000001';
+  await fakeDb(page, { friends: FRIENDS_AC, profiles: SHARE_PROFILES,
+    shared: { [ID]: { owner: 'u-c', data: { text: 'Lista\n- [ ] a', history: [] }, rev: 1, members: { 'u-a': 'edit' }, updated_at: new Date().toISOString() } } });
+  await openNoteTab(page);
+  await syncShared(page);
+  await page.waitForFunction(() => /@carol har delat ”Lista” med dig/.test($('toastMsg').textContent));
+  await page.evaluate(id => loadNote(S.notes.find(n => n.id === id)), ID);
+  assert.match(await page.textContent('#noteStatus'), /Delad med @carol/);
+  // Alice ticks a; meanwhile Carol adds b. Both are kept, on both sides.
+  await typeInNote(page, 'Lista\n- [x] a');
+  await carolSaves(page, ID, 'Lista\n- [ ] a\n- [ ] b');
+  await syncShared(page);
+  assert.equal(await page.evaluate(() => noteText.value), 'Lista\n- [x] a\n- [ ] b');
+  assert.deepEqual([(await sharedRow(page, ID)).rev, (await sharedRow(page, ID)).data.text], [3, 'Lista\n- [x] a\n- [ ] b']);
+  // Both change the same line: Carol's (saved first) wins, Alice's version is in the history.
+  await typeInNote(page, 'Lista X\n- [x] a\n- [ ] b');
+  await carolSaves(page, ID, 'Lista 2\n- [x] a\n- [ ] b');
+  await syncShared(page);
+  await page.waitForFunction(() => /samma rader/.test($('toastMsg').textContent));
+  assert.equal(await page.evaluate(() => noteText.value), 'Lista 2\n- [x] a\n- [ ] b');
+  assert.ok((await sharedRow(page, ID)).data.history.some(h => h.text === 'Lista X\n- [x] a\n- [ ] b'), 'nothing is lost');
+  // Nothing new here: nothing is sent.
+  const before = (await sharedRow(page, ID)).rev;
+  await syncShared(page);
+  assert.equal((await sharedRow(page, ID)).rev, before);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('shared notes: read only means no typing, no ticking, nothing sent; being removed leaves a copy in the trash', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  const ID = 'sh-readonlynote0001';
+  await fakeDb(page, { friends: FRIENDS_AC, profiles: SHARE_PROFILES,
+    shared: { [ID]: { owner: 'u-c', data: { text: 'Plan\n- [ ] x', history: [] }, rev: 1, members: { 'u-a': 'read' }, updated_at: new Date().toISOString() } } });
+  await openNoteTab(page);
+  await syncShared(page);
+  await page.evaluate(id => loadNote(S.notes.find(n => n.id === id)), ID);
+  assert.equal(await page.evaluate(() => noteText.readOnly), true);
+  assert.match(await page.textContent('#noteStatus'), /bara läsa/);
+  await page.evaluate(() => setNoteText('Plan\n- [x] x'));
+  await page.waitForFunction(() => /inte ändra/.test($('toastMsg').textContent));
+  await typeInNote(page, 'changed');
+  assert.equal(await page.evaluate(() => curNote.text), 'Plan\n- [ ] x');
+  await syncShared(page);
+  assert.equal((await sharedRow(page, ID)).rev, 1, 'nothing sent');
+  // Carol removes Alice: the note goes, a copy is in the trash.
+  await page.evaluate(id => { window.PING_ACCOUNTS_FAKE.db.shared[id].members = {}; }, ID);
+  await syncShared(page);
+  await page.waitForFunction(() => /delas inte längre med dig/.test($('toastMsg').textContent));
+  assert.equal(await page.evaluate(id => S.notes.some(n => n.id === id), ID), false);
+  assert.deepEqual(await page.evaluate(() => S.notes.filter(n => n.trashed && n.text === 'Plan\n- [ ] x').length), 1);
+  assert.equal(await page.evaluate(() => curNote), null);
+  assert.equal(await page.evaluate(() => noteText.readOnly), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('shared notes: stop sharing makes it your own again (with all versions); leaving can keep a copy; "Ta bort" explains', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await page.evaluate(() => { window.confirm = () => true; });
+  await fakeDb(page, { friends: FRIENDS_AC, profiles: SHARE_PROFILES });
+  await openNoteTab(page, 'Egen anteckning');
+  const origId = await page.evaluate(() => curNote.id);
+  await page.evaluate(() => noteShareOpen());
+  await page.waitForSelector('#noteShareBody [data-ns-pick="carol"]');
+  await page.check('#noteShareBody [data-ns-pick="carol"]');
+  await page.click('#noteShareBody [data-ns="go"]');
+  await page.waitForFunction(() => curNote && curNote.id.startsWith('sh-'));
+  const id = await page.evaluate(() => curNote.id);
+  await typeInNote(page, 'Egen anteckning, ändrad tillsammans');
+  await syncShared(page);
+  // "Ta bort" on a shared note opens the sharing dialog instead.
+  await page.click('#delNoteBtn');
+  await page.waitForSelector('#noteShareBody [data-ns="stop"]');
+  await page.click('#noteShareBody [data-ns="stop"]');
+  await page.waitForFunction(() => /din egen igen/.test($('toastMsg').textContent));
+  assert.equal(await sharedRow(page, id), null);
+  assert.deepEqual(await page.evaluate(() => [curNote.id, curNote.text, !!curNote.sharedAs, !!curNote.shared]), [origId, 'Egen anteckning, ändrad tillsammans', false, false]);
+  assert.ok(await page.evaluate(() => curNote.history.some(h => h.text === 'private old version')), 'the private versions are back');
+  // Leaving a friend's note, keeping a copy.
+  const ID = 'sh-leavethisnote001';
+  await fakeDb(page, { shared: { [ID]: { owner: 'u-c', data: { text: 'Carols', history: [] }, rev: 1, members: { 'u-a': 'edit' }, updated_at: new Date().toISOString() } } });
+  await syncShared(page);
+  await page.evaluate(id => { loadNote(S.notes.find(n => n.id === id)); noteShareOpen(); }, ID);
+  await page.waitForSelector('#noteShareBody [data-ns="leave"]');
+  assert.match(await page.textContent('#noteShareBody'), /@carol har delat anteckningen med dig\. Du kan ändra den\./);
+  await page.click('#noteShareBody [data-ns="leave"]');
+  await page.waitForFunction(() => /Din kopia finns/.test($('toastMsg').textContent));
+  assert.deepEqual((await sharedRow(page, ID)).members, {});
+  assert.deepEqual(await page.evaluate(() => [curNote.text, !!curNote.shared, !!curNote.trashed]), ['Carols', false, false]);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('shared notes: pictures go to the note\'s shared folder (not your own); readers never upload', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  const ID = 'sh-picturesnote001', PIC = 'abc123-pic';
+  await fakeDb(page, { friends: FRIENDS_AC, profiles: SHARE_PROFILES,
+    shared: { [ID]: { owner: 'u-c', data: { text: `Bild\n![x](ping-img:${PIC})\n![y](ping-img:missing-1)`, history: [] }, rev: 1, members: { 'u-a': 'edit' }, updated_at: new Date().toISOString() } } });
+  await openNoteTab(page);
+  await page.waitForFunction(() => imgReady);
+  await page.evaluate(p => { imgCache.set(p, 'data:image/webp;base64,UklGRhYAAABXRUJQVlA4TAoAAAAvAAAAAEX/I/of'); imgIds.add(p); cloud.cs = cloudState({}); }, PIC);
+  await syncShared(page);
+  const calls = await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.calls.filter(c => c[0] === 'upload' || c[0] === 'download').map(c => [c[0], c[1], c[2]]));
+  assert.deepEqual(calls, [['upload', 'note-images', `shared/${ID}/${PIC}`], ['download', 'note-images', `shared/${ID}/missing-1`]]);
+  assert.equal(await page.evaluate(() => referencedImages(false).has('abc123-pic')), false, 'not in the account\'s own pictures');
+  // As a reader: nothing is uploaded.
+  await page.evaluate(id => { const db = window.PING_ACCOUNTS_FAKE.db; db.shared[id].members['u-a'] = 'read'; db.calls = []; cloud.cs = cloudState({}); }, ID);
+  await syncShared(page);
+  assert.equal(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.calls.filter(c => c[0] === 'upload').length), 0);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('the reminder parser reads a friend\'s text relative to when it was sent; repeating ones start from now', async () => {
   const { ctx, page } = await signedInAlice();
   const res = await page.evaluate(() => {

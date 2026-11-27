@@ -19,9 +19,9 @@ const fn = load(), { corsHeaders, BUCKETS } = fn;
 const deleteAccount = async (...a) => JSON.parse(JSON.stringify(await fn.deleteAccount(...a)));   // plain arrays from this realm
 
 // A service-role client: users by token, profiles, and files per bucket (listed one folder level at a time, like Storage).
-function fakeAdmin({ files = {}, failRemove = false } = {}) {
+function fakeAdmin({ files = {}, failRemove = false, shared = [] } = {}) {
   const st = { users: { 'tok-a': { id: 'ua', email: 'a@example.com' }, 'tok-b': { id: 'ub', email: 'B@Example.com' } },
-    profiles: { ua: { username: 'alice' } }, files: {}, deleted: [], removed: [] };
+    profiles: { ua: { username: 'alice' } }, shared, files: {}, deleted: [], removed: [] };
   for (const bk of BUCKETS) st.files[bk] = new Set(files[bk] || []);
   return {
     st,
@@ -30,9 +30,10 @@ function fakeAdmin({ files = {}, failRemove = false } = {}) {
       admin: { async deleteUser(id) { st.deleted.push(id); return { data: {}, error: null }; } },
     },
     from(table) {
-      assert.equal(table, 'profiles');
+      assert.ok(table === 'profiles' || table === 'shared_notes', table);
       let id;
-      const q = { select() { return q; }, eq(col, v) { id = v; return q; }, async maybeSingle() { return { data: st.profiles[id] || null, error: null }; } };
+      const q = { select() { return q; }, eq(col, v) { id = v; return table === 'shared_notes' ? Promise.resolve({ data: st.shared.filter(n => n.owner === v).map(n => ({ id: n.id })), error: null }) : q; },
+        async maybeSingle() { return { data: st.profiles[id] || null, error: null }; } };
       return q;
     },
     storage: {
@@ -90,6 +91,13 @@ test('the right username: every own file in every bucket goes (sub-folders and >
   assert.deepEqual([...admin.st.files.avatars], ['ub/avatar.webp']);
   assert.ok(admin.st.removed.includes('note-images/ua/sub/deeper/x.webp'));
   assert.deepEqual(admin.st.deleted, ['ua']);
+});
+
+test('pictures of notes the user shared (shared/{note}/…) go too; others\' shared notes stay', async () => {
+  const admin = fakeAdmin({ shared: [{ id: 'sh-mine00000001', owner: 'ua' }, { id: 'sh-theirs000001', owner: 'ub' }],
+    files: { 'note-images': ['shared/sh-mine00000001/p1', 'shared/sh-mine00000001/p2', 'shared/sh-theirs000001/p3', 'ua/own'] } });
+  assert.deepEqual(await deleteAccount(admin, 'tok-a', 'alice'), [200, { ok: true }]);
+  assert.deepEqual([...admin.st.files['note-images']], ['shared/sh-theirs000001/p3']);
 });
 
 test('without a profile (no username yet) the email address confirms, in any case', async () => {

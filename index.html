@@ -731,6 +731,13 @@ a.btn { color: var(--ink); text-decoration: none; }
 .wb-invite h4 { margin: 4px 0 0; }
 .wb-invite-list b { overflow-wrap: anywhere; }
 .wb-invite-list .spacer { flex: 1; }
+.note-share { display: grid; gap: 10px; }
+.note-share-list { max-height: 320px; overflow: auto; }
+.note-share-list li { flex-wrap: wrap; }
+.note-share-list label.check { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.note-share-list b { overflow-wrap: anywhere; }
+.note-share-list .spacer { flex: 1; }
+.note-share-list select { width: auto; }
 .wb-plist b { flex: 1; }
 .wb-live-line { margin: 0; color: var(--ok); font-weight: 700; }
 .wb-name { display: flex; gap: 8px; align-items: center; }
@@ -1687,6 +1694,12 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 </div>
 
 <!-- whiteboard: share and permissions (filled in by wbRenderShare) -->
+<div class="scrim" id="noteShareDlg" hidden>
+  <div class="modal" role="dialog" aria-labelledby="noteShareTitle">
+    <h2 id="noteShareTitle" data-i18n="noteShareH">Dela anteckningen med vänner</h2>
+    <div id="noteShareBody" class="note-share"></div>
+  </div>
+</div>
 <div class="scrim" id="wbShareDlg" hidden>
   <div class="modal" role="dialog" aria-labelledby="wbShareTitle">
     <h2 id="wbShareTitle" data-i18n="wbShareH">Dela tavlan</h2>
@@ -3182,8 +3195,11 @@ function cloudState(o) {
     pics: Object.assign({}, obj(o.pics)),               // picture id -> 1: in the account's storage
     picsMissing: Object.assign({}, obj(o.picsMissing)), // picture id -> when the account didn't have it (try again a day later)
     picsUnref: Object.assign({}, obj(o.picsUnref)),     // picture id -> since when no note uses it (removed after a week)
+    sharedPics: Object.assign({}, obj(o.sharedPics)),   // shared note id -> { picture id: 1 } in that note's shared folder
   };
 }
+// Shared notes (ids "sh-…", social S5) sync through their own functions, never through the account's own `notes`.
+const isSharedId = id => typeof id === 'string' && id.startsWith('sh-');
 // JSON with object keys sorted at every level. The server's jsonb doesn't keep key order, so plain JSON.stringify
 // would see a pulled item as different from the same item here.
 const canonJson = v => JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x)
@@ -3196,13 +3212,14 @@ function cloudPushSet(d, cs) {
   const live = new Set();
   for (const kind of CLOUD_KINDS) for (const x of d[kind] || []) {
     live.add(x.id);
+    if (isSharedId(x.id)) continue;
     const s = itemStamp(x);
     if (cs.known[kind][x.id] === s) continue;
     if (JSON.stringify(x).length > CLOUD_MAX_CHARS) { out.tooBig.push(x.id); continue; }
     out[kind].push({ id: x.id, data: x, updated: s, deleted: false });
   }
   for (const [id, ts] of Object.entries(d.deleted || {})) {
-    if (live.has(id) || !(ts > 0)) continue;
+    if (live.has(id) || !(ts > 0) || isSharedId(id)) continue;
     const kinds = CLOUD_KINDS.filter(k => id in cs.known[k]);
     for (const k of kinds.length ? kinds : CLOUD_KINDS)
       if (cs.known[k][id] !== -ts) out[k].push({ id, data: {}, updated: ts, deleted: true });
@@ -3329,6 +3346,70 @@ function cloudFirstStep(cs, userId, d, boards = 0) {
   return cs.owner ? 'other' : 'ask';
 }
 /*CLOUD-END*/
+
+/*MERGE-START*/
+// Shared notes (social S5): when two people changed the same note, the two versions are combined line by line
+// against the version both started from ("three-way merge"). Changes to different lines are both kept, and lines both
+// added at the same place are both kept (a shared shopping list just grows). Only when both changed the same lines is
+// there a clash: the saved version (theirs) wins there, and the caller keeps the other whole version in the history.
+const MERGE_MAX_CELLS = 4000000;       // above this (two big, very different notes) the whole note counts as one change
+// The changes from a to b (arrays of lines), as hunks { s, e, lines }: a[s..e) is replaced by `lines`.
+function lineHunks(a, b) {
+  let p = 0; while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  let q = 0; while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+  const A = a.slice(p, a.length - q), B = b.slice(p, b.length - q), n = A.length, m = B.length;
+  if (!n && !m) return [];
+  if (n * m > MERGE_MAX_CELLS) return [{ s: p, e: p + n, lines: B }];
+  const L = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));   // longest common run of the remaining lines
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = []; let i = 0, j = 0, cur = null;
+  while (i < n || j < m) {
+    if (i < n && j < m && A[i] === B[j]) { if (cur) { out.push(cur); cur = null; } i++; j++; }
+    else if (j < m && (i === n || L[i][j + 1] >= L[i + 1][j])) { cur = cur || { s: p + i, e: p + i, lines: [] }; cur.lines.push(B[j]); j++; }
+    else { cur = cur || { s: p + i, e: p + i, lines: [] }; cur.e = p + i + 1; i++; }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+// Returns { text, clash }.
+function merge3(base, mine, theirs) {
+  const norm = s => String(s == null ? '' : s).replace(/\r\n/g, '\n');
+  base = norm(base); mine = norm(mine); theirs = norm(theirs);
+  if (mine === theirs || mine === base) return { text: theirs, clash: false };
+  if (theirs === base) return { text: mine, clash: false };
+  const split = s => s === '' ? [] : s.split('\n');      // an empty note has no lines (not one empty line)
+  const B = split(base);
+  const all = [...lineHunks(B, split(mine)).map(h => Object.assign(h, { side: 'm' })),
+    ...lineHunks(B, split(theirs)).map(h => Object.assign(h, { side: 't' }))]
+    .sort((x, y) => x.s - y.s || (x.e - x.s) - (y.e - y.s));
+  const apply = (hs, s, e) => { const r = []; let p = s; for (const h of hs) { r.push(...B.slice(p, h.s), ...h.lines); p = h.e; } r.push(...B.slice(p, e)); return r; };
+  const key = hs => JSON.stringify(hs.map(h => [h.s, h.e, h.lines]));
+  const out = []; let pos = 0, clash = false;
+  for (let k = 0; k < all.length;) {
+    const g = [all[k++]]; let gs = g[0].s, ge = g[0].e;
+    // A hunk joins the group if it overlaps it; two insertions at the same place also go together.
+    while (k < all.length && (all[k].s < ge || (all[k].s === all[k].e && gs === ge && all[k].s === gs))) { ge = Math.max(ge, all[k].e); g.push(all[k++]); }
+    const M = g.filter(h => h.side === 'm'), T = g.filter(h => h.side === 't');
+    out.push(...B.slice(pos, gs));
+    if (!M.length || !T.length || key(M) === key(T)) out.push(...apply(T.length ? T : M, gs, ge));
+    else if (gs === ge) { const tl = T.flatMap(h => h.lines), ml = M.flatMap(h => h.lines); out.push(...tl, ...ml.filter(l => !tl.includes(l))); }
+    else { clash = true; out.push(...apply(T, gs, ge)); }
+    pos = ge;
+  }
+  out.push(...B.slice(pos));
+  return { text: out.join('\n'), clash };
+}
+// The history of a shared note, combined from two copies: every version once, oldest first, at most `max`.
+function mergeHistory(a, b, max = 30) {
+  const seen = new Set(), all = [];
+  for (const h of [...(Array.isArray(a) ? a : []), ...(Array.isArray(b) ? b : [])]) {
+    if (!h || typeof h.text !== 'string') continue;
+    const k = (+h.t || 0) + '\u0000' + h.text;
+    if (!seen.has(k)) { seen.add(k); all.push({ t: +h.t || 0, text: h.text }); }
+  }
+  return all.sort((x, y) => x.t - y.t).slice(-max);
+}
+/*MERGE-END*/
 
 // How a reminder sounds and looks. Global defaults live in settings.alert; a reminder can override
 // sound, loop and colour with its own r.sound / r.loop / r.color ('' = use the default).
@@ -4485,7 +4566,8 @@ const noteText = $('noteText');
 const noteTitle = n => { const l = (n.text || '').split('\n').map(x => x.trim().replace(/^#+\s*/, '')).filter(Boolean); return l[0] ? l[0].slice(0, 80) : t('noteEmpty'); };
 const notePreviewText = n => { const l = (n.text || '').split('\n').map(x => x.trim()).filter(Boolean); return (l[1] || '').replace(/^[#>*\-\s]+/, ''); };
 // Notes in the trash (n.trashed) and saved templates (n.template) stay in S.notes so they sync like any edit.
-const isLive = n => !n.trashed && !n.template;
+// A note you shared keeps its earlier, private versions in the original note, hidden (n.sharedAs = the shared id).
+const isLive = n => !n.trashed && !n.template && !n.sharedAs;
 const liveNotes = () => S.notes.filter(isLive);
 function sortedNotes() { return liveNotes().sort((a, b) => (b.pinned - a.pinned) || (b.modified - a.modified)); }
 function renderNotes() {
@@ -4496,7 +4578,7 @@ function renderNotes() {
   $('noteList').innerHTML = list.length ? list.map(n => {
     const tg = noteTags(n).slice(0, 4).map(x => '#' + x).join(' ');
     return `<li role="option" data-id="${n.id}" aria-selected="${curNote && curNote.id === n.id}">
-      <div class="nt">${n.pinned ? '📌 ' : ''}${esc(noteTitle(n))}</div><div class="ns">${esc(fmtWhen(new Date(n.modified)))}${notePreviewText(n) ? ' · ' + esc(notePreviewText(n)) : ''}</div>${tg ? `<div class="ntags">${esc(tg)}</div>` : ''}</li>`;
+      <div class="nt">${n.pinned ? '📌 ' : ''}${n.shared ? `<span title="${esc(t('noteSharedTitle'))}">👥</span> ` : ''}${esc(noteTitle(n))}</div><div class="ns">${esc(fmtWhen(new Date(n.modified)))}${notePreviewText(n) ? ' · ' + esc(notePreviewText(n)) : ''}</div>${tg ? `<div class="ntags">${esc(tg)}</div>` : ''}</li>`;
   }).join('') : `<li style="cursor:default;color:var(--muted)">${esc(t(q || noteTagFilter ? 'noNotesMatch' : 'noNotes'))}</li>`;
   ['delNoteBtn', 'noteRemindBtn', 'notePinBtn', 'noteShareBtn', 'noteHistBtn'].forEach(id => $(id).disabled = !curNote);
   $('notePinBtn').textContent = t(curNote && curNote.pinned ? 'unpin' : 'pin');
@@ -4807,6 +4889,7 @@ function keepCaret(text) {
 }
 // Change the open note from outside the editor (ticking a box, picking a code language) and save it.
 function setNoteText(text) {
+  if (noteReadOnly()) { toast(t('noteReadOnlyToast')); return; }
   keepCaret(text);
   curNote.text = text; curNote.modified = Date.now(); save();
   paintPreview(); renderNotes();
@@ -4821,12 +4904,20 @@ function loadNote(n) {
   renderNotes();
 }
 function updateNoteStatus() {
-  $('noteStatus').textContent = curNote ? t('noteEdited', fmtWhen(new Date(curNote.modified))) : t('noteStart');
+  let s = curNote ? t('noteEdited', fmtWhen(new Date(curNote.modified))) : t('noteStart');
+  if (curNote && curNote.shared) {
+    const others = (curNote.shared.people || []).map(p => '@' + p.username).filter(u => u !== '@' + ((acct && acct.profile && acct.profile.username) || ''));
+    s += ' · ' + (others.length ? t('noteSharedWith', others.join(', ')) : t('noteSharedNobody')) + (noteReadOnly() ? ' · ' + t('noteReadOnly') : '');
+  }
+  $('noteStatus').textContent = s;
+  noteText.readOnly = noteReadOnly();
 }
+// A shared note you may only read: typing, ticking boxes and adding pictures are switched off.
+const noteReadOnly = () => !!(curNote && curNote.shared && curNote.shared.role === 'read');
 function flushNote() {
   if (noteTimer) { clearTimeout(noteTimer); noteTimer = null; save(); }
   // A note left empty is tidied away. One that had text goes to the trash with its last text, so it can be got back.
-  if (curNote && !curNote.text.trim()) {
+  if (curNote && !curNote.shared && !curNote.text.trim()) {      // a shared note stays, even empty: it's everyone's
     const kept = (Array.isArray(curNote.history) ? curNote.history : []).filter(h => (h.text || '').trim());
     if (kept.length) { curNote.text = kept[kept.length - 1].text; curNote.modified = curNote.trashed = Date.now(); toast(t('emptyTrashed')); }
     else S.notes = S.notes.filter(n => n !== curNote);
@@ -4834,6 +4925,7 @@ function flushNote() {
   }
 }
 noteText.addEventListener('input', () => {
+  if (noteReadOnly()) { noteText.value = curNote.text; return; }
   if (!curNote) { curNote = { id: uid(), text: '', created: Date.now(), modified: Date.now(), pinned: false }; S.notes.unshift(curNote); }
   snapshotNote(curNote);                 // keeps the version from before this editing session
   curNote.text = noteText.value; curNote.modified = Date.now();
@@ -5127,17 +5219,23 @@ function snapshotNote(n, force) {
 }
 let histSel = -1;
 function openHistory() { flushNote(); if (!curNote) return; histSel = -1; renderHistory(); $('histDlg').hidden = false; }
+// A shared note's versions; for the person who shared it, also the private ones from before (kept in the original).
+function noteHist(n) {
+  const old = n.shared ? S.notes.find(x => x.sharedAs === n.id) : null;
+  return [...((old && old.history) || []).map(h => Object.assign({}, h, { priv: true })), ...(n.history || [])];
+}
 function renderHistory() {
-  const h = (curNote.history || []).slice().reverse();
+  const h = noteHist(curNote).slice().reverse();
   $('histList').innerHTML = `<li data-h="-1" aria-selected="${histSel === -1}"><b>${esc(t('histNow'))}</b><span>${esc(fmtWhen(new Date(curNote.modified)))}</span></li>`
-    + (h.length ? h.map((v, i) => `<li data-h="${i}" aria-selected="${histSel === i}"><b>${esc(fmtWhen(new Date(v.t)))}</b><span>${esc(t('histSize', v.text.length, v.text.length - curNote.text.length))}</span></li>`).join('')
+    + (h.length ? h.map((v, i) => `<li data-h="${i}" aria-selected="${histSel === i}"><b>${esc(fmtWhen(new Date(v.t)))}</b><span>${esc(t('histSize', v.text.length, v.text.length - curNote.text.length))}${v.priv ? ' · ' + esc(t('histPrivate')) : ''}</span></li>`).join('')
       : `<li class="empty-h">${esc(t('histNone'))}</li>`);
   $('histView').textContent = histSel < 0 ? curNote.text : h[histSel].text;
   $('histRestore').disabled = histSel < 0;
 }
 $('histList').addEventListener('click', e => { const li = e.target.closest('li[data-h]'); if (!li) return; histSel = +li.dataset.h; renderHistory(); });
 function restoreHistory() {
-  const h = (curNote.history || []).slice().reverse()[histSel]; if (!h) return;
+  if (noteReadOnly()) { toast(t('noteReadOnlyToast')); return; }
+  const h = noteHist(curNote).slice().reverse()[histSel]; if (!h) return;
   snapshotNote(curNote, true);           // the version being replaced stays in the history
   curNote.text = h.text; curNote.modified = Date.now(); noteText.value = h.text;
   save(); renderNotes(); updateNoteStatus(); paintPreview();
@@ -5333,7 +5431,8 @@ function exportHtml(text) {
 }
 function shareMenu(anchor) {
   flushNote(); if (!curNote) return;
-  openPop(anchor, [[t('shareRich'), copyRich], [t('shareMd'), () => copyText(curNote.text)], [t('sharePrint'), printNote], [t('shareDownload'), downloadNote]]);
+  const friends = acct && acct.session && acct.profile ? [[t(curNote.shared ? 'shareFriendsManage' : 'shareFriends'), noteShareOpen]] : [];
+  openPop(anchor, [...friends, [t('shareRich'), copyRich], [t('shareMd'), () => copyText(curNote.text)], [t('sharePrint'), printNote], [t('shareDownload'), downloadNote]]);
 }
 async function copyRich() {
   const html = exportHtml(curNote.text);
@@ -5552,9 +5651,16 @@ async function loadImages() {
     if (imgCache.size) paintPreview();
   } catch (e) { imgReady = false; }
 }
-function referencedImages() {
+// Pictures used by notes. withShared = false leaves out shared notes: their pictures live in the note's shared folder
+// (sharedPictures), not in the account's own, and count towards the note owner's storage.
+function referencedImages(withShared = true) {
+  const ids = new Set();
+  for (const n of S.notes) if (withShared || !n.shared) for (const id of noteImageIds(n)) ids.add(id);
+  return ids;
+}
+function noteImageIds(n) {
   const ids = new Set(), scan = x => { for (const m of String(x || '').matchAll(/ping-img:([\w-]+)/g)) ids.add(m[1]); };
-  for (const n of S.notes) { scan(n.text); (n.history || []).forEach(h => scan(h.text)); }
+  scan(n.text); (n.history || []).forEach(h => scan(h.text));
   return ids;
 }
 async function pruneImages() {      // pictures no note, version or daily copy uses any more, after two days
@@ -5604,6 +5710,7 @@ async function imageToDataUrl(file) {
   } finally { URL.revokeObjectURL(url); }
 }
 async function addImages(files) {
+  if (noteReadOnly()) { toast(t('noteReadOnlyToast')); return; }
   if (!imgReady) { toast(t('imgUnavailable')); return; }
   const parts = [];
   for (const f of files) {
@@ -7583,6 +7690,7 @@ document.addEventListener('click', e => {
     case 'new-note': newNote(); break;
     case 'daily-log': dailyLog(); break;
     case 'del-note':
+      if (curNote && curNote.shared) { toast(t('noteShareDeleteHint')); noteShareOpen(); break; }   // stop sharing, or leave
       if (curNote) {
         const gone = curNote;
         clearTimeout(noteTimer); noteTimer = null;
@@ -7890,6 +7998,7 @@ document.addEventListener('keydown', e => {
     else if (!$('keysDlg').hidden) $('keysDlg').hidden = true;
     else if (!$('startupDlg').hidden) $('startupDlg').hidden = true;
     else if (!$('wbShareDlg').hidden) $('wbShareDlg').hidden = true;
+    else if (!$('noteShareDlg').hidden && !NS.busy) $('noteShareDlg').hidden = true;
     else if (!$('editor').hidden) closeEditor();
     return;
   }
@@ -8098,6 +8207,27 @@ const ACCT_T = {
     wbInviteNone: 'No friends in Pinglapp yet. Add friends under Account → Find people.',
     inboxBoardInvite: n => `invites you to the board “${n}”`, inboxJoin: 'Join', inboxJoinBad: 'That invitation doesn’t work.',
     errSendRoom: 'The board link isn’t valid. Make a new link and try again.',
+    noteShareH: 'Share the note with friends', shareFriends: 'Share with friends…', shareFriendsManage: 'Shared with friends…',
+    noteSharedTitle: 'Shared with friends', noteSharedWith: n => `Shared with ${n}`, noteSharedNobody: 'Shared, with nobody else right now',
+    noteReadOnly: 'read only', noteReadOnlyToast: 'You can read this note but not change it.', histPrivate: 'private, from before you shared it',
+    noteShareIntro: 'Pick friends. They see the note in their notes and can change it, or only read it. Earlier versions aren’t shared; they stay with you.',
+    noteShareOwnerP: 'Change who is in the note and what they may do. Removed people keep a copy in their trash.',
+    noteRoleEdit: 'Can edit', noteRoleRead: 'Can read', noteRoleOwner: 'Shared it',
+    noteSharePics: 'Pictures in the note are stored for everyone in it and count towards your storage.',
+    noteShareGo: 'Share', nsSave: 'Save', nsCancel: 'Cancel', nsClose: 'Close',
+    noteShareStop: 'Stop sharing', noteShareLeave: 'Leave the note', noteShareKeep: 'Keep a copy of the note for myself',
+    noteShareMemberEdit: n => `${n} shared this note with you. You can change it.`, noteShareMemberRead: n => `${n} shared this note with you. You can read it.`,
+    noteSharePick: 'Pick at least one friend.', noteSharedDone: n => `Shared with ${n}.`, noteShareSaved: 'Saved.',
+    noteShareStopConfirm: 'Stop sharing this note? It becomes your own again; the others get a copy in their trash.',
+    noteShareLeaveConfirm: 'Leave this note? You no longer see the changes the others make.',
+    noteShareStopped: 'The note is your own again.', noteShareLeft: 'You left the note.', noteShareLeftKept: 'You left the note. Your copy is in your notes.',
+    noteShareDeleteHint: 'A shared note is removed by stopping the sharing, or by leaving it.',
+    shareEnded: n => `“${n}” is no longer shared with you. A copy is in the trash.`, sharedWithYou: (w, n) => `${w} shared “${n}” with you.`,
+    shareClash: 'Someone changed the same lines at the same time. Their version is shown; yours is in the history.',
+    shareFull: 'The storage of the person who shared the note is full, so a picture couldn’t be added for the others.',
+    errShareNotFriend: 'You can only share with friends.', errShareBad: 'That couldn’t be shared. Try again.',
+    errShareTooMany: 'A note can be shared with at most 20 people.', errShareLimit: 'You’ve shared a lot of notes today. Try again tomorrow.',
+    errShareGone: 'The note is no longer shared with you.', errShareReadOnly: 'You can read this note but not change it.',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -8171,6 +8301,27 @@ const ACCT_T = {
     wbInviteNone: 'Du har inga vänner i Pinglapp än. Lägg till vänner under Konto → Hitta personer.',
     inboxBoardInvite: n => `bjuder in dig till tavlan ”${n}”`, inboxJoin: 'Gå med', inboxJoinBad: 'Den inbjudan fungerar inte.',
     errSendRoom: 'Tavlans länk är ogiltig. Gör en ny länk och försök igen.',
+    noteShareH: 'Dela anteckningen med vänner', shareFriends: 'Dela med vänner…', shareFriendsManage: 'Delad med vänner…',
+    noteSharedTitle: 'Delad med vänner', noteSharedWith: n => `Delad med ${n}`, noteSharedNobody: 'Delad, men med ingen annan just nu',
+    noteReadOnly: 'bara läsa', noteReadOnlyToast: 'Du kan läsa anteckningen men inte ändra den.', histPrivate: 'privat, från innan du delade den',
+    noteShareIntro: 'Välj vänner. De ser anteckningen bland sina anteckningar och kan ändra den, eller bara läsa. Tidigare versioner delas inte; de finns kvar hos dig.',
+    noteShareOwnerP: 'Ändra vilka som är med och vad de får göra. Den som tas bort får en kopia i sin papperskorg.',
+    noteRoleEdit: 'Kan ändra', noteRoleRead: 'Kan läsa', noteRoleOwner: 'Delade den',
+    noteSharePics: 'Bilder i anteckningen sparas för alla som är med och räknas på ditt lagringsutrymme.',
+    noteShareGo: 'Dela', nsSave: 'Spara', nsCancel: 'Avbryt', nsClose: 'Stäng',
+    noteShareStop: 'Sluta dela', noteShareLeave: 'Lämna anteckningen', noteShareKeep: 'Behåll en kopia av anteckningen åt mig',
+    noteShareMemberEdit: n => `${n} har delat anteckningen med dig. Du kan ändra den.`, noteShareMemberRead: n => `${n} har delat anteckningen med dig. Du kan läsa den.`,
+    noteSharePick: 'Välj minst en vän.', noteSharedDone: n => `Delad med ${n}.`, noteShareSaved: 'Sparat.',
+    noteShareStopConfirm: 'Sluta dela anteckningen? Den blir din egen igen; de andra får en kopia i sin papperskorg.',
+    noteShareLeaveConfirm: 'Lämna anteckningen? Du ser inte längre de ändringar de andra gör.',
+    noteShareStopped: 'Anteckningen är din egen igen.', noteShareLeft: 'Du har lämnat anteckningen.', noteShareLeftKept: 'Du har lämnat anteckningen. Din kopia finns bland dina anteckningar.',
+    noteShareDeleteHint: 'En delad anteckning tas bort genom att sluta dela den, eller genom att lämna den.',
+    shareEnded: n => `”${n}” delas inte längre med dig. En kopia ligger i papperskorgen.`, sharedWithYou: (w, n) => `${w} har delat ”${n}” med dig.`,
+    shareClash: 'Någon ändrade samma rader samtidigt. Deras version visas; din finns i historiken.',
+    shareFull: 'Lagringsutrymmet hos den som delade anteckningen är fullt, så en bild kunde inte läggas till för de andra.',
+    errShareNotFriend: 'Du kan bara dela med vänner.', errShareBad: 'Det gick inte att dela. Försök igen.',
+    errShareTooMany: 'En anteckning kan delas med högst 20 personer.', errShareLimit: 'Du har delat många anteckningar i dag. Försök igen i morgon.',
+    errShareGone: 'Anteckningen delas inte längre med dig.', errShareReadOnly: 'Du kan läsa anteckningen men inte ändra den.',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -8436,7 +8587,9 @@ function acctErr(e) {
     user_already_exists: 'acctErrExists', username_taken: 'acctUnameTaken', username_invalid: 'acctUnameRules', username_too_soon: 'acctUnameSoon',
     report_limit: 'acctErrReportLimit', avatar_bad: 'acctPhotoBad', email_exists: 'acctErrEmailTaken', confirm_mismatch: 'acctDelMismatch',
     friend_unknown: 'errFriendUnknown', friend_blocked: 'errFriendBlocked', friend_limit: 'errFriendLimit',
-    send_not_friend: 'errSendNotFriend', send_text_bad: 'errSendText', send_limit: 'errSendLimit', send_room_bad: 'errSendRoom' };
+    send_not_friend: 'errSendNotFriend', send_text_bad: 'errSendText', send_limit: 'errSendLimit', send_room_bad: 'errSendRoom',
+    share_not_friend: 'errShareNotFriend', share_bad: 'errShareBad', share_too_many: 'errShareTooMany', share_limit: 'errShareLimit',
+    share_gone: 'errShareGone', share_read_only: 'errShareReadOnly' };
   const key = e && (map[e.hint] || map[e.code] || map[e.error_code]);
   if (key) return t(key);
   const m = (e && e.message) || String(e);
@@ -9360,7 +9513,7 @@ async function cloudBoards(c, uid) {
 async function cloudPictures(c, uid) {
   if (!imgReady) return;
   const cs = cloud.cs, store = c.storage.from('note-images');
-  const plan = cloudPicturePlan(referencedImages(), imgIds, cs);
+  const plan = cloudPicturePlan(referencedImages(false), imgIds, cs);
   let added = false;
   for (const id of plan.upload) {
     if (cloud.full) break;
@@ -9386,6 +9539,275 @@ async function cloudPictures(c, uid) {
     if (!error) { delete cs.pics[id]; delete cs.picsUnref[id]; cloud.filesChanged = true; }
   }
 }
+// ---- shared notes (social S5). A shared note sits in S.notes like any note (id "sh-…") with `shared`:
+//   { rev, base, role, owner, people }   base = the text at revision `rev`, as the server has it
+// It never goes to the account's own `notes`. Each sync: fetch what changed (shared_notes_sync), combine it with what
+// was typed here since `base` (merge3), then save what's new here on the revision it was based on (shared_note_save);
+// if someone saved in between, combine again and retry. The open shared note is also checked every 10 seconds.
+var SHARED = { busy: false, clash: false };
+const sharedReady = () => !!(acct && acct.session && acct.profile && acct.client && isActiveWindow);
+const sharedBody = n => ({ text: n.text || '', history: Array.isArray(n.history) ? n.history : [] });
+// What the server has: the text (`base`) and which versions are in the history (`hist`). Anything else here is new.
+const histKey = h => (Array.isArray(h) ? h : []).map(v => (+v.t || 0) + ':' + String(v.text || '').length).join(',');
+const sharedDirty = n => !!n.shared && (n.text !== n.shared.base || histKey(n.history) !== n.shared.hist);
+function sharedLocal(r) {
+  const d = r.data || {}, text = String(d.text || ''), history = mergeHistory(d.history, []);
+  return { id: r.id, text, created: Date.now(), modified: Date.parse(r.updated_at) || Date.now(), pinned: false, history,
+    shared: { rev: +r.rev, base: text, hist: histKey(history), role: r.role, owner: r.owner_name, people: r.people || [] } };
+}
+// Take the server's version at revision `rev`, combined with what was changed here since the last one.
+function sharedTake(n, d, rev) {
+  const theirs = String((d && d.text) || ''), hist = mergeHistory((d && d.history) || [], []), sh = n.shared;
+  n.history = mergeHistory(n.history, hist);
+  if (n.text === sh.base) n.text = theirs;
+  else {
+    const m = merge3(sh.base, n.text, theirs);
+    if (m.clash) { n.history = mergeHistory(n.history, [{ t: Date.now(), text: n.text }]); SHARED.clash = true; }   // nothing is lost
+    n.text = m.text;
+  }
+  sh.base = theirs; sh.hist = histKey(hist); sh.rev = rev; n.modified = Date.now();
+}
+async function sharedPush(c, n) {
+  for (let i = 0; i < 4 && n.shared && n.shared.role !== 'read' && sharedDirty(n); i++) {
+    const body = sharedBody(n), sent = body.text, sentHist = histKey(body.history);
+    const { data, error } = await c.rpc('shared_note_save', { id: n.id, base_rev: n.shared.rev, body });
+    if (error) { if (error.hint === 'share_read_only') n.shared.role = 'read'; if (/^share_/.test(error.hint || '')) return; throw error; }
+    const row = (data || [])[0]; if (!row) return;
+    if (row.saved) { n.shared.rev = +row.cur_rev; n.shared.base = sent; n.shared.hist = sentHist; }
+    else sharedTake(n, row.cur_data, +row.cur_rev);
+  }
+}
+// The note is yours alone again (you stopped sharing it, maybe on another device): back into the original note.
+function sharedToOwn(n) {
+  S.notes = S.notes.filter(x => x !== n);
+  let old = S.notes.find(x => x.sharedAs === n.id) || (n.shared.from && S.notes.find(x => x.id === n.shared.from));
+  if (old) { old.text = n.text; old.history = mergeHistory(old.history, n.history); old.sharedAs = null; old.trashed = null; old.modified = Date.now(); }
+  else { old = { id: 'own-' + n.id.slice(3), text: n.text, created: n.created, modified: Date.now(), pinned: !!n.pinned, history: n.history || [] }; S.notes.unshift(old); }
+  if (curNote === n) curNote = old;
+  return old;
+}
+// No longer shared with you (removed, or sharing stopped): a copy goes to the trash, so nothing is lost.
+function sharedToTrash(n, keep) {
+  S.notes = S.notes.filter(x => x !== n);
+  const id = 'kopia-' + n.id.slice(3);
+  if (!S.notes.some(x => x.id === id)) S.notes.unshift({ id, text: n.text, created: n.created, modified: Date.now(), pinned: false, history: n.history || [], trashed: keep ? null : Date.now() });
+  if (curNote === n) curNote = keep ? S.notes.find(x => x.id === id) : null;
+}
+async function sharedSync(c, oneId = null) {
+  if (!sharedReady() || SHARED.busy) return;
+  SHARED.busy = true; SHARED.clash = false;
+  const before = curNote;
+  try {
+    const local = S.notes.filter(n => n.shared && (!oneId || n.id === oneId));
+    const known = {}; for (const n of local) known[n.id] = n.shared.rev;
+    const { data, error } = await c.rpc('shared_notes_sync', { known, one_id: oneId });
+    if (error) throw error;
+    const rows = new Map((data || []).map(r => [r.id, r]));
+    let changed = false;
+    for (const n of local) {
+      if (rows.has(n.id) || !S.notes.includes(n)) continue;
+      changed = true;
+      if (n.shared.role === 'owner') sharedToOwn(n); else { sharedToTrash(n, false); toast(t('shareEnded', noteTitle(n))); }
+    }
+    for (const r of rows.values()) {
+      const n = S.notes.find(x => x.id === r.id);
+      if (!n) {
+        if (!r.data) continue;
+        const nn = sharedLocal(r); S.notes.unshift(nn); changed = true;
+        if (r.role !== 'owner') toast(t('sharedWithYou', '@' + r.owner_name, noteTitle(nn)));
+        continue;
+      }
+      if (!n.shared) continue;
+      const meta = JSON.stringify([n.shared.role, n.shared.owner, n.shared.people]);
+      Object.assign(n.shared, { role: r.role, owner: r.owner_name, people: r.people || [] });
+      if (meta !== JSON.stringify([n.shared.role, n.shared.owner, n.shared.people])) changed = true;
+      if (r.data && +r.rev !== n.shared.rev) { sharedTake(n, r.data, +r.rev); changed = true; }
+    }
+    for (const n of S.notes.filter(x => x.shared && (!oneId || x.id === oneId)))
+      if (n.shared.role !== 'read' && sharedDirty(n)) { await sharedPush(c, n); changed = true; }
+    if (changed) sharedRefresh(before);
+    if (SHARED.clash) toast(t('shareClash'));
+    await sharedPictures(c, oneId);
+  } finally { SHARED.busy = false; }
+}
+// Show the result without disturbing the person: the open note keeps its cursor (only changed characters are replaced).
+function sharedRefresh(before) {
+  cloud.selfSave = true;
+  try { save(); } finally { cloud.selfSave = false; }
+  if (curNote && !S.notes.includes(curNote)) curNote = null;
+  if (curNote !== before) { const n = curNote; curNote = null; loadNote(n); }
+  else if (curNote && noteText.value !== curNote.text) keepCaret(curNote.text);
+  paintPreview(); renderNotes(); updateNoteStatus();
+}
+// Pictures in shared notes: files in the note's own folder, shared/{note id}/{picture id}, which everyone in the note
+// can read. Editors (and the owner) upload the ones they have; everyone downloads the ones they lack.
+async function sharedPictures(c, oneId) {
+  if (!imgReady || !cloud.cs) return;
+  const cs = cloud.cs, store = c.storage.from('note-images'), alive = new Set();
+  let added = false;
+  for (const n of S.notes) {
+    if (!n.shared) continue;
+    alive.add(n.id);
+    if (oneId && n.id !== oneId) continue;
+    const known = cs.sharedPics[n.id] = cs.sharedPics[n.id] || {};
+    for (const id of noteImageIds(n)) {
+      const path = `shared/${n.id}/${id}`;
+      if (known[id] || cs.picsMissing[path] > Date.now() - 60000) continue;
+      try {
+        if (imgIds.has(id)) {
+          if (n.shared.role === 'read') continue;
+          const url = imgCache.get(id); if (!url) continue;
+          const blob = await (await fetch(url)).blob();
+          const { error } = await store.upload(path, blob, { contentType: blob.type || 'image/webp', upsert: false });
+          if (error && !cloudIsDup(error)) { if (cloudIsFull(error)) toast(t('shareFull')); cs.picsMissing[path] = Date.now(); continue; }
+          known[id] = 1;
+        } else {
+          const { data, error } = await store.download(path);
+          if (error) { cs.picsMissing[path] = Date.now(); continue; }
+          const blob = data.type && data.type.startsWith('image/') ? data : new Blob([data], { type: 'image/webp' });
+          const url = await blobToDataUrl(blob);
+          if (!String(url).startsWith('data:image/')) continue;
+          imgCache.set(id, url); imgIds.add(id); added = true; known[id] = 1; delete cs.picsMissing[path];
+          try { await kv.set('img-' + id, url); } catch (e) { }
+        }
+      } catch (e) { console.warn('shared picture', e); cs.picsMissing[path] = Date.now(); }
+    }
+  }
+  if (!oneId) for (const k of Object.keys(cs.sharedPics)) if (!alive.has(k)) delete cs.sharedPics[k];
+  if (added) { paintPreview(); renderNotes(); }
+  cloudKeep();
+}
+// While a shared note is open (and the page is visible), check it every 10 seconds and when the window gets focus.
+function sharedTick() {
+  if (document.hidden || !curNote || !curNote.shared || !sharedReady() || cloud.busy || !cloud.cs || cloud.cs.owner !== acct.session.user.id) return;
+  sharedSync(acct.client, curNote.id).catch(e => console.warn('shared', e));
+}
+setInterval(sharedTick, 10000);
+window.addEventListener('focus', sharedTick);
+
+// ---- the "Dela med vänner" dialog: share a note, change who's in it, stop sharing, or leave.
+// Names are other people's text: this dialog is built with DOM calls only.
+var NS = { note: null, friends: null, picks: new Map(), busy: false };
+async function noteShareOpen() {
+  flushNote(); if (!curNote || !sharedReady()) return;
+  NS.note = curNote; NS.friends = null; NS.picks = new Map();
+  for (const p of (curNote.shared && curNote.shared.people) || []) if (p.role !== 'owner') NS.picks.set(p.username, p.role);
+  $('noteShareDlg').hidden = false;
+  noteShareRender();
+  if (!curNote.shared || curNote.shared.role === 'owner') {
+    let r;
+    try { r = await acct.client.rpc('my_friends'); } catch (e) { r = { error: e }; }
+    NS.friends = r.error ? [] : (r.data || []);
+    if (r.error) toast(acctErr(r.error));
+    noteShareRender();
+  }
+}
+function noteShareRender() {
+  const body = $('noteShareBody'), n = NS.note; if (!n) return;
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const btn = (key, ns, cls) => { const b = el('button', 'btn ' + (cls || ''), t(key)); b.type = 'button'; b.dataset.ns = ns; b.disabled = NS.busy; return b; };
+  const person = p => { const av = el('span', 'avatar sm'); av.setAttribute('aria-hidden', 'true'); acctAvatar(av, p); return [av, el('b', '', p.display_name || '@' + p.username)]; };
+  const kids = [], sh = n.shared, owner = !sh || sh.role === 'owner';
+  if (owner) {
+    kids.push(el('p', 'hint', t(sh ? 'noteShareOwnerP' : 'noteShareIntro')));
+    if (!NS.friends) kids.push(el('p', 'hint', t('friendsLoading')));
+    else {
+      const list = NS.friends.slice();
+      for (const p of (sh && sh.people) || []) if (p.role !== 'owner' && !list.some(f => f.username === p.username)) list.push(p);
+      if (!list.length) kids.push(el('p', 'hint', t('wbInviteNone')));
+      const ul = el('ul', 'wb-plist note-share-list');
+      for (const f of list) {
+        const li = el('li'), lab = el('label', 'check'), cb = el('input'), sel = el('select', 'input');
+        cb.type = 'checkbox'; cb.dataset.nsPick = f.username; cb.checked = NS.picks.has(f.username);
+        lab.append(cb, ...person(f));
+        for (const [v, k] of [['edit', 'noteRoleEdit'], ['read', 'noteRoleRead']]) { const o = el('option', '', t(k)); o.value = v; sel.append(o); }
+        sel.value = NS.picks.get(f.username) || 'edit'; sel.dataset.nsRole = f.username; sel.disabled = !cb.checked;
+        li.append(lab, el('span', 'spacer'), sel); ul.append(li);
+      }
+      if (list.length) kids.push(ul);
+    }
+    if (noteImageIds(n).size) kids.push(el('p', 'hint', t('noteSharePics')));
+    const foot = el('div', 'modal-foot');
+    if (sh) foot.append(btn('noteShareStop', 'stop', 'ghost danger'));
+    foot.append(el('span', 'spacer'), btn('nsCancel', 'cancel', 'ghost'), btn(sh ? 'nsSave' : 'noteShareGo', 'go', 'primary'));
+    kids.push(foot);
+  } else {
+    kids.push(el('p', '', t(sh.role === 'read' ? 'noteShareMemberRead' : 'noteShareMemberEdit', '@' + sh.owner)));
+    const ul = el('ul', 'wb-plist note-share-list');
+    for (const p of sh.people || []) { const li = el('li'); li.append(...person(p), el('span', 'spacer'), el('span', 'count', t(p.role === 'owner' ? 'noteRoleOwner' : p.role === 'read' ? 'noteRoleRead' : 'noteRoleEdit'))); ul.append(li); }
+    kids.push(ul);
+    const lab = el('label', 'check'), cb = el('input'); cb.type = 'checkbox'; cb.id = 'nsKeep'; cb.checked = true;
+    lab.append(cb, el('span', '', t('noteShareKeep')));
+    const foot = el('div', 'modal-foot');
+    foot.append(btn('noteShareLeave', 'leave', 'ghost danger'), el('span', 'spacer'), btn('nsClose', 'cancel', ''));
+    kids.push(lab, foot);
+  }
+  body.replaceChildren(...kids);
+}
+$('noteShareDlg').addEventListener('change', e => {
+  const cb = e.target.closest('[data-ns-pick]'), sel = e.target.closest('[data-ns-role]');
+  if (cb) { if (cb.checked) NS.picks.set(cb.dataset.nsPick, 'edit'); else NS.picks.delete(cb.dataset.nsPick); noteShareRender(); }
+  if (sel && NS.picks.has(sel.dataset.nsRole)) NS.picks.set(sel.dataset.nsRole, sel.value);
+});
+$('noteShareDlg').addEventListener('mousedown', e => { if (e.target === $('noteShareDlg') && !NS.busy) $('noteShareDlg').hidden = true; });
+$('noteShareDlg').addEventListener('click', e => {
+  const b = e.target.closest('[data-ns]'); if (!b || NS.busy) return;
+  const k = b.dataset.ns;
+  if (k === 'cancel') $('noteShareDlg').hidden = true;
+  else noteShareDo(k);
+});
+async function noteShareDo(k) {
+  const n = NS.note, c = acct.client; if (!n || !sharedReady()) return;
+  const members = [...NS.picks].map(([name, role]) => ({ name, role }));
+  if (k === 'go' && !n.shared && !members.length) { toast(t('noteSharePick')); return; }
+  if (k === 'stop' && !confirm(t('noteShareStopConfirm'))) return;
+  if (k === 'leave' && !confirm(t('noteShareLeaveConfirm'))) return;
+  const keep = k === 'leave' && !!($('nsKeep') && $('nsKeep').checked);
+  NS.busy = true; noteShareRender();
+  try {
+    if (k === 'go' && !n.shared) {
+      const id = 'sh-' + Board.rid(20);
+      const { error } = await c.rpc('shared_note_create', { id, data: { text: n.text || '', history: [] }, members });
+      if (error) { toast(acctErr(error)); return; }
+      const sn = { id, text: n.text || '', created: n.created || Date.now(), modified: Date.now(), pinned: !!n.pinned, history: [],
+        shared: { rev: 1, base: n.text || '', hist: '', role: 'owner', owner: acct.profile.username, people: [], from: n.id } };
+      n.sharedAs = id;                                  // the original keeps the earlier versions, privately
+      S.notes.unshift(sn); curNote = null; save(); loadNote(sn);
+      toast(t('noteSharedDone', members.map(m => '@' + m.name).join(', ')));
+      $('noteShareDlg').hidden = true;
+      await sharedSync(c, id);
+    } else if (k === 'go') {
+      const { error } = await c.rpc('shared_note_set_members', { id: n.id, members });
+      if (error) { toast(acctErr(error)); return; }
+      toast(t('noteShareSaved')); $('noteShareDlg').hidden = true;
+      await sharedSync(c, n.id);
+    } else if (k === 'stop') {
+      await sharedRemovePictures(c, n.id);
+      const { error } = await c.rpc('shared_note_stop', { id: n.id });
+      if (error) { toast(acctErr(error)); return; }
+      const own = sharedToOwn(n); curNote = null; save(); loadNote(own);
+      delete cloud.cs?.sharedPics?.[n.id];
+      toast(t('noteShareStopped')); $('noteShareDlg').hidden = true;
+    } else if (k === 'leave') {
+      const { error } = await c.rpc('shared_note_leave', { id: n.id });
+      if (error) { toast(acctErr(error)); return; }
+      sharedToTrash(n, keep); const next = curNote; curNote = null; save(); loadNote(next);
+      toast(t(keep ? 'noteShareLeftKept' : 'noteShareLeft')); $('noteShareDlg').hidden = true;
+    }
+  } catch (e) { toast(acctErr(e)); }
+  finally { NS.busy = false; if (!$('noteShareDlg').hidden) noteShareRender(); }
+}
+// Before stopping: remove the note's pictures from its shared folder (afterwards nobody may touch them any more).
+async function sharedRemovePictures(c, id) {
+  const store = c.storage.from('note-images');
+  if (typeof store.list !== 'function') return;
+  try {
+    const { data, error } = await store.list(`shared/${id}`, { limit: 1000 });
+    if (error || !data || !data.length) return;
+    await store.remove(data.filter(f => f.id || f.name).map(f => `shared/${id}/${f.name}`));
+  } catch (e) { console.warn('shared pictures', e); }
+}
+
 // "Remove from this device" when logging out: everything of the account goes, including pictures, boards, the daily
 // copies and the save-file link, and the page starts fresh. Only after a sync showed everything is in the account.
 async function cloudWipeHere() {
@@ -9426,6 +9848,7 @@ async function cloudSync() {
     cloud.full = false; cloud.filesChanged = false;
     await cloudBoards(c, uid);
     await cloudPictures(c, uid);
+    try { await sharedSync(c); } catch (e) { console.warn('shared notes', e); }   // never makes your own sync fail
     if (cloud.filesChanged || cloud.full) { await acctLoadProfile(); }   // the storage meter
     cloudStatus(cloud.tooBig ? 'toobig' : cloud.full ? 'full' : 'ok');
     ok = true;

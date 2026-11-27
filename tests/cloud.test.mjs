@@ -107,6 +107,13 @@ test('push set: device-only settings are never sent', () => {
   assert.ok(!('onboarded' in s.settings.data) && !('lastBackup' in s.settings.data));
 });
 
+test('push set: shared notes (sh-…) never go to the account\'s own notes, nor do their tombstones', () => {
+  const s = cloudPushSet(data({ notes: [note('sh-abcdefghij0123', 5), note('own', 5)], deleted: { 'sh-zzzzzzzzzzzz': 9, gone: 9 } }), cloudState({}));
+  assert.deepEqual(plain(s.notes.map(r => [r.id, r.deleted])), [['own', false], ['gone', true]]);
+  assert.deepEqual(plain(s.reminders.map(r => r.id)), ['gone']);
+  assert.deepEqual(plain(cloudState({ sharedPics: { 'sh-x': { p: 1 } } }).sharedPics), { 'sh-x': { p: 1 } });
+});
+
 test('push set: an item too big for the server is held back and reported, the rest still goes', () => {
   const big = note('big', 5, 'x'.repeat(CLOUD_MAX_CHARS + 1));
   const s = cloudPushSet(data({ notes: [big, note('small', 5)] }), cloudState({}));

@@ -497,6 +497,120 @@ test('board invites: friends only, a valid room id, shown for a day, no duplicat
   assert.ok(await call(H1, `select public.send_reminder('gesta', 'a reminder still goes')`));
 });
 
+test('shared notes: share with friends, roles, saving on a revision, conflicts come back, people and leaving', async () => {
+  const O = '00000000-0000-4000-8000-000000000a51', E = '00000000-0000-4000-8000-000000000a52', R = '00000000-0000-4000-8000-000000000a53', X = '00000000-0000-4000-8000-000000000a54';
+  await signUp(O, 'o5@example.com', { username: 'olga', display_name: 'Olga' });
+  await signUp(E, 'e5@example.com', { username: 'edvin' });
+  await signUp(R, 'r5@example.com', { username: 'ronja' });
+  await signUp(X, 'x5@example.com', { username: 'xerxes' });
+  const call = (uid, sql, p) => rows(uid, sql, p).then(r => Object.values(r[0])[0]);
+  for (const [who, name] of [[E, 'olga'], [R, 'olga']]) { await call(who, `select public.friend_request($1)`, [name]); }
+  await call(O, `select public.friend_respond('edvin', true)`); await call(O, `select public.friend_respond('ronja', true)`);
+  const ID = 'sh-abcdefghij012345', people = JSON.stringify([{ name: 'edvin', role: 'edit' }, { name: 'RONJA', role: 'read' }]);
+  const sync = (uid, known = {}, one = null) => rows(uid, 'select * from public.shared_notes_sync($1, $2)', [known, one]);
+
+  // Only friends; a valid id; somebody to share with.
+  await fails(O, `select public.shared_note_create($1, $2, $3)`, [ID, { text: 'x' }, JSON.stringify([{ name: 'xerxes' }])], /share_not_friend/);
+  await fails(O, `select public.shared_note_create($1, $2, $3)`, ['bad-id', { text: 'x' }, people], /share_bad/);
+  await fails(O, `select public.shared_note_create($1, $2, '[]')`, [ID, { text: 'x' }], /share_bad/);
+  await fails(O, `select public.shared_note_create($1, $2, $3)`, [ID, { text: 'x' }, JSON.stringify([{ name: 'edvin', role: 'owner' }])], /share_bad/);
+  assert.equal((await sync(O)).length, 0, 'a refused share leaves nothing behind');
+  assert.equal(Number(await call(O, `select public.shared_note_create($1, $2, $3)`, [ID, { text: 'Inköp\n- [ ] mjölk' }, people])), 1);
+  assert.equal(Number(await call(O, `select public.shared_note_create($1, $2, $3)`, [ID, { text: 'again' }, people])), 1, 'a retried create changes nothing');
+  await fails(E, `select public.shared_note_create($1, $2, '[{"name":"olga"}]')`, [ID, { text: 'x' }], /share_bad/);   // someone else's id
+
+  // Everyone in it sees it with their role and the people; strangers don't.
+  const [se] = await sync(E);
+  assert.deepEqual([se.id, Number(se.rev), se.role, se.owner_name, se.data], [ID, 1, 'edit', 'olga', { text: 'Inköp\n- [ ] mjölk' }]);
+  assert.deepEqual(se.people.map(p => [p.username, p.role]), [['olga', 'owner'], ['edvin', 'edit'], ['ronja', 'read']]);
+  assert.equal((await sync(R))[0].role, 'read');
+  assert.equal((await sync(X)).length, 0);
+  assert.equal((await sync(E, { [ID]: 1 }))[0].data, null, 'no data when this device already has the revision');
+  assert.equal((await sync(E, {}, 'sh-other00000000'))[0], undefined);
+
+  // Saving on the current revision works; on an old one the current version comes back instead.
+  const save = (uid, rev, body) => rows(uid, 'select * from public.shared_note_save($1, $2, $3)', [ID, rev, body]).then(r => r[0]);
+  let s = await save(E, 1, { text: 'Inköp\n- [x] mjölk' });
+  assert.deepEqual([Number(s.cur_rev), s.cur_data, s.saved], [2, null, true]);
+  s = await save(O, 1, { text: 'Inköp\n- [ ] mjölk\n- [ ] bröd' });
+  assert.deepEqual([Number(s.cur_rev), s.cur_data, s.saved], [2, { text: 'Inköp\n- [x] mjölk' }, false], 'a stale save is not stored');
+  s = await save(O, 2, { text: 'Inköp\n- [x] mjölk\n- [ ] bröd' });
+  assert.equal(s.saved, true);
+  await fails(R, 'select * from public.shared_note_save($1, 3, $2)', [ID, { text: 'reader' }], /share_read_only/);
+  await fails(X, 'select * from public.shared_note_save($1, 3, $2)', [ID, { text: 'x' }], /share_gone/);
+  await fails(E, 'select * from public.shared_note_save($1, 3, $2)', [ID, '"text"'], /share_bad/);
+
+  // Only the owner changes the people.
+  await fails(E, `select public.shared_note_set_members($1, '[]')`, [ID], /share_gone/);
+  await call(O, `select public.shared_note_set_members($1, $2)`, [ID, JSON.stringify([{ name: 'ronja', role: 'edit' }])]);
+  assert.equal((await sync(E)).length, 0, 'removed');
+  assert.equal((await sync(R))[0].role, 'edit', 'role changed');
+  await fails(O, `select public.shared_note_set_members($1, $2)`, [ID, JSON.stringify([{ name: 'xerxes' }])], /share_not_friend/);
+  assert.equal((await sync(R)).length, 1, 'a refused change changes nothing');
+  await call(O, `select public.shared_note_set_members($1, $2)`, [ID, people]);
+
+  // Leaving; ending the friendship or blocking removes the person from the other's notes.
+  assert.equal(await call(E, `select public.shared_note_leave($1)`, [ID]), true);
+  assert.equal((await sync(E)).length, 0);
+  await call(O, `select public.shared_note_set_members($1, $2)`, [ID, people]);
+  await call(E, `select public.friend_remove('olga')`);
+  assert.equal((await sync(E)).length, 0, 'not friends: not in the note');
+  await call(R, `select public.block_user('olga')`);
+  assert.equal((await sync(R)).length, 0, 'blocked: not in the note');
+  assert.deepEqual((await sync(O))[0].people.map(p => p.username), ['olga'], 'the owner still has the note');
+
+  // The tables are out of reach; anon can't call anything; stopping removes it.
+  await fails(O, 'select * from public.shared_notes');
+  await fails(O, 'select * from public.shared_note_members');
+  await fails(O, `insert into public.shared_note_members (note_id, member, role) values ($1, $2, 'edit')`, [ID, X]);
+  await fails(null, 'select * from public.shared_notes_sync()');
+  await fails(null, `select public.shared_note_stop($1)`, [ID]);
+  assert.equal(await call(E, `select public.shared_note_stop($1)`, [ID]), false, 'only the owner can stop sharing');
+  assert.equal(await call(O, `select public.shared_note_stop($1)`, [ID]), true);
+  assert.equal((await sync(O)).length, 0);
+});
+
+test('shared notes: pictures are visible to everyone in the note, added by owner and editors, counted on the owner', async () => {
+  const O = '00000000-0000-4000-8000-000000000a61', E = '00000000-0000-4000-8000-000000000a62', R = '00000000-0000-4000-8000-000000000a63', X = '00000000-0000-4000-8000-000000000a64';
+  await signUp(O, 'o6@example.com', { username: 'otto' });
+  await signUp(E, 'e6@example.com', { username: 'elin' });
+  await signUp(R, 'r6@example.com', { username: 'rut' });
+  await signUp(X, 'x6@example.com', { username: 'xavier' });
+  for (const n of ['elin', 'rut']) await rows(O, `select public.friend_request($1)`, [n]);
+  await rows(E, `select public.friend_respond('otto', true)`); await rows(R, `select public.friend_respond('otto', true)`);
+  const ID = 'sh-picturenote0001';
+  await rows(O, `select public.shared_note_create($1, '{"text":"x"}', $2)`, [ID, JSON.stringify([{ name: 'elin', role: 'edit' }, { name: 'rut', role: 'read' }])]);
+  await db.query('update public.account_private set quota_bytes = 1000, used_bytes = 0 where id = $1', [O]);
+  const put = (uid, name) => rows(uid, `insert into storage.objects (bucket_id, name) values ('note-images', $1) returning id`, [name]);
+  const setSize = (name, size) => db.query(`update storage.objects set metadata = jsonb_build_object('size', $2::bigint) where bucket_id = 'note-images' and name = $1`, [name, size]);
+  const used = async uid => Number((await db.query('select used_bytes from public.account_private where id = $1', [uid])).rows[0].used_bytes);
+  const see = uid => rows(uid, `select name from storage.objects where name like 'shared/%' order by name`).then(r => r.map(x => x.name));
+
+  await put(E, `shared/${ID}/p1`);
+  await setSize(`shared/${ID}/p1`, 700);
+  assert.equal(await used(O), 700, 'counted on the owner');
+  assert.equal(await used(E), 0);
+  await fails(R, `insert into storage.objects (bucket_id, name) values ('note-images', $1)`, [`shared/${ID}/p2`], /row-level security/);
+  await fails(X, `insert into storage.objects (bucket_id, name) values ('note-images', $1)`, [`shared/${ID}/p2`], /row-level security/);
+  await fails(E, `insert into storage.objects (bucket_id, name) values ('note-images', $1)`, [`shared/${ID}/deep/p2`], /row-level security/);
+  await fails(E, `insert into storage.objects (bucket_id, name) values ('boards', $1)`, [`shared/${ID}/p2`], /row-level security/);
+  for (const who of [O, E, R]) assert.deepEqual(await see(who), [`shared/${ID}/p1`]);
+  assert.deepEqual(await see(X), [], 'strangers see nothing');
+  await put(O, `shared/${ID}/p2`);
+  await setSize(`shared/${ID}/p2`, 400);
+  await fails(E, `insert into storage.objects (bucket_id, name) values ('note-images', $1)`, [`shared/${ID}/p3`], /row-level security/);   // owner's quota used up
+  // Only the owner removes pictures; the recount agrees.
+  assert.equal((await rows(E, `delete from storage.objects where name = $1 returning id`, [`shared/${ID}/p1`])).length, 0);
+  assert.equal((await rows(O, `delete from storage.objects where name = $1 returning id`, [`shared/${ID}/p1`])).length, 1);
+  assert.equal(await used(O), 400);
+  await db.query('update public.account_private set used_bytes = 0 where id = $1', [O]);
+  await as('service', q => q('select public.recount_storage_use()'));
+  assert.equal(await used(O), 400);
+  // Someone removed from the note no longer sees its pictures.
+  await rows(O, `select public.shared_note_set_members($1, '[{"name":"rut","role":"read"}]')`, [ID]);
+  assert.deepEqual(await see(E), []);
+});
+
 test('deleting an account removes all its rows', async () => {
   const E2 = '00000000-0000-4000-8000-0000000000e2';
   await signUp(E2, 'e2@example.com', { username: 'eve2' });
@@ -504,6 +618,8 @@ test('deleting an account removes all its rows', async () => {
   await rows(E2, `select public.friend_respond('alice', true)`);
   await rows(A, `select public.send_reminder('eve2', 'from alice')`);
   await rows(E2, `select public.send_reminder('alice', 'to alice')`);
+  await rows(A, `select public.shared_note_create('sh-alicesnote00001', '{"text":"a"}', '[{"name":"eve2"}]')`);
+  await rows(E2, `select public.shared_note_create('sh-evesnote000001', '{"text":"e"}', '[{"name":"alice"}]')`);
   await rows(A, `select public.report_user('bob', 'sent by alice')`);
   const E = '00000000-0000-4000-8000-0000000000e1';
   await signUp(E, 'e@example.com', { username: 'erin' });
@@ -517,4 +633,7 @@ test('deleting an account removes all its rows', async () => {
   assert.equal((await db.query('select 1 from public.blocks where blocker = $1 or blocked = $1', [A])).rows.length, 0);
   assert.equal((await db.query('select 1 from public.friendships where a = $1 or b = $1 or requested_by = $1', [A])).rows.length, 0);
   assert.equal((await db.query('select 1 from public.inbox_items where sender = $1 or recipient = $1', [A])).rows.length, 0);
+  // Notes the account shared go; notes others shared with it stay, without it.
+  assert.deepEqual((await db.query('select id from public.shared_notes order by id')).rows.map(r => r.id).filter(i => /alices|evesn/.test(i)), ['sh-evesnote000001']);
+  assert.equal((await db.query('select 1 from public.shared_note_members where member = $1', [A])).rows.length, 0);
 });

@@ -120,12 +120,15 @@ export const FAKE = () => {
         async upload(path, blob, o) {
           if (!window.__pingServer) {   // the sign-in tests have no shared server: just record the upload
             call('upload', bucket, path, (o && o.contentType) || blob.type, blob.size, !!(o && o.upsert));
-            return session && path.startsWith(session.user.id + '/') ? { data: { path }, error: null } : { data: null, error: { message: 'new row violates row-level security policy' } };
+            const sh = path.match(/^shared\/([^/]+)\/[^/]+$/), note = sh && (db.shared || {})[sh[1]], me = session && session.user.id;
+            const ok = me && (path.startsWith(me + '/') || (bucket === 'note-images' && note && (note.owner === me || note.members[me] === 'edit')));
+            return ok ? { data: { path }, error: null } : { data: null, error: { message: 'new row violates row-level security policy' } };
           }
           const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(blob); });
           return server({ op: 'storage', act: 'upload', bucket, path, b64, type: (o && o.contentType) || blob.type, size: blob.size, upsert: !!(o && o.upsert) });
         },
         async download(path) {
+          if (!window.__pingServer) { call('download', bucket, path); return { data: null, error: { message: 'Object not found' } }; }
           const r = await server({ op: 'storage', act: 'download', bucket, path });
           if (r.error) return r;
           const bin = atob(r.data.b64), bytes = new Uint8Array(bin.length);
@@ -158,11 +161,13 @@ export const FAKE = () => {
         return { data: ks.slice(0, 20).map(k => { const { username, display_name, avatar_path, avatar_style } = pub(k); return { username, display_name, avatar_path, avatar_style }; }), error: null };
       }
       if (name === 'get_profile') { const k = idOf(args.name); return { data: k && visible(k) ? [pub(k)] : [], error: null }; }
+      // Ending a friendship or blocking removes each from notes the other shared (shared_notes_unlink).
+      const unlink = (x, y) => { for (const s of Object.values(db.shared || {})) { if (s.owner === x) delete s.members[y]; if (s.owner === y) delete s.members[x]; } };
       if (name === 'block_user' || name === 'unblock_user') {
         const k = idOf(args.name);
         if (!k || k === me) return { data: false, error: null };
         db.blocks = db.blocks.filter(([a, b]) => !(a === me && b === k));
-        if (name === 'block_user') { db.blocks.push([me, k]); db.friends = (db.friends || []).filter(f => !((f.a === me && f.b === k) || (f.b === me && f.a === k))); }
+        if (name === 'block_user') { db.blocks.push([me, k]); db.friends = (db.friends || []).filter(f => !((f.a === me && f.b === k) || (f.b === me && f.a === k))); unlink(me, k); }
         keep(); return { data: true, error: null };
       }
       if (name === 'my_blocks') return { data: db.blocks.filter(([a]) => a === me).map(([, b]) => ({ username: db.profiles[b].username, blocked_at: '2026-11-27' })), error: null };
@@ -194,6 +199,7 @@ export const FAKE = () => {
         const k = idOf(args.name), f = k && pair(k);
         const ok = !!f && (f.status === 'accepted' || f.by === me);
         if (ok) { db.friends = db.friends.filter(x => x !== f); keep(); }
+        if (k) { unlink(me, k); keep(); }
         return { data: ok, error: null };
       }
       if (name === 'my_friends') return { data: db.friends.filter(f => f.status === 'accepted' && (f.a === me || f.b === me))
@@ -233,6 +239,67 @@ export const FAKE = () => {
         const items = db.items.filter(i => i.to === me && !i.answered && fresh(i) && isFriend(i.from) && db.profiles[i.from])
           .map(i => row(i.kind, i.id, i.from, i.payload, i.at));
         return { data: [...reqs, ...items].sort((a, b) => a.created_at < b.created_at ? 1 : -1), error: null };
+      }
+      // Shared notes, following the shared_notes migration: db.shared = { id: { owner, data, rev, members: { uid: role } } }.
+      db.shared ||= {};
+      const roleIn = (s, k) => !s ? null : s.owner === k ? 'owner' : s.members[k] || null;
+      const peopleOf = list => {
+        if (!Array.isArray(list)) return [null, 'share_bad'];
+        if (list.length > 20) return [null, 'share_too_many'];
+        const out = {};
+        for (const p of list) {
+          const k = idOf(p.name), role = p.role || 'edit';
+          if (!['edit', 'read'].includes(role)) return [null, 'share_bad'];
+          if (!k || k === me || !isFriend(k)) return [null, 'share_not_friend'];
+          out[k] = role;
+        }
+        return [out, null];
+      };
+      if (name === 'shared_note_create') {
+        const cur = db.shared[args.id];
+        if (cur) return cur.owner === me ? { data: cur.rev, error: null } : err('share_bad');
+        if (!/^sh-[a-z0-9]{12,40}$/.test(args.id || '') || !args.data || typeof args.data !== 'object') return err('share_bad');
+        if (db.shareLimit) return err('share_limit');
+        const [members, bad] = peopleOf(args.members);
+        if (bad) return err(bad);
+        if (!Object.keys(members).length) return err('share_bad');
+        db.shared[args.id] = { owner: me, data: args.data, rev: 1, members, updated_at: new Date().toISOString() }; keep();
+        return { data: 1, error: null };
+      }
+      if (name === 'shared_note_set_members') {
+        const s = db.shared[args.id];
+        if (roleIn(s, me) !== 'owner') return err('share_gone');
+        const [members, bad] = peopleOf(args.members);
+        if (bad) return err(bad);
+        s.members = members; keep();
+        return { data: true, error: null };
+      }
+      if (name === 'shared_note_save') {
+        const s = db.shared[args.id], role = roleIn(s, me);
+        if (!role) return err('share_gone');
+        if (role === 'read') return err('share_read_only');
+        if (!args.body || typeof args.body !== 'object') return err('share_bad');
+        if (s.rev !== args.base_rev) return { data: [{ cur_rev: s.rev, cur_data: s.data, saved: false }], error: null };
+        s.data = args.body; s.rev++; s.updated_at = new Date().toISOString(); keep();
+        return { data: [{ cur_rev: s.rev, cur_data: null, saved: true }], error: null };
+      }
+      if (name === 'shared_notes_sync') {
+        const known = args.known || {};
+        const rows = Object.entries(db.shared).filter(([id, s]) => roleIn(s, me) && (!args.one_id || id === args.one_id)).map(([id, s]) => ({
+          id, rev: s.rev, role: roleIn(s, me), owner_name: db.profiles[s.owner].username,
+          people: [[s.owner, 'owner'], ...Object.entries(s.members)].map(([k, role]) => Object.assign(pub(k), { role })),
+          data: known[id] === s.rev ? null : s.data, updated_at: s.updated_at }));
+        return { data: rows, error: null };
+      }
+      if (name === 'shared_note_leave') {
+        const s = db.shared[args.id], was = !!(s && s.members[me]);
+        if (was) { delete s.members[me]; keep(); }
+        return { data: was, error: null };
+      }
+      if (name === 'shared_note_stop') {
+        const s = db.shared[args.id], ok = !!s && s.owner === me;
+        if (ok) { delete db.shared[args.id]; keep(); }
+        return { data: ok, error: null };
       }
       if (name === 'report_user') {
         if (db.reportLimit) return { data: null, error: { code: 'P0001', hint: 'report_limit', message: 'too many reports' } };
