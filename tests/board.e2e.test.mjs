@@ -106,6 +106,43 @@ test('a rough circle becomes a clean ellipse; Ctrl+Z brings back the drawing', a
   await s.ctx.close();
 });
 
+test('palm rejection: with a pen, a hand resting on the screen draws nothing and doesn\'t spoil the stroke', async () => {
+  const s = await session(), h = s.host;
+  await h.keyboard.press('p');
+  await h.evaluate(() => { wb.smart = false; });
+  // Synthetic pointer events, as an iPad sends them: a palm (touch) lands first, then the pen draws, then the palm lifts.
+  const ev = (type, id, kind, x, y) => h.evaluate(([type, id, kind, x, y]) => {
+    const r = document.getElementById('wbCanvas').getBoundingClientRect();
+    document.getElementById('wbCanvas').dispatchEvent(new PointerEvent(type, { pointerId: id, pointerType: kind, isPrimary: true, button: 0, buttons: type === 'pointerup' ? 0 : 1, clientX: r.left + x, clientY: r.top + y, bubbles: true, cancelable: true }));
+  }, [type, id, kind, x, y]);
+  const view0 = await h.evaluate(() => ({ ...wb.view }));
+  await ev('pointerdown', 11, 'touch', 700, 500);            // palm before Pinglapp knows about the pen: would draw
+  await ev('pointermove', 11, 'touch', 720, 520);
+  await ev('pointerdown', 22, 'pen', 300, 300);              // the pen lands: the palm's stroke is undone
+  for (let i = 1; i <= 8; i++) {
+    await ev('pointermove', 22, 'pen', 300 + i * 20, 300 + i * 5);
+    await ev('pointermove', 11, 'touch', 720 + i * 3, 520 + i * 4);   // the resting hand moves a little
+  }
+  await ev('pointerdown', 33, 'touch', 900, 600);            // another part of the hand touches while the pen is down
+  await ev('pointermove', 33, 'touch', 950, 650);
+  await ev('pointerup', 22, 'pen', 460, 340);
+  await ev('pointercancel', 11, 'touch', 744, 552);
+  await ev('pointerup', 33, 'touch', 950, 650);
+  const its = await h.evaluate(() => Object.values(wb.board.items).map(i => ({ type: i.type, n: i.pts && i.pts.length, x0: i.pts && i.pts[0][0] })));
+  assert.equal(its.length, 1, 'only the pen\'s stroke is on the board');
+  assert.equal(its[0].type, 'stroke');
+  assert.ok(its[0].n >= 9, 'the stroke kept every pen point');
+  assert.deepEqual(await h.evaluate(() => ({ ...wb.view })), view0, 'the board did not move or zoom');
+  // In pen mode, one finger moves the board instead of drawing.
+  await ev('pointerdown', 44, 'touch', 600, 400);
+  await ev('pointermove', 44, 'touch', 650, 430);
+  await ev('pointerup', 44, 'touch', 650, 430);
+  assert.equal(await h.evaluate(() => Object.keys(wb.board.items).length), 1, 'a finger drew nothing');
+  assert.notDeepEqual(await h.evaluate(() => ({ ...wb.view })), view0, 'a finger moved the board');
+  assert.deepEqual(s.errors, []);
+  await s.ctx.close();
+});
+
 test('connectors stay attached when a shape moves, and mind-map branches grow with Tab', async () => {
   const s = await session(), h = s.host;
   await h.keyboard.press('r'); await drag(h, [[200, 200], [340, 300]]);

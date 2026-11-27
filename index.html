@@ -727,7 +727,7 @@ a.btn { color: var(--ink); text-decoration: none; }
 .wb-people { display: flex; padding-left: 6px; }
 .av { width: 28px; height: 28px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--pc, #868e96); color: #fff; font: 700 11px var(--font); border: 2px solid var(--surface); margin-left: -6px; cursor: pointer; padding: 0; }
 .av.viewer { opacity: .75; }
-.wb-stage { position: relative; flex: 1; min-height: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--wb-bg); touch-action: none; outline: none; color: var(--ink); }
+.wb-stage { position: relative; flex: 1; min-height: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--wb-bg); touch-action: none; outline: none; color: var(--ink); user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .wb-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .wb-stage[data-tool="hand"] canvas, .wb-stage[data-pan] canvas { cursor: grab; }
 .wb-stage[data-tool="pen"] canvas, .wb-stage[data-tool="marker"] canvas, .wb-stage[data-tool="rect"] canvas, .wb-stage[data-tool="ellipse"] canvas, .wb-stage[data-tool="diamond"] canvas,
@@ -5899,6 +5899,7 @@ const WB_T = {
   en: {
     wbLedByHost: 'The host is leading: your view follows theirs.', wbViewOnly: 'You can look but not change this board. The host decides who can edit.',
     wbNoLaser: 'The host has switched off the laser pointer for guests.', wbNoImages: 'The host has switched off pictures for guests.',
+    wbHintPen: '✏️ Pen mode: only the pen draws now. A hand resting on the screen is ignored; drag with a finger to move the board, pinch to zoom.',
     wbHintSmart: '✨ Turned your drawing into a clean shape. Ctrl+Z brings back what you drew; the ✨ button switches this off.',
     wbT_select: 'Select and move', wbT_hand: 'Move around the board', wbT_pen: 'Pen', wbT_marker: 'Highlighter', wbT_eraser: 'Eraser', wbT_rect: 'Rectangle', wbT_ellipse: 'Ellipse',
     wbT_diamond: 'Diamond', wbT_triangle: 'Triangle', wbT_line: 'Line (snaps to shapes)', wbT_arrow: 'Arrow (snaps to shapes)', wbT_text: 'Text', wbT_sticky: 'Sticky note', wbT_image: 'Picture',
@@ -5950,6 +5951,7 @@ const WB_T = {
   sv: {
     wbLedByHost: 'Värden leder: din vy följer värdens.', wbViewOnly: 'Du kan titta men inte ändra tavlan. Värden bestämmer vem som får redigera.',
     wbNoLaser: 'Värden har stängt av laserpekaren för gäster.', wbNoImages: 'Värden har stängt av bilder för gäster.',
+    wbHintPen: '✏️ Pennläge: nu ritar bara pennan. En hand som vilar mot skärmen räknas inte; dra med ett finger för att flytta tavlan, nyp för att zooma.',
     wbHintSmart: '✨ Din teckning blev en ren form. Ctrl+Z tar tillbaka det du ritade; ✨-knappen stänger av det.',
     wbT_select: 'Markera och flytta', wbT_hand: 'Flytta runt på tavlan', wbT_pen: 'Penna', wbT_marker: 'Överstrykningspenna', wbT_eraser: 'Suddgummi', wbT_rect: 'Rektangel', wbT_ellipse: 'Ellips',
     wbT_diamond: 'Romb', wbT_triangle: 'Triangel', wbT_line: 'Linje (fäster vid former)', wbT_arrow: 'Pil (fäster vid former)', wbT_text: 'Text', wbT_sticky: 'Lapp', wbT_image: 'Bild',
@@ -6024,7 +6026,7 @@ const wb = {
   board: null, list: [], view: { x: -300, y: -200, z: 1 }, views: new Map(),
   tool: 'select', ink: WB_INK[0], note: WB_NOTE[0], size: 1, fill: 'none', smart: true,
   sel: new Set(), act: null, editing: null, undo: [], redo: [], clip: null, clipMark: '', erasing: new Set(), snap: null,
-  pointers: new Map(), space: false,
+  pointers: new Map(), space: false, penMode: false, pensDown: new Set(), ignored: new Set(),
   role: 'local', net: null, room: null, me: { cid: wbLocalCid, name: '', color: WB_PEOPLE[0], canEdit: true, pid: 'host' },
   perms: Board.defaultPerms(), people: new Map(), guests: [], admitted: new Set(), banned: new Set(), granted: new Set(), revoked: new Set(), colorN: 0,
   invited: new Set(), inviteFriends: null, inviteLoading: false,
@@ -6492,9 +6494,30 @@ function wbCursorSend(p) {
     }
   }, WB_LIVE_MS);
 }
+// Palm rejection (iPad and other tablets with a pen): once a pen has touched the board, only the pen draws, selects
+// and erases. Fingers then move the board (one finger) or zoom it (two), and any touch while the pen is down, such as
+// the hand resting on the screen, is ignored until it lifts. When the pen lands, a pan or pinch the palm started a
+// moment earlier is undone, so the board doesn't jump.
+function wbPalmFilter(e) {
+  if (e.pointerType === 'pen') {
+    if (!wb.penMode) { wb.penMode = true; wbHint('wbHintPen'); }
+    wb.pensDown.add(e.pointerId);
+    const palms = [...wb.pointers.keys()].filter(id => !wb.pensDown.has(id));
+    if (palms.length) {
+      for (const id of palms) { wb.pointers.delete(id); wb.ignored.add(id); }
+      const a = wb.act;
+      if (a && (a.k === 'pan' || a.k === 'pinch')) { if (a.v0) { wb.view.x = a.v0[0]; wb.view.y = a.v0[1]; wb.view.z = a.v0[2]; } wb.act = null; }
+      else wbCancelAct();                            // e.g. a stroke the palm drew before Pinglapp knew a pen was in use
+    }
+    return false;
+  }
+  if (e.pointerType === 'touch' && wb.pensDown.size) { wb.ignored.add(e.pointerId); return true; }
+  return false;
+}
 cv.addEventListener('pointerdown', e => {
   if (!wb.board) return;
   e.preventDefault();                    // keep focus where we put it (a text box opened by this click must stay focused)
+  if (wbPalmFilter(e)) return;
   if (wb.editing) wbFinishEdit();
   closePop();
   stage.focus({ preventScroll: true });
@@ -6503,13 +6526,14 @@ cv.addEventListener('pointerdown', e => {
   if (wb.pointers.size === 2) {                          // second finger: pinch to zoom, cancel what the first one started
     wbCancelAct();
     const [a, b] = [...wb.pointers.values()];
-    wb.act = { k: 'pinch', d: Math.hypot(a[0] - b[0], a[1] - b[1]), m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+    wb.act = { k: 'pinch', d: Math.hypot(a[0] - b[0], a[1] - b[1]), m: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], v0: [wb.view.x, wb.view.y, wb.view.z] };
     return;
   }
   if (e.button === 2) return;
   const p = wbPt(e), [sx, sy] = wbLocal(e), items = wbItems();
-  const tool = wb.space || e.button === 1 ? 'hand' : wb.tool;
-  if (tool === 'hand') { if (!wbLed()) wb.act = { k: 'pan', s: [sx, sy], v: [wb.view.x, wb.view.y] }; return; }
+  const fingerInPenMode = wb.penMode && e.pointerType === 'touch';
+  const tool = wb.space || e.button === 1 || fingerInPenMode ? 'hand' : wb.tool;
+  if (tool === 'hand') { if (!wbLed()) wb.act = { k: 'pan', s: [sx, sy], v: [wb.view.x, wb.view.y], v0: [wb.view.x, wb.view.y, wb.view.z] }; return; }
   if (wb.vote && wb.vote.active && tool === 'select') {
     const it = wbTopAt(p, i => i.type === 'sticky');
     if (it) { wbVote(it.id, e.altKey || e.shiftKey ? -1 : 1); return; }
@@ -6566,7 +6590,7 @@ cv.addEventListener('pointerdown', e => {
   }
 });
 cv.addEventListener('pointermove', e => {
-  if (!wb.board) return;
+  if (!wb.board || wb.ignored.has(e.pointerId)) return;
   const p = wbPt(e), [sx, sy] = wbLocal(e), items = wbItems(), a = wb.act;
   wbCursorSend(p);
   if (wb.pointers.has(e.pointerId)) wb.pointers.set(e.pointerId, [sx, sy]);
@@ -6639,6 +6663,8 @@ cv.addEventListener('pointermove', e => {
   wbDraw();
 });
 function wbPointerEnd(e) {
+  wb.pensDown.delete(e.pointerId);
+  if (wb.ignored.delete(e.pointerId)) return;
   wb.pointers.delete(e.pointerId);
   const a = wb.act; if (!a) return;
   if (a.k === 'pinch') { if (wb.pointers.size < 2) wb.act = null; return; }
@@ -6698,7 +6724,11 @@ function wbPointerEnd(e) {
   wbRenderStyle(); wbDraw();
 }
 cv.addEventListener('pointerup', wbPointerEnd);
-cv.addEventListener('pointercancel', e => { wbCancelAct(); wb.pointers.delete(e.pointerId); });
+cv.addEventListener('pointercancel', e => {
+  wb.pensDown.delete(e.pointerId);
+  if (wb.ignored.delete(e.pointerId)) return;      // an ignored palm going away must not cancel the pen's stroke
+  wbCancelAct(); wb.pointers.delete(e.pointerId);
+});
 cv.addEventListener('pointerleave', () => { if (wb.net && !wb.act) { wb.curPending = null; } });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 function wbCancelAct() {
