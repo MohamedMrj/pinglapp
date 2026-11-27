@@ -628,6 +628,12 @@ test('the terms and privacy pages: linked from sign-up and the account page, Swe
   assert.ok(await page.$(inView('signup', 'a[href="privacy.html"]')));
   assert.ok(await page.$(inView('username', 'a[href="privacy.html"]')));
   assert.ok(await page.$(inView('account', 'a[href="privacy.html"]')));
+  // A visible link on the start page itself (Google's and Microsoft's sign-in reviews check for it); not over the board.
+  assert.equal(await page.isVisible('.site-foot a[href="privacy.html"]'), true);
+  assert.equal(await page.isVisible('.site-foot a[href="terms.html"]'), true);
+  await page.evaluate(() => showTab('board'));
+  assert.equal(await page.isVisible('.site-foot'), false);
+  await page.evaluate(() => showTab('reminders'));
   for (const [p, sv, en] of [['privacy.html', 'Integritetspolicy', 'Privacy policy'], ['terms.html', 'Villkor', 'Terms of use']]) {
     const pg = await ctx.newPage(), errs = [];
     pg.on('pageerror', e => errs.push(String(e)));

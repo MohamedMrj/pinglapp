@@ -547,6 +547,10 @@ details.adv[open] { display: grid; gap: 8px; }
 .acct-legal .btn { margin-left: auto; }
 .setup-acct { display: grid; gap: 8px; padding: 12px 14px; margin: 4px 0 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
 .setup-acct[hidden] { display: none; }
+.site-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; padding: 10px 16px 18px; font-size: 12.5px; }
+.site-foot a { color: var(--muted); text-decoration: none; }
+body:has(#view-board:not([hidden])) .site-foot, body:has(#view-notes:not([hidden])) .site-foot { display: none; }   /* these fill the window */
+.site-foot a:hover, .site-foot a:focus-visible { color: var(--ink); text-decoration: underline; }
 .setup-acct h3 { margin: 0; font-size: 15px; }
 .setup-acct p { margin: 0; }
 .setup-or { margin: 10px 0 0; font-size: 15px; }
@@ -1068,6 +1072,10 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     </div>
   </section>
 </div>
+<!-- Always visible, in the page's own HTML: Google's and Microsoft's sign-in reviews look for a privacy link here. -->
+<footer class="site-foot">
+  <a href="privacy.html" data-i18n="acctPrivacy">Integritetspolicy</a><a href="terms.html" data-i18n="acctTermsShort">Villkor</a><a href="mailto:support@pinglapp.com">support@pinglapp.com</a>
+</footer>
 
 <!-- editor -->
 <div class="scrim" id="editor" hidden>
