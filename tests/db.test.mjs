@@ -262,8 +262,25 @@ test('scheduled jobs: old tombstones are removed, everything else stays', async 
   assert.ok((await db.query(`select 1 from cron.job where jobname = 'ping-recount-storage'`)).rows.length);
 });
 
+test('scheduled jobs: reports are removed after 12 months, as the privacy policy says', async () => {
+  const [job] = (await db.query(`select command from cron.job where jobname = 'ping-old-reports'`)).rows;
+  assert.ok(job);
+  await db.query(`insert into public.reports (reporter, target, reason, created_at) values
+    ($1, $2, 'old one', now() - interval '13 months'), ($1, $2, 'new one', now() - interval '11 months')`, [B, A]);
+  await db.exec(job.command);
+  const left = (await db.query(`select reason from public.reports where reason in ('old one', 'new one')`)).rows.map(r => r.reason);
+  assert.deepEqual(left, ['new one']);
+});
+
 test('deleting an account removes all its rows', async () => {
+  await rows(A, `select public.report_user('bob', 'sent by alice')`);
+  const E = '00000000-0000-4000-8000-0000000000e1';
+  await signUp(E, 'e@example.com', { username: 'erin' });
+  await rows(E, `select public.report_user('alice', 'about alice')`);
   await db.query('delete from auth.users where id = $1', [A]);
+  // Reports about the account go; reports it sent stay for the operator, with no link to the account.
+  assert.equal((await db.query('select 1 from public.reports where target = $1', [A])).rows.length, 0);
+  assert.deepEqual((await db.query(`select reporter from public.reports where reason = 'sent by alice'`)).rows.map(r => r.reporter), [null]);
   for (const t of ['profiles', 'account_private']) assert.equal((await db.query(`select 1 from public.${t} where id = $1`, [A])).rows.length, 0, t);
   for (const t of ['reminders', 'notes', 'boards', 'user_settings']) assert.equal((await db.query(`select 1 from public.${t} where user_id = $1`, [A])).rows.length, 0, t);
   assert.equal((await db.query('select 1 from public.blocks where blocker = $1 or blocked = $1', [A])).rows.length, 0);

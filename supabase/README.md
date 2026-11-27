@@ -12,6 +12,9 @@ database password stay in the Supabase dashboard, Edge Function secrets and GitH
 | `migrations/…_storage.sql` | Buckets (`avatars`, `note-images`, `boards`), own-folder policies, per-user quota |
 | `migrations/…_jobs.sql` | `pg_cron`: tombstone cleanup after 90 days, weekly storage recount |
 | `migrations/…_profiles.sql` | Phase 5: `avatar_path` may only name your own avatar file, `{id}/avatar.webp?v={n}` |
+| `migrations/…_retention.sql` | Phase 6: `pg_cron` removes reports older than 12 months (as `privacy.html` says) |
+| `functions/delete-account/` | Phase 6 Edge Function: deletes the signed-in user's files in every bucket, then the user (all rows cascade) |
+| `templates/` | The auth email templates pasted into Authentication → Emails (copies, for the record) |
 
 Tests (in `../tests`, run with `npm test`):
 
@@ -20,6 +23,27 @@ Tests (in `../tests`, run with `npm test`):
   users, blocks and the privacy setting hide profiles, and a deleted account leaves no rows.
 - `cloud.test.mjs` tests the app's sync logic (the `/*CLOUD-START*/` block in `index.html`) against an in-memory server
   with the same rules, including two devices editing offline.
+- `delete-account.test.mjs` runs the Edge Function's logic (its `/*DELETE-START*/` block) against a stand-in admin
+  client: wrong username or no session deletes nothing; files in sub-folders and beyond 1000 go; if files can't be
+  removed, the user isn't deleted either.
+
+## Phase 6 setup (account settings, delete account)
+
+1. **Migration:** run `migrations/…_retention.sql` in the SQL Editor.
+2. **Edge Function `delete-account`.** Either the dashboard: Edge Functions → Deploy a new function → Via editor, name
+   `delete-account`, paste `functions/delete-account/index.ts`, Deploy; then in the function's Details turn
+   **Verify JWT off**. Or the CLI: `npx supabase functions deploy delete-account --no-verify-jwt --project-ref <ref>`.
+   Verify JWT is off on purpose: the function checks the session itself with `auth.getUser()` (which also works with
+   the new non-JWT API keys) and answers CORS preflight requests, which carry no session. It uses the
+   `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` secrets that Supabase gives every function; nothing to add.
+   Allowed browser origins are listed at the top of the file (`pinglapp.com`, `localhost:8080`).
+3. **Authentication → Sign In / Providers → Email:** keep **Secure email change** on (a link to both the old and the
+   new address), and turn **Secure password change** on (a session older than 24 hours must type a code sent by email
+   before the password changes; the app shows the code field when Supabase asks). The code arrives with the
+   **Reauthentication** template, which must contain `{{ .Token }}` (ours does).
+4. **Hand test:** change email (both links), change password (with a fresh session: no code; to see the code step,
+   test with a session older than a day), download all my data, then delete a throwaway account and check in the
+   dashboard that its user, its rows and its files (Storage, all three buckets) are gone.
 
 ## One-time setup (phase 0)
 
@@ -108,4 +132,5 @@ PGlite stands in for Supabase's `auth`, `storage` and `cron` schemas, so these w
 - ✅ Turnstile site key in the app; log-in still works (Captcha not yet required in Supabase);
 - ⬜ Google and Microsoft sign-up (providers enabled 2026-11-27, not tried yet);
 - ⬜ profiles (phase 5): apply `…_profiles.sql`, then edit profile, upload a picture, find, block, report;
-- ⬜ `pg_cron` jobs under Integrations → Cron.
+- ⬜ `pg_cron` jobs under Integrations → Cron (three after phase 6: `ping-tombstones`, `ping-recount-storage`, `ping-old-reports`);
+- ⬜ phase 6: `…_retention.sql`, `delete-account` deployed, secure password change on; the hand test above.

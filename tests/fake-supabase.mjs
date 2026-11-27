@@ -77,11 +77,40 @@ export const FAKE = () => {
       },
       async signUp(a) { call('signUp', a); return { data: { user: {}, session: null }, error: null }; },
       async resetPasswordForEmail(email, o) { call('reset', email, o); return { data: {}, error: null }; },
-      async updateUser(a) { call('updateUser', a); return { data: {}, error: null }; },
+      async updateUser(a, o) {
+        call('updateUser', a, o);
+        if (a.email && db.users[a.email]) return { data: {}, error: { code: 'email_exists', status: 422, message: 'A user with this email address has already been registered' } };
+        // db.needReauth: "secure password change" with an old session; the emailed code is 123456.
+        if (a.password && db.needReauth && a.nonce !== '123456') return { data: {}, error: a.nonce
+          ? { code: 'reauthentication_not_valid', status: 400, message: 'Reauthentication failed' }
+          : { code: 'reauthentication_needed', status: 400, message: 'Password update requires reauthentication' } };
+        return { data: {}, error: null };
+      },
+      async reauthenticate() { call('reauthenticate'); return { data: {}, error: null }; },
+      async getUser() { call('getUser'); return { data: { user: session ? Object.assign({}, session.user, db.userNow || {}) : null }, error: null }; },
       async signOut(o) { call('signOut', o && o.scope); if (!o || o.scope !== 'others') setSession(null, 'SIGNED_OUT'); return { error: null }; },
       async signInWithOAuth(a) { call('oauth', a.provider); return { error: null }; },
     },
     from,
+    // The delete-account Edge Function: checks the typed username, then the account and everything in it is gone.
+    functions: {
+      async invoke(name, o) {
+        call('invoke', name, o && o.body);
+        const fail = (status, code) => ({ data: null, error: { name: 'FunctionsHttpError', message: 'Edge Function returned a non-2xx status code',
+          context: new Response(JSON.stringify({ error: code }), { status, headers: { 'content-type': 'application/json' } }) } });
+        if (name !== 'delete-account') return fail(404, 'not_found');
+        if (!session) return fail(401, 'not_signed_in');
+        const me = session.user.id, p = db.profiles[me];
+        if (!p || (o && o.body && o.body.confirm) !== p.username) return fail(400, 'confirm_mismatch');
+        delete db.profiles[me]; delete db.priv[me];
+        db.taken = db.taken.filter(n => n !== p.username);
+        db.blocks = db.blocks.filter(([a, b]) => a !== me && b !== me);
+        for (const e of Object.keys(db.users)) if (db.users[e].id === me) delete db.users[e];
+        keep();
+        if (window.__pingServer) await server({ op: 'deleteUser' });
+        return { data: { ok: true }, error: null };
+      },
+    },
     storage: {
       from: bucket => ({
         async upload(path, blob, o) {
@@ -175,6 +204,11 @@ export class FakeServer {
     if (this.offline) return { data: null, error: { message: 'TypeError: Failed to fetch', status: 0 } };
     if (!q.uid) return { data: null, error: { code: '42501', message: 'permission denied' } };
     if (q.op === 'storage') return this.storage(q);
+    if (q.op === 'deleteUser') {                    // the Edge Function: files first, then the user and all their rows
+      for (const k of [...this.files.keys()]) if (k.split('/')[1] === q.uid) this.files.delete(k);
+      delete this.users[q.uid];
+      return { data: { ok: true }, error: null };
+    }
     if (q.op === 'usage') return { data: { quota_bytes: this.quota[q.uid] ?? 26214400, used_bytes: this.used(q.uid) }, error: null };
     const future = Date.now() + 86400000;
     if (q.table === 'user_settings') {

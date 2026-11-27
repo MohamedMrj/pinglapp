@@ -424,3 +424,176 @@ test('accounts are off on pinglapp.com until switched on with ?accounts=staging 
   assert.equal(await page.isVisible('#acctChip'), false);
   await ctx.close();
 });
+
+// ---- phase 6: email, password, download my data, delete the account, the legal pages
+const ALICE_S = ALICE.session;
+const signedIn = async (opts = {}) => {
+  const o = await open(Object.assign({ session: ALICE_S }, opts));
+  await o.page.waitForFunction(() => /^@/.test(document.getElementById('acctChipText').textContent));
+  return o;
+};
+const fakeDb = (page, patch) => page.evaluate(p => Object.assign(window.PING_ACCOUNTS_FAKE.db, p), patch);
+
+test('change email: the same or a taken address is refused; otherwise links go to both addresses', async () => {
+  const { ctx, page, errors } = await signedIn();
+  await page.click('#acctChip');
+  await page.click(inView('account', '[data-to=email]'));
+  assert.equal(await view(page), 'email');
+  await page.fill(inView('email', '[name=email]'), 'A@example.com');
+  await page.click(inView('email', '[type=submit]'));
+  assert.equal(await msg(page), 'Det är adressen du redan har.');
+  await page.fill(inView('email', '[name=email]'), 'b@example.com');
+  await page.click(inView('email', '[type=submit]'));
+  await page.waitForFunction(() => /finns redan ett konto/.test(document.getElementById('acctMsg').textContent));
+  await page.fill(inView('email', '[name=email]'), 'new@example.com');
+  await page.click(inView('email', '[type=submit]'));
+  await page.waitForFunction(() => acct.view === 'sent');
+  assert.match(await msg(page), /new@example\.com och till din nuvarande adress/);
+  const c = (await calls(page)).filter(x => x[0] === 'updateUser').pop();
+  assert.deepEqual(c.slice(1), [{ email: 'new@example.com' }, { emailRedirectTo: base + '?email=1' }]);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('back from a change-of-email link: the URL is cleaned and the page says where the change stands', async () => {
+  const { ctx, page, errors } = await open({ session: ALICE_S, url: base + '?email=1#message=Confirmation+link+accepted' });
+  await page.waitForFunction(() => acct.view === 'account' && !document.getElementById('acctDlg').hidden);
+  assert.equal(await msg(page), 'Din e-postadress är nu a@example.com.');
+  assert.equal(await page.evaluate(() => location.search + location.hash), '');
+  await fakeDb(page, { userNow: { new_email: 'new@example.com' } });
+  await page.evaluate(() => acctEmailBack());
+  await page.waitForFunction(() => /andra adressen/.test(document.getElementById('acctMsg').textContent));
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('change password: an old session must type the emailed code; a wrong code is cleared; then saved, others logged out', async () => {
+  const { ctx, page, errors } = await signedIn();
+  await fakeDb(page, { needReauth: true });
+  await page.click('#acctChip');
+  assert.equal(await page.textContent('#acctPwBtn'), 'Byt lösenord');
+  await page.click('#acctPwBtn');
+  assert.equal(await view(page), 'password');
+  assert.equal(await page.isVisible(inView('password', '[name=nonce]')), false);
+  await page.fill(inView('password', '[name=password]'), 'a-brand-new-password');
+  await page.fill(inView('password', '[name=password2]'), 'a-brand-new-passwor');
+  await page.click(inView('password', '[type=submit]'));
+  assert.equal(await msg(page), 'De två lösenorden är inte lika.');
+  await page.fill(inView('password', '[name=password2]'), 'a-brand-new-password');
+  await page.click(inView('password', '[type=submit]'));
+  await page.waitForFunction(() => /skickat en kod/.test(document.getElementById('acctMsg').textContent));
+  assert.equal(await page.isVisible(inView('password', '[name=nonce]')), true);
+  assert.ok((await calls(page)).some(x => x[0] === 'reauthenticate'));
+  await page.fill(inView('password', '[name=nonce]'), '999999');
+  await page.click(inView('password', '[type=submit]'));
+  await page.waitForFunction(() => /Koden är fel/.test(document.getElementById('acctMsg').textContent));
+  assert.equal(await page.inputValue(inView('password', '[name=nonce]')), '');
+  await page.fill(inView('password', '[name=nonce]'), '123456');
+  await page.click(inView('password', '[type=submit]'));
+  await page.waitForFunction(() => acct.view === 'account');
+  assert.match(await msg(page), /nya lösenord är sparat/);
+  const c = await calls(page);
+  assert.deepEqual(c.filter(x => x[0] === 'updateUser').pop()[1], { password: 'a-brand-new-password', nonce: '123456' });
+  assert.ok(c.some(x => x[0] === 'signOut' && x[1] === 'others'));
+  // Opening the screen again starts clean.
+  await page.click('#acctPwBtn');
+  assert.equal(await page.inputValue(inView('password', '[name=password]')), '');
+  assert.equal(await page.isVisible(inView('password', '[name=nonce]')), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('someone who only used Google sees "Välj ett lösenord"', async () => {
+  const { ctx, page } = await signedIn({ session: { user: { id: 'u-a', email: 'a@example.com', app_metadata: { providers: ['google'] } } } });
+  await page.click('#acctChip');
+  assert.equal(await page.textContent('#acctPwBtn'), 'Välj ett lösenord');
+  await ctx.close();
+});
+
+test('download all my data: the backup file also has the account section', async () => {
+  const { ctx, page, errors } = await signedIn();
+  await page.click('#acctChip');
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click(inView('account', '[data-act=acct-export]'))]);
+  assert.match(dl.suggestedFilename(), /^pinglapp-backup-.*\.json$/);
+  const data = JSON.parse(await readFile(await dl.path(), 'utf8'));
+  assert.ok(Array.isArray(data.reminders) && Array.isArray(data.notes));
+  assert.equal(data.account.username, 'alice');
+  assert.equal(data.account.email, 'a@example.com');
+  assert.equal(data.account.terms_accepted_at, '2026-11-01');
+  assert.deepEqual(data.account.blocked, []);
+  assert.ok((await calls(page)).some(x => x[0] === 'rpc' && x[1] === 'my_blocks'));
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('delete the account: only the exact username deletes it; then logged out, and the data stays here as a guest’s', async () => {
+  const { ctx, page, errors } = await signedIn();
+  await page.waitForFunction(() => { try { return JSON.parse(localStorage.getItem('pinglapp.cloud')).owner === 'u-a'; } catch (e) { return false; } });
+  await page.click('#acctChip');
+  await page.click(inView('account', '[data-to=delete]'));
+  assert.equal(await view(page), 'delete');
+  assert.equal(await page.getAttribute(inView('delete', '[name=confirm]'), 'placeholder'), 'alice');
+  await page.fill(inView('delete', '[name=confirm]'), 'alic');
+  await page.click(inView('delete', '[type=submit]'));
+  assert.match(await msg(page), /inte ditt användarnamn/);
+  assert.ok(!(await calls(page)).some(x => x[0] === 'invoke'), 'nothing sent');
+  await page.fill(inView('delete', '[name=confirm]'), '@Alice');
+  await page.click(inView('delete', '[type=submit]'));
+  await page.waitForFunction(() => document.getElementById('acctChipText').textContent === 'Logga in');
+  assert.equal(await page.isVisible('#acctDlg'), false);
+  assert.match(await page.textContent('#toastMsg'), /konto är raderat/);
+  assert.deepEqual((await calls(page)).find(x => x[0] === 'invoke').slice(1), ['delete-account', { confirm: 'alice' }]);
+  assert.equal(await page.evaluate(() => localStorage.getItem('pinglapp.auth')), null);
+  assert.equal(await page.evaluate(() => localStorage.getItem('pinglapp.cloud')), null, 'the data here has no owner now');
+  assert.ok(await page.evaluate(() => localStorage.getItem('reminder-by-me.v1')));
+  // The account is gone: logging in with it fails.
+  await page.click('#acctChip');
+  await page.fill(inView('signin', '[name=email]'), 'a@example.com');
+  await page.fill(inView('signin', '[name=password]'), 'correct-horse-1');
+  await page.click(inView('signin', '[type=submit]'));
+  await page.waitForFunction(() => /Fel e-post/.test(document.getElementById('acctMsg').textContent));
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('delete the account and "remove from this device": the notes here go too', async () => {
+  const { ctx, page, errors } = await signedIn();
+  await page.evaluate(() => { S.notes.push(normalize({ notes: [{ id: 'n-del', text: 'secret', created: Date.now(), updated: Date.now() }] }).notes[0]); save(); });
+  await page.click('#acctChip');
+  await page.click(inView('account', '[data-to=delete]'));
+  await page.fill(inView('delete', '[name=confirm]'), 'alice');
+  await page.check(inView('delete', '[name=wipe]'));
+  await Promise.all([page.waitForEvent('load'), page.click(inView('delete', '[type=submit]'))]);
+  await page.waitForFunction(() => typeof isActiveWindow !== 'undefined' && isActiveWindow && fileInitDone);
+  assert.equal(await page.evaluate(() => S.notes.some(n => n.id === 'n-del')), false);
+  assert.equal(await page.textContent('#acctChipText'), 'Logga in');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('the terms and privacy pages: linked from sign-up and the account page, Swedish by default, English on request', async () => {
+  const { ctx, page, errors } = await signedIn();
+  assert.equal(await page.getAttribute(inView('signup', 'a[href="terms.html"]'), 'target'), '_blank');
+  assert.ok(await page.$(inView('signup', 'a[href="privacy.html"]')));
+  assert.ok(await page.$(inView('username', 'a[href="privacy.html"]')));
+  assert.ok(await page.$(inView('account', 'a[href="privacy.html"]')));
+  for (const [p, sv, en] of [['privacy.html', 'Integritetspolicy', 'Privacy policy'], ['terms.html', 'Villkor', 'Terms of use']]) {
+    const pg = await ctx.newPage(), errs = [];
+    pg.on('pageerror', e => errs.push(String(e)));
+    await pg.goto(base + p);
+    assert.equal(await pg.textContent('h1:visible'), sv, p);
+    assert.equal(await pg.getAttribute('html', 'lang'), 'sv');
+    await pg.click('[data-set-lang=en]');
+    assert.equal(await pg.textContent('h1:visible'), en, p);
+    assert.equal(await pg.getAttribute('html', 'lang'), 'en');
+    await pg.goto(base + p + '?lang=en');
+    assert.equal(await pg.textContent('h1:visible'), en);
+    const text = await pg.textContent('main');
+    assert.doesNotMatch(text, /\[[A-ZÅÄÖ -]+(:[^\]]*)?\]/, p + ': no placeholder left');
+    assert.match(text, /support@pinglapp\.com/, p + ': the contact address is there');
+    assert.deepEqual(errs, [], p);
+    await pg.close();
+  }
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});

@@ -540,6 +540,11 @@ details.adv[open] { display: grid; gap: 8px; }
 .acct-bio { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .acct-bio:empty, .acct-report[hidden], .acct-blocked[hidden], .acct-links [hidden] { display: none; }
 .acct-blocked h3 { margin: 4px 0 6px; font-size: 13.5px; }
+.acct-nonce, .acct-terms { display: grid; gap: 12px; }
+.acct-nonce[hidden], .acct-terms[hidden] { display: none; }
+.acct-legal { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12.5px; color: var(--muted); }
+.acct-legal a { color: inherit; }
+.acct-legal .btn { margin-left: auto; }
 .acct-people { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; max-height: 300px; overflow: auto; }
 .acct-people:empty { display: none; }
 .acct-people li { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -1370,6 +1375,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <p class="hint acct-uname" aria-live="polite"></p>
       <label class="field"><span data-i18n="acctDisplayName">Namn som andra ser (valfritt)</span><input type="text" name="display_name" autocomplete="name" maxlength="50"></label>
       <label class="acct-check"><input type="checkbox" name="terms" required> <span data-i18n="acctTerms">Jag godkänner villkoren och integritetspolicyn och är minst 13 år.</span></label>
+      <p class="acct-legal"><a href="terms.html" target="_blank" rel="noopener" data-i18n="acctTermsLink">Läs villkoren</a><a href="privacy.html" target="_blank" rel="noopener" data-i18n="acctPrivacyLink">Läs integritetspolicyn</a></p>
       <div class="acct-captcha" hidden></div>
       <div class="modal-foot">
         <button class="btn ghost sm" type="button" data-act="acct-view" data-to="signin" data-i18n="acctHaveAccount">Jag har redan ett konto</button>
@@ -1400,7 +1406,10 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <p class="hint" data-i18n="acctUsernameP">Välj ett användarnamn. Andra kan hitta dig med det; din e-post visas aldrig.</p>
       <label class="field"><span data-i18n="acctUsername">Användarnamn</span><input type="text" name="username" autocomplete="username" maxlength="20" spellcheck="false" autocapitalize="none" required></label>
       <p class="hint acct-uname" aria-live="polite"></p>
-      <label class="acct-check" data-terms><input type="checkbox" name="terms"> <span data-i18n="acctTerms">Jag godkänner villkoren och integritetspolicyn och är minst 13 år.</span></label>
+      <div class="acct-terms" data-terms>
+        <label class="acct-check"><input type="checkbox" name="terms"> <span data-i18n="acctTerms">Jag godkänner villkoren och integritetspolicyn och är minst 13 år.</span></label>
+        <p class="acct-legal"><a href="terms.html" target="_blank" rel="noopener" data-i18n="acctTermsLink">Läs villkoren</a><a href="privacy.html" target="_blank" rel="noopener" data-i18n="acctPrivacyLink">Läs integritetspolicyn</a></p>
+      </div>
       <div class="modal-foot">
         <button class="btn ghost sm" type="button" data-act="acct-signout" data-i18n="acctSignOut">Logga ut</button>
         <span class="spacer"></span>
@@ -1415,7 +1424,12 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <div class="acct-links">
         <button class="btn sm" type="button" data-act="acct-view" data-to="profile" data-i18n="acctEditProfile">Redigera profilen</button>
         <button class="btn sm" type="button" data-act="acct-view" data-to="people" data-i18n="acctFindPeople">Hitta personer</button>
+        <button class="btn sm" type="button" data-act="acct-view" data-to="email" data-i18n="acctChangeEmail">Byt e-postadress</button>
+        <button class="btn sm" type="button" data-act="acct-view" data-to="password" id="acctPwBtn"></button>
+        <button class="btn sm" type="button" data-act="acct-export" data-i18n="acctExport">Ladda ner all min data</button>
       </div>
+      <p class="acct-legal"><a href="privacy.html" target="_blank" rel="noopener" data-i18n="acctPrivacy">Integritetspolicy</a><a href="terms.html" target="_blank" rel="noopener" data-i18n="acctTermsShort">Villkor</a>
+        <button class="btn ghost sm danger" type="button" data-act="acct-view" data-to="delete" data-i18n="acctDelete">Radera kontot</button></p>
       <div class="modal-foot">
         <button class="btn sm" type="button" data-act="acct-signout-ask" data-all="1" data-i18n="acctSignOutAll">Logga ut på alla enheter</button>
         <span class="spacer"></span>
@@ -1446,6 +1460,44 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         <button class="btn ghost sm" type="button" data-act="acct-view" data-to="account" data-i18n="acctBack">Tillbaka</button>
         <span class="spacer"></span>
         <button class="btn primary" type="submit" data-i18n="save">Spara</button>
+      </div>
+    </form>
+
+    <form class="acct-view" data-acct-view="email" novalidate>
+      <p class="hint" data-i18n="acctEmailP">Vi skickar en länk till den nya adressen och en till den du har nu. Adressen byts när du har öppnat båda.</p>
+      <label class="field"><span data-i18n="acctNewEmail">Ny e-postadress</span><input type="email" name="email" autocomplete="email" required></label>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="account" data-i18n="acctBack">Tillbaka</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="submit" data-i18n="acctSendLinks">Skicka länkarna</button>
+      </div>
+    </form>
+
+    <form class="acct-view" data-acct-view="password" novalidate>
+      <p class="hint" data-i18n="acctPasswordP">Andra enheter loggas ut när lösenordet är sparat.</p>
+      <label class="field"><span data-i18n="acctNewPassword">Lösenord (minst 10 tecken)</span><input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+      <div class="pw-meter" aria-hidden="true"><i></i></div>
+      <label class="field"><span data-i18n="acctRepeat">Skriv lösenordet igen</span><input type="password" name="password2" autocomplete="new-password" required></label>
+      <div class="acct-nonce" hidden>
+        <p class="hint" data-i18n="acctNonceP">Av säkerhetsskäl behöver vi veta att det är du. Vi har skickat en kod till din e-post; skriv den här.</p>
+        <label class="field"><span data-i18n="acctCode">Kod från e-posten</span><input type="text" name="nonce" inputmode="numeric" autocomplete="one-time-code" maxlength="12" spellcheck="false"></label>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="account" data-i18n="acctBack">Tillbaka</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="submit" data-i18n="acctSavePassword">Spara det nya lösenordet</button>
+      </div>
+    </form>
+
+    <form class="acct-view" data-acct-view="delete" novalidate>
+      <p data-i18n="acctDeleteP">Allt i kontot raderas för gott: påminnelser, anteckningar, bilder, tavlor och profilen. Det går inte att ångra.</p>
+      <p class="hint"><span data-i18n="acctDeleteSaveP">Vill du spara en kopia först?</span> <button class="btn ghost sm" type="button" data-act="acct-export" data-i18n="acctExport">Ladda ner all min data</button></p>
+      <label class="field"><span data-i18n="acctDeleteType">Skriv ditt användarnamn för att bekräfta</span><input type="text" name="confirm" autocomplete="off" spellcheck="false" autocapitalize="none" maxlength="100"></label>
+      <label class="acct-check"><input type="checkbox" name="wipe"> <span data-i18n="acctDeleteWipe">Ta också bort allt från den här enheten. Annars finns det kvar här, som utan konto.</span></label>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="account" data-i18n="acctBack">Tillbaka</button>
+        <span class="spacer"></span>
+        <button class="btn danger" type="submit" data-i18n="acctDeleteGo">Radera kontot för alltid</button>
       </div>
     </form>
 
@@ -5421,10 +5473,11 @@ async function imagesForFile(remoteMap) {
   return out;
 }
 const withImages = (data, images) => Object.keys(images).length ? Object.assign({}, data, { images }) : data;
-async function exportBackup() {
+async function exportBackup(extra) {
   const images = await imagesForFile(null), boards = await wbAllBoards();
   let data = withImages(S, images);
   if (boards.length) data = Object.assign({}, data, { boards });     // whiteboards travel in the backup too
+  if (extra) data = Object.assign({}, data, extra);                  // e.g. `account` in "download all my data"
   downloadFile('pinglapp-backup-' + isoDate(new Date()) + '.json', JSON.stringify(data, null, 2), 'application/json');
   S.settings.lastBackup = Date.now(); save(); updateBackupBanner();
   toast(t('backupDone'));
@@ -7438,6 +7491,7 @@ document.addEventListener('click', e => {
     case 'acct-report': $('acctReportBox').hidden = false; $('acctReportReason').focus(); break;
     case 'acct-report-cancel': $('acctReportBox').hidden = true; break;
     case 'acct-report-send': acctReport(); break;
+    case 'acct-export': acctExport(); break;
     case 'move-start': moveStart(); break;
     case 'move-close': $('moveDlg').hidden = true; break;
     case 'move-file': $('moveDlg').hidden = true; fileOpen(); break;
@@ -7617,7 +7671,7 @@ async function doRestore() {
   const replace = document.querySelector('input[name=restoreMode]:checked').value === 'replace';
   try {
   const data = normalize(JSON.parse(JSON.stringify(raw)));
-  delete data.images; delete data.boards;
+  delete data.images; delete data.boards; delete data.account;   // `account`: profile details in an account export, read-only
   if (raw.images) await pullImages(raw.images);
   const before = JSON.stringify(S);
   const prevBoards = raw.boards ? await wbRestoreBoards(raw.boards, replace) : new Map();
@@ -7777,6 +7831,15 @@ Object.assign(T.en, {
   acctBio: 'About you (optional)', acctFindable: 'Other signed-in people can find me and see my profile',
   acctBlockedH: 'People you’ve blocked', acctSearchPeople: 'Search by username', acctReportWhy: 'What’s wrong with this profile?',
   acctReportSend: 'Send report', acctReport: 'Report',
+  acctTermsLink: 'Read the terms', acctPrivacyLink: 'Read the privacy policy', acctPrivacy: 'Privacy policy', acctTermsShort: 'Terms',
+  acctChangeEmail: 'Change email address', acctExport: 'Download all my data', acctDelete: 'Delete account',
+  acctEmailP: 'We’ll send a link to the new address and one to the address you have now. The address changes once you’ve opened both.',
+  acctNewEmail: 'New email address', acctSendLinks: 'Send the links', acctPasswordP: 'Other devices are logged out once the password is saved.',
+  acctNonceP: 'For your security we need to know it’s you. We’ve sent a code to your email; type it here.', acctCode: 'Code from the email',
+  acctDeleteP: 'Everything in the account is deleted for good: reminders, notes, pictures, boards and your profile. This can’t be undone.',
+  acctDeleteSaveP: 'Want to keep a copy first?', acctDeleteType: 'Type your username to confirm',
+  acctDeleteWipe: 'Also remove everything from this device. Otherwise it stays here, as without an account.',
+  acctDeleteGo: 'Delete the account for good',
 });
 const ACCT_T = {
   en: {
@@ -7819,6 +7882,15 @@ const ACCT_T = {
     acctErrReportLimit: 'You’ve sent a lot of reports today. Try again tomorrow.',
     acctPhotoSaving: 'Saving the picture…', acctPhotoSaved: 'Your picture is saved.', acctPhotoRemoved: 'Your picture is removed.',
     acctPhotoBad: 'That file can’t be used as a picture. Try a JPG or PNG.', acctProfileSaved: 'Your profile is saved.',
+    acctT_email: 'Change email address', acctT_password: 'Password', acctT_delete: 'Delete account',
+    acctChangePassword: 'Change password', acctSetPassword: 'Choose a password',
+    acctEmailSame: 'That’s the address you already have.', acctErrEmailTaken: 'There’s already an account for that email address.',
+    acctEmailSent: e => `Links are on their way to ${e} and to your current address. Open both in this browser; then the address changes.`,
+    acctEmailHalf: 'One link done. Now open the link we sent to the other address.', acctEmailChanged: e => `Your email address is now ${e}.`,
+    acctNonceSent: 'We’ve sent a code to your email. Type it below and save again.', acctNonceBad: 'That code is wrong or too old. Save again and we’ll send a new one.',
+    acctDelMismatch: 'That isn’t your username. Type it exactly to delete the account.', acctDeleting: 'Deleting the account…',
+    acctDeleted: 'Your account is deleted. What was on this device is still here, without an account.',
+    acctExportNote: 'The file has everything on this device and in your account, plus your profile.',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -7860,6 +7932,15 @@ const ACCT_T = {
     acctErrReportLimit: 'Du har skickat många anmälningar i dag. Försök igen i morgon.',
     acctPhotoSaving: 'Sparar bilden…', acctPhotoSaved: 'Din bild är sparad.', acctPhotoRemoved: 'Din bild är borttagen.',
     acctPhotoBad: 'Filen går inte att använda som bild. Prova en JPG eller PNG.', acctProfileSaved: 'Din profil är sparad.',
+    acctT_email: 'Byt e-postadress', acctT_password: 'Lösenord', acctT_delete: 'Radera kontot',
+    acctChangePassword: 'Byt lösenord', acctSetPassword: 'Välj ett lösenord',
+    acctEmailSame: 'Det är adressen du redan har.', acctErrEmailTaken: 'Det finns redan ett konto för den e-postadressen.',
+    acctEmailSent: e => `Länkarna är på väg till ${e} och till din nuvarande adress. Öppna båda i den här webbläsaren, så byts adressen.`,
+    acctEmailHalf: 'En länk klar. Öppna nu länken vi skickade till den andra adressen.', acctEmailChanged: e => `Din e-postadress är nu ${e}.`,
+    acctNonceSent: 'Vi har skickat en kod till din e-post. Skriv den nedan och spara igen.', acctNonceBad: 'Koden är fel eller för gammal. Spara igen, så skickar vi en ny.',
+    acctDelMismatch: 'Det är inte ditt användarnamn. Skriv det exakt för att radera kontot.', acctDeleting: 'Raderar kontot…',
+    acctDeleted: 'Ditt konto är raderat. Det som fanns på den här enheten finns kvar här, utan konto.',
+    acctExportNote: 'Filen innehåller allt på den här enheten och i ditt konto, och din profil.',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -7909,7 +7990,9 @@ function acctBoot() {
   const q = new URLSearchParams(location.search);
   if (q.has('accounts')) { q.delete('accounts'); acctSetQuery(q); }
   if (!acct.project) return;
-  if (q.has('code') || q.has('error_description')) acct.back = { error: !!q.get('error_description'), reset: q.has('reset') };
+  // Back from an email link or Google/Microsoft. A change of email address comes back with ?email=1 (with secure email
+  // change, the first of its two links brings no ?code, only a #message).
+  if (q.has('code') || q.has('error_description') || q.has('email')) acct.back = { error: !!q.get('error_description'), reset: q.has('reset'), email: q.has('email') };
   let signedIn = false;
   try { signedIn = !!localStorage.getItem(ACCT_STORE); } catch (e) { }
   updateAcctChip();
@@ -7919,8 +8002,9 @@ function acctSetQuery(q) { history.replaceState(history.state, '', location.path
 function acctCleanUrl() {
   const q = new URLSearchParams(location.search);
   let changed = false;
-  for (const k of ['code', 'error', 'error_code', 'error_description', 'reset', 'type']) if (q.has(k)) { q.delete(k); changed = true; }
-  if (changed) acctSetQuery(q);
+  for (const k of ['code', 'error', 'error_code', 'error_description', 'reset', 'type', 'email']) if (q.has(k)) { q.delete(k); changed = true; }
+  const authHash = /^#(message|error)=/.test(location.hash);   // Supabase's own note on an email link, e.g. "open the other link"
+  if (changed || authHash) history.replaceState(history.state, '', location.pathname + (String(q) ? '?' + q : '') + (authHash ? '' : location.hash));
 }
 
 async function acctOnAuth(ev, session) {
@@ -7930,7 +8014,7 @@ async function acctOnAuth(ev, session) {
   if (!session) {
     acct.profile = undefined; acct.priv = null; acct.pendingStep = null; acct.blocks = null; updateAcctChip();
     if (back) acctOpen('signin', t('acctLinkBad'), 'bad');
-    else if (!$('acctDlg').hidden && ['account', 'username', 'reset', 'profile', 'people', 'person'].includes(acct.view)) acctShow('signin');
+    else if (!$('acctDlg').hidden && ['account', 'username', 'reset', 'profile', 'people', 'person', 'email', 'password', 'delete'].includes(acct.view)) acctShow('signin');
     return;
   }
   if (ev === 'PASSWORD_RECOVERY' || (back && back.reset)) { updateAcctChip(); acctLoadProfile().then(updateAcctChip); acctOpen('reset'); return; }
@@ -7940,6 +8024,7 @@ async function acctOnAuth(ev, session) {
   if (!loaded) return;
   const open = !$('acctDlg').hidden;
   if (!acct.profile) acctOpen('username');                   // e.g. after the first Google sign-in: a username comes first
+  else if (back && back.email && !back.error) acctEmailBack();
   else if (back) acctOpen('account', t('acctConfirmed'), 'ok');
   else if (open && (acct.view === 'signin' || acct.view === 'signup')) acctShow('account', t('acctSignedIn'), 'ok');
   if (acct.profile) cloudStart();                            // may ask about the data on this device first
@@ -7957,7 +8042,7 @@ async function acctLoadProfile() {
   try {
     const [p, a] = await Promise.all([
       c.from('profiles').select('username,display_name,bio,avatar_path,visibility').maybeSingle(),
-      c.from('account_private').select('terms_accepted_at,quota_bytes,used_bytes').maybeSingle(),
+      c.from('account_private').select('language,time_zone,terms_accepted_at,quota_bytes,used_bytes').maybeSingle(),
     ]);
     if (p.error) return false;
     acct.profile = p.data || null; acct.priv = (a && a.data) || null;
@@ -8004,6 +8089,12 @@ function acctShow(view, msg, kind) {
     $('acctWhoEmail').textContent = u.email || '';
     $('acctSyncState').textContent = acctSyncLine();
     acctAvatar($('acctMyAvatar'), acct.profile);
+    $('acctPwBtn').textContent = t(acctHasPassword() ? 'acctChangePassword' : 'acctSetPassword');
+  }
+  if ((view === 'email' || view === 'password' || view === 'delete') && prev !== view) {
+    v.reset();
+    if (view === 'password') { acctMeter(v); v.querySelector('.acct-nonce').hidden = true; }
+    if (view === 'delete') v.elements.confirm.placeholder = (acct.profile && acct.profile.username) || '';
   }
   if (view === 'username') v.querySelector('[data-terms]').hidden = !!(acct.priv && acct.priv.terms_accepted_at);
   if (view === 'signin' || view === 'signup') acctProviders();
@@ -8097,11 +8188,11 @@ function acctErr(e) {
     over_email_send_rate_limit: 'acctErrRate', over_request_rate_limit: 'acctErrRate', signup_disabled: 'acctErrClosed',
     email_address_invalid: 'acctBadEmail', validation_failed: 'acctFillIn', same_password: 'acctErrSame', captcha_failed: 'acctErrCaptcha',
     user_already_exists: 'acctErrExists', username_taken: 'acctUnameTaken', username_invalid: 'acctUnameRules', username_too_soon: 'acctUnameSoon',
-    report_limit: 'acctErrReportLimit', avatar_bad: 'acctPhotoBad' };
+    report_limit: 'acctErrReportLimit', avatar_bad: 'acctPhotoBad', email_exists: 'acctErrEmailTaken', confirm_mismatch: 'acctDelMismatch' };
   const key = e && (map[e.hint] || map[e.code] || map[e.error_code]);
   if (key) return t(key);
   const m = (e && e.message) || String(e);
-  if (!navigator.onLine || (e && e.status === 0) || /failed to fetch|network/i.test(m)) return t('acctOffline');
+  if (!navigator.onLine || (e && e.status === 0) || /failed to fetch|failed to send a request|network/i.test(m)) return t('acctOffline');
   return t('acctErrOther', m);
 }
 async function acctUsernameFree(name) {
@@ -8206,6 +8297,43 @@ async function acctSubmit(view, f) {
       }
       await acctLoadProfile(); updateAcctChip();
       acctShow('account', t('acctProfileSaved'), 'ok');
+    } else if (view === 'email') {
+      // Supabase's "secure email change" sends a link to both addresses; the change happens once both are opened.
+      const email = val('email').toLowerCase();
+      if (!validEmail(email)) return acctMsg(t('acctBadEmail'), 'bad');
+      if (email === String(acct.session.user.email || '').toLowerCase()) return acctMsg(t('acctEmailSame'), 'bad');
+      const { error } = await c.auth.updateUser({ email }, { emailRedirectTo: acctHome() + '?email=1' });
+      if (error) return acctMsg(acctErr(error), 'bad');
+      f.reset();
+      acctShow('sent', t('acctEmailSent', email), 'ok');
+    } else if (view === 'password') {
+      // With "secure password change" on in Supabase, a session older than a day must prove it's you first: Supabase
+      // then refuses with reauthentication_needed, we ask it to email a code (reauthenticate) and send it along.
+      const pw = f.elements.password.value, box = f.querySelector('.acct-nonce'), nonce = f.elements.nonce.value.trim();
+      if (pw.length < 10) return acctMsg(t('acctPwShort'), 'bad');
+      if (pw !== f.elements.password2.value) return acctMsg(t('acctPwMismatch'), 'bad');
+      const { error } = await c.auth.updateUser(nonce ? { password: pw, nonce } : { password: pw });
+      if (error && (error.code === 'reauthentication_needed' || (!nonce && /reauthentication/i.test(error.message || '')))) {
+        const r = await c.auth.reauthenticate();
+        if (r.error) return acctMsg(acctErr(r.error), 'bad');
+        box.hidden = false; f.elements.nonce.value = ''; f.elements.nonce.focus();
+        return acctMsg(t('acctNonceSent'), 'ok');
+      }
+      if (error && nonce && (error.code === 'reauthentication_not_valid' || /nonce|reauthentication/i.test(error.message || ''))) {
+        f.elements.nonce.value = '';
+        return acctMsg(t('acctNonceBad'), 'bad');
+      }
+      if (error) return acctMsg(acctErr(error), 'bad');
+      f.reset(); acctMeter(f); box.hidden = true;
+      try { await c.auth.signOut({ scope: 'others' }); } catch (e) { }
+      acctShow('account', t('acctPwSaved'), 'ok');
+    } else if (view === 'delete') {
+      const typed = val('confirm').replace(/^@/, '').toLowerCase(), me = (acct.profile && acct.profile.username) || '';
+      if (!me || typed !== me) return acctMsg(t('acctDelMismatch'), 'bad');
+      acctMsg(t('acctDeleting'));
+      const { error } = await c.functions.invoke('delete-account', { body: { confirm: typed } });
+      if (error) return acctMsg(await acctFnErr(error), 'bad');
+      await acctDeleted(f.elements.wipe.checked);
     }
   } catch (e) { acctMsg(acctErr(e), 'bad'); }
   finally { btns.forEach(b => { b.disabled = false; }); }
@@ -8369,6 +8497,69 @@ async function acctReport() {
     $('acctReportBox').hidden = true; $('acctReportReason').value = '';
     acctMsg(t('acctReported'), 'ok');
   } catch (e) { acctMsg(acctErr(e), 'bad'); }
+}
+
+// ---- account settings (phase 6): email, password, download my data, delete the account
+// Someone who only ever used Google or Microsoft has no password yet: the same screen lets them choose one.
+function acctHasPassword() {
+  const u = (acct.session && acct.session.user) || {}, prov = u.app_metadata && u.app_metadata.providers;
+  return !Array.isArray(prov) || prov.includes('email');
+}
+// Back from a change-of-email link: say whether the address has changed, or the other link is still to be opened.
+async function acctEmailBack() {
+  let u = null;
+  try { const r = await acct.client.auth.getUser(); u = r && r.data && r.data.user; } catch (e) { }
+  if (!u) return acctOpen('account');
+  if (acct.session) acct.session = Object.assign({}, acct.session, { user: u });
+  updateAcctChip();
+  acctOpen('account', u.new_email ? t('acctEmailHalf') : t('acctEmailChanged', u.email || ''), 'ok');
+}
+// An Edge Function's own error code ({ error: 'confirm_mismatch' }) is in the response body.
+async function acctFnErr(e) {
+  try {
+    const res = e && e.context;
+    const body = res && typeof res.clone === 'function' ? await res.clone().json() : null;
+    if (body && typeof body.error === 'string') return acctErr({ code: body.error, message: body.error });
+  } catch (x) { }
+  return acctErr(e);
+}
+// The account is gone on the server (rows and files). Forget the session here. What's on this device stays, as a
+// guest's data (keep it unless asked to remove it: it may be the only copy left), or goes with "remove from this device".
+async function acctDeleted(wipe) {
+  try { await acct.client.auth.signOut({ scope: 'local' }); } catch (e) { }
+  acct.session = null; acct.profile = undefined; acct.priv = null; acct.pendingStep = null; acct.blocks = null;
+  clearTimeout(cloud.timer); cloud.state = 'idle';
+  if (wipe) { await cloudWipeHere(); return; }
+  for (const k of [CLOUD_STORE, BOARD_TOMBS]) { try { localStorage.removeItem(k); } catch (e) { } }
+  cloud.cs = null;
+  updateAcctChip(); $('acctDlg').hidden = true;
+  toast(t('acctDeleted'));
+}
+// "Download all my data": the usual backup (reminders, notes, pictures, boards, settings), synced first so it has
+// everything in the account, plus an `account` section with the profile and account details (GDPR access/portability).
+async function acctExport() {
+  if (!acct.session || !acct.client) return exportBackup();
+  acctMsg(t('acctExportNote'));
+  try { await cloudSync(); } catch (e) { }
+  let account = null;
+  try { account = await acctAccountInfo(); } catch (e) { }
+  await exportBackup(account ? { account } : null);
+}
+async function acctAccountInfo() {
+  const c = acct.client, u = (acct.session && acct.session.user) || {};
+  await acctLoadProfile();
+  let blocked = [];
+  try { const r = await c.rpc('my_blocks'); if (!r.error) blocked = (r.data || []).map(b => ({ username: b.username, since: b.blocked_at })); } catch (e) { }
+  const p = acct.profile || {}, a = acct.priv || {};
+  return {
+    exported_at: new Date().toISOString(), email: u.email || null, created_at: u.created_at || null,
+    sign_in_methods: (u.app_metadata && u.app_metadata.providers) || [],
+    username: p.username || null, display_name: p.display_name || null, bio: p.bio || null,
+    findable: p.visibility ? p.visibility !== 'private' : null, picture: acctAvatarUrl(p.avatar_path) || null,
+    language: a.language || null, time_zone: a.time_zone || null, terms_accepted_at: a.terms_accepted_at || null,
+    storage_used_bytes: a.used_bytes != null ? +a.used_bytes : null, storage_quota_bytes: a.quota_bytes != null ? +a.quota_bytes : null,
+    blocked,
+  };
 }
 
 async function acctOAuth(provider) {
