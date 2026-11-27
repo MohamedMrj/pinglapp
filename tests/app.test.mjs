@@ -535,6 +535,81 @@ test('settings is a gear icon with its name written next to it, in Swedish and E
   }
 });
 
+// ---- UX update U3: reminder rows and notes
+test('a reminder row shows Klar, Skjut upp and ⋯; the menu holds Redigera, the calendar and Ta bort (with undo)', async () => {
+  const now = Date.now();
+  const { ctx, page, errors } = await open({ seed: { reminders: [{ id: 'r1', title: 'Ring Anna', due: now + 3600e3, repeat: 'none', tags: ['jobb'], fired: false, done: false, snoozeUntil: null, noteId: 'n1' }],
+    notes: [{ id: 'n1', text: '# Möte', created: 1, modified: 1 }] } });
+  const row = '.rem[data-id="r1"]';
+  assert.deepEqual((await page.locator(`${row} .acts button`).allInnerTexts()).map(s => s.trim()), ['✓ Klar', 'Skjut upp', '⋯']);
+  await page.click(`${row} [data-act="row-more"]`);
+  assert.deepEqual(await page.locator('#pop button').allInnerTexts(), ['Redigera', 'Öppna anteckningen', 'Lägg i kalendern (Outlook med flera)', 'Ta bort']);
+  assert.equal(await page.getAttribute('#pop button:last-child', 'class'), 'danger', 'Ta bort is set apart');
+  await page.click('#pop button:has-text("Ta bort")');
+  assert.equal(await page.locator(row).count(), 0);
+  await page.click('#toastAct');               // Undo
+  assert.equal(await page.locator(row).count(), 1, 'Ta bort can be undone');
+  // Tapping the text opens Redigera; tapping a tag filters instead.
+  await page.click(`${row} .title span`);
+  assert.equal(await page.isVisible('#editor'), true);
+  assert.equal(await page.inputValue('#edTitle'), 'Ring Anna');
+  await page.keyboard.press('Escape');
+  await page.click(`${row} [data-tagclick="jobb"]`);
+  assert.equal(await page.isHidden('#editor'), true);
+  // The keyboard still works on the selected row: e edits.
+  await page.keyboard.press('e');
+  assert.equal(await page.isVisible('#editor'), true);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('notes toolbar: checklist and reminder are labelled; code, table and divider are under Mer; pin says what it does', async () => {
+  const { ctx, page, errors } = await open({ seed: { reminders: [], notes: [{ id: 'a', text: 'Hej', created: 1, modified: 1 }] } });
+  await tab(page, 'notes');
+  assert.match(await page.innerText('#noteTools [data-fmt="task"]'), /Checklista/);
+  assert.equal(await page.locator('#noteTools [data-fmt="table"], #noteTools [data-fmt="hr"], #noteTools [data-fmt="code"]').count(), 0);
+  await page.click('#noteTools [data-act="note-tools-more"]');
+  assert.deepEqual(await page.locator('#pop button').allInnerTexts(), ['` Kod i texten', '</> Infoga kod', '▦ Tabell', '― Avdelare']);
+  await page.click('#pop button:has-text("Avdelare")');
+  assert.match(await page.evaluate(() => curNote.text), /---/, 'the divider went into the note');
+  assert.equal((await page.innerText('#notePinBtn')).trim(), 'Fäst överst');
+  await page.click('#notePinBtn');
+  assert.equal((await page.innerText('#notePinBtn')).trim(), 'Ta bort fästning');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('notes on a phone: the list and the open note are two screens, with a way back and Ta bort in the note', async () => {
+  const notes = [{ id: 'a', text: '# Inköp\n- [ ] Mjölk', created: 1, modified: 2 }, { id: 'b', text: '# Resa', created: 1, modified: 1 }];
+  const { ctx, page, errors } = await open({ seed: { reminders: [], notes } });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('#bottomNav [data-tab="notes"]');
+  assert.equal(await page.isVisible('#noteList'), true, 'the list first');
+  assert.equal(await page.isVisible('#noteText, #notePreview'), false, 'no note yet');
+  await page.click('#noteList li[data-id="b"]');
+  assert.equal(await page.isVisible('#noteList'), false, 'the note fills the screen');
+  assert.equal(await page.isVisible('#noteBackBtn'), true);
+  assert.equal(await page.isVisible('#sideBtn'), false);
+  await page.click('#noteBackBtn');
+  assert.equal(await page.isVisible('#noteList'), true);
+  // Ta bort from inside the note goes back to the list, and can be undone.
+  await page.click('#noteList li[data-id="a"]');
+  await page.click('#noteDelBtn');
+  assert.equal(await page.isVisible('#noteList'), true);
+  assert.equal(await page.locator('#noteList li[data-id="a"]').count(), 0);
+  await page.click('#toastAct');
+  assert.equal(await page.locator('#noteList li[data-id="a"]').count(), 1);
+  // New note opens the note screen, ready to write.
+  await page.click('.note-side [data-act="new-note"]');
+  assert.equal(await page.isVisible('#noteBackBtn'), true);
+  // A computer: both side by side, no back button.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  assert.equal(await page.isVisible('#noteList'), true);
+  assert.equal(await page.isVisible('#noteBackBtn'), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 // ---- UX update U1: header and navigation
 test('phones get a bottom bar with the sections; "Mer" holds settings and help; the header tabs are hidden', async () => {
   const { ctx, page, errors } = await open();

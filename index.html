@@ -372,6 +372,8 @@ kbd { font-size: 11.5px; line-height: 1; padding: 2px 5px; border: 1px solid var
 .rem.done .title { text-decoration: line-through; color: var(--muted); }
 .rem.done .when { opacity: .55; }
 .acts { display: flex; gap: 2px; }
+.rem-text { cursor: pointer; min-width: 0; }
+.more-btn { font-size: 18px; line-height: 1; min-width: 34px; }
 .empty { text-align: center; padding: 40px 20px; background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; justify-items: center; }
 .empty h3 { margin: 0; font: 600 17px var(--font-display); color: var(--ink); }
 .examples { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
@@ -381,6 +383,8 @@ kbd { font-size: 11.5px; line-height: 1; padding: 2px 5px; border: 1px solid var
 .pop { max-height: min(60vh, 440px); overflow: auto; position: fixed; z-index: 78; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 5px; min-width: 200px; display: grid; }
 .pop button { text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
 .pop button:hover, .pop button:focus-visible { background: var(--surface-2); }
+.pop button.danger { color: var(--danger); margin-top: 6px; position: relative; }   /* set apart, so it isn't hit by mistake */
+.pop button.danger::before { content: ''; position: absolute; left: 6px; right: 6px; top: -4px; border-top: 1px solid var(--line); }
 
 /* notes */
 .notes { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 14px; min-height: 540px; }
@@ -407,6 +411,7 @@ kbd { font-size: 11.5px; line-height: 1; padding: 2px 5px; border: 1px solid var
 .note-tools button { border: 0; background: none; min-width: 32px; height: 30px; padding: 0 8px; border-radius: 6px; cursor: pointer; color: var(--ink); font: 600 14px var(--font); }
 .note-tools button:hover, .note-tools button:focus-visible { background: var(--surface-2); }
 .note-tools .sep { width: 1px; background: var(--line); margin: 5px 4px; }
+.note-tools .lbl { font-weight: 500; font-size: 13px; }
 .find-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .find-bar .input { flex: 1 1 220px; }
 .note-body { display: grid; gap: 10px; min-width: 0; }
@@ -450,6 +455,7 @@ html { scroll-padding-top: var(--note-head-h, 0px); }
   body.printing #printArea img { max-width: 100%; }
 }
 .note-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.notes .phone-only { display: none; }
 .note-bar .status { margin-right: auto; }
 /* note editor: a transparent textarea over a coloured copy of the same text. Both use identical font, size,
    padding, border and wrapping, and colours never change letter widths, so every character lines up. */
@@ -821,8 +827,14 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 
 @media (max-width: 720px) {
   .notes { grid-template-columns: minmax(0, 1fr); }
-  .note-side { position: static; max-height: none; }      /* on a phone the list sits above the note: let it scroll away */
-  .note-side .note-list { max-height: 220px; }
+  /* On a phone the list and the open note are separate screens (notesScreen): "‹ Anteckningar" goes back. */
+  .notes, .notes.side-hidden { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .notes:not(.phone-note) .note-main, .notes.phone-note .note-side { display: none; }
+  .notes.side-hidden:not(.phone-note) .note-side { display: flex; }
+  .note-side { position: static; max-height: none; }
+  .note-side .note-list { max-height: none; }
+  .notes .phone-only { display: inline-flex; }
+  #sideBtn, #sideNewBtn, #delNoteBtn { display: none !important; }
   .rem { grid-template-columns: 70px minmax(0, 1fr); }
   .acts { grid-column: 1 / -1; justify-content: flex-end; }
   .search { margin-left: 0; width: 100%; }
@@ -931,13 +943,15 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         <div class="note-head-sentinel" id="noteHeadSentinel" aria-hidden="true"></div>
         <div class="note-head" id="noteHead">
         <div class="note-bar">
+          <button class="btn sm ghost phone-only" type="button" data-act="notes-back" id="noteBackBtn" data-i18n="notesBack">‹ Anteckningar</button>
           <button class="btn sm ghost" type="button" data-act="toggle-side" id="sideBtn" aria-pressed="true">⟨</button>
           <button class="btn sm ghost" type="button" data-act="new-note" id="sideNewBtn" hidden>＋</button>
           <span class="status" id="noteStatus"></span>
-          <button class="btn sm" type="button" data-act="note-pin" id="notePinBtn">Fäst</button>
+          <button class="btn sm" type="button" data-act="note-pin" id="notePinBtn">Fäst överst</button>
           <button class="btn sm" type="button" data-act="note-history" id="noteHistBtn" data-i18n="noteHist">Historik</button>
           <button class="btn sm" type="button" data-act="note-share" id="noteShareBtn" data-i18n="share">Dela ▾</button>
           <button class="btn sm" type="button" data-act="note-remind" id="noteRemindBtn" data-i18n="remindMe">Påminn mig…</button>
+          <button class="btn sm ghost danger phone-only" type="button" data-act="del-note" id="noteDelBtn" data-i18n="delete">Ta bort</button>
         </div>
         <div class="note-tools" id="noteTools" role="toolbar" aria-label="Formatering" data-i18n-aria="toolsAria">
           <button type="button" data-fmt="bold" title="Fetstil (Ctrl+B)" aria-label="Fetstil (Ctrl+B)" data-i18n-title="fmtBold" data-i18n-aria="fmtBold"><b>B</b></button>
@@ -947,16 +961,13 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
           <span class="sep" aria-hidden="true"></span>
           <button type="button" data-fmt="ul" title="Punktlista" aria-label="Punktlista" data-i18n-title="fmtUl" data-i18n-aria="fmtUl">•</button>
           <button type="button" data-fmt="ol" title="Numrerad lista" aria-label="Numrerad lista" data-i18n-title="fmtOl" data-i18n-aria="fmtOl">1.</button>
-          <button type="button" data-fmt="task" title="Checklista" aria-label="Checklista" data-i18n-title="fmtTask" data-i18n-aria="fmtTask">☑</button>
+          <button type="button" data-fmt="task" title="Checklista" aria-label="Checklista" data-i18n-title="fmtTask" data-i18n-aria="fmtTask">☑ <span class="lbl" data-i18n="fmtTask">Checklista</span></button>
           <button type="button" data-fmt="quote" title="Citat" aria-label="Citat" data-i18n-title="fmtQuote" data-i18n-aria="fmtQuote">❝</button>
           <span class="sep" aria-hidden="true"></span>
           <button type="button" data-fmt="link" title="Länk" aria-label="Länk" data-i18n-title="fmtLink" data-i18n-aria="fmtLink">🔗</button>
-          <button type="button" data-fmt="code" title="Kod i texten" aria-label="Kod i texten" data-i18n-title="fmtCode" data-i18n-aria="fmtCode"><span class="mono">`</span></button>
-          <button type="button" data-act="code-insert" title="Infoga kod" aria-label="Infoga kod" data-i18n-title="codeInsert" data-i18n-aria="codeInsert"><span class="mono">&lt;/&gt;</span></button>
-          <button type="button" data-fmt="table" title="Tabell" aria-label="Tabell" data-i18n-title="fmtTable" data-i18n-aria="fmtTable">▦</button>
-          <button type="button" data-fmt="hr" title="Avdelare" aria-label="Avdelare" data-i18n-title="fmtHr" data-i18n-aria="fmtHr">―</button>
+          <button type="button" data-act="note-tools-more" title="Mer: kod, tabell, avdelare" aria-label="Mer: kod, tabell, avdelare" aria-haspopup="menu" data-i18n-title="toolsMore" data-i18n-aria="toolsMore">⋯ <span class="lbl" data-i18n="navMore">Mer</span></button>
           <span class="sep" aria-hidden="true"></span>
-          <button type="button" data-fmt="remind" title="Gör en påminnelse av raden där markören står" aria-label="Gör en påminnelse av raden där markören står" data-i18n-title="fmtRemind" data-i18n-aria="fmtRemind">⏰</button>
+          <button type="button" data-fmt="remind" title="Gör en påminnelse av raden där markören står" aria-label="Gör en påminnelse av raden där markören står" data-i18n-title="fmtRemind" data-i18n-aria="fmtRemind">⏰ <span class="lbl" data-i18n="fmtRemindShort">Påminn</span></button>
           <button type="button" data-act="find-open" title="Sök i anteckningen (Ctrl+F)" aria-label="Sök i anteckningen (Ctrl+F)" data-i18n-title="findOpen" data-i18n-aria="findOpen">🔍</button>
         </div>
         <div class="find-bar" id="findBar" hidden>
@@ -1160,7 +1171,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       </div>
       <div class="card">
         <h3>Outlook</h3>
-        <p data-i18n="outlookP">Varje påminnelse har en ”Outlook”-knapp. Den laddar ner en kalenderfil; öppna den och klicka på <em>Spara och stäng</em> i Outlook. Då påminner Outlook dig på den här datorn och i mobilen, även när Pinglapp är stängd. Upprepningar följer med, utom avancerade scheman (cron): då får Outlook bara nästa gång.</p>
+        <p data-i18n="outlookP">I varje påminnelses ⋯-meny finns ”Lägg i kalendern”. Den laddar ner en kalenderfil; öppna den och klicka på <em>Spara och stäng</em> i Outlook. Då påminner Outlook dig på den här datorn och i mobilen, även när Pinglapp är stängd. Upprepningar följer med, utom avancerade scheman (cron): då får Outlook bara nästa gång.</p>
         <label class="check"><input type="checkbox" id="setIcs"> <span data-i18n="icsLabel">Ladda ner en Outlook-kalenderpost automatiskt varje gång jag sparar en påminnelse</span></label>
       </div>
       <div class="card">
@@ -2892,7 +2903,7 @@ const T = {
     palDesertN: 'Desert', palDesert: 'Terracotta, sand and dunes',
     mode: 'Mode', modeAria: 'Light or dark mode', light: 'Light', dark: 'Dark',
     monoLabel: 'Typewriter-style letters (all the same width) in notes', utcLabel: 'Show world time (UTC) next to the name',
-    outlookP: 'Every reminder has an “Outlook” action. It downloads a calendar file; open it and click <em>Save &amp; Close</em> in Outlook. Outlook then reminds you on this computer and your phone, even when Pinglapp is closed. Repeats come along too, except advanced (cron) schedules: Outlook then gets only the next time.',
+    outlookP: 'Every reminder’s ⋯ menu has “Add to calendar”. It downloads a calendar file; open it and click <em>Save &amp; Close</em> in Outlook. Outlook then reminds you on this computer and your phone, even when Pinglapp is closed. Repeats come along too, except advanced (cron) schedules: Outlook then gets only the next time.',
     icsLabel: 'Download an Outlook calendar entry automatically each time I save a reminder',
     dataH: 'Your data', dataP: 'Everything saves automatically the moment you change it, and stays saved when you close the window. Without an account, it is kept on this device only. Reminders only come while Pinglapp is open, so minimise it rather than closing it. Anything missed while it was closed appears when you open it again.',
     fileCreate: 'Create a save file…', fileOpen: 'Use an existing save file…', fileStop: 'Stop using the file',
@@ -2981,10 +2992,10 @@ const T = {
     alAutoHide: 'The box disappears', alColor: 'Colour', alSticky: 'The notification in the corner of the screen stays until I close it',
     alFlash: 'Flash the tab while a reminder is waiting and Pinglapp is in the background', testAlertShow: 'Show a test reminder',
     listen: '▶ Listen', listenTitle: 'Listen',
-    noteHist: 'History', share: 'Share ▾', newNoteMenu: 'Templates and other kinds of notes', toolsAria: 'Formatting',
+    noteHist: 'History', share: 'Share ▾', notesBack: '‹ Notes', newNoteMenu: 'Templates and other kinds of notes', toolsAria: 'Formatting',
     fmtBold: 'Bold (Ctrl+B)', fmtItalic: 'Italic (Ctrl+I)', fmtStrike: 'Strikethrough', fmtHeading: 'Heading (click again for a smaller heading)',
     fmtUl: 'Bulleted list', fmtOl: 'Numbered list', fmtTask: 'Checklist', fmtQuote: 'Quote', fmtLink: 'Link', fmtCode: 'Code in the text',
-    fmtTable: 'Table', fmtHr: 'Divider', fmtRemind: 'Make a reminder from the line the cursor is on', findOpen: 'Find in this note (Ctrl+F)',
+    fmtTable: 'Table', fmtHr: 'Divider', toolsMore: 'More: code, table, divider', fmtRemindShort: 'Remind', fmtRemind: 'Make a reminder from the line the cursor is on', findOpen: 'Find in this note (Ctrl+F)',
     findPh: 'Find in this note', findPrev: 'Previous (Shift+Enter)', findNext: 'Next (Enter)', findClose: 'Close (Esc)',
     trashH: 'Trash', trashP: 'Deleted notes stay here for 30 days, then they’re removed for good.', trashEmptyAll: 'Empty the trash',
     histH: 'Earlier versions', histP: 'Pinglapp saves a version when you start changing a note, at most every five minutes. The latest 30 are kept.', histRestore: 'Restore this version',
@@ -3043,6 +3054,7 @@ const T = {
     tagOverdue: 'Overdue', tagSnoozed: 'Snoozed', doneAt: w => 'Done ' + w,
     reopen: 'Reopen', markDoneTitle: 'Mark as done (x)', stopRepeating: 'Stop repeating', doneBtn: '✓ Done', snooze: 'Snooze', snoozeTitle: 'Snooze (s)',
     outlookTitle: 'Download as an Outlook calendar entry', editTitle: 'Edit (e)', deleteTitle: 'Delete (Del)',
+    rowMore: 'More: edit, calendar, delete', tapToEdit: 'Tap to edit', addToCalendar: 'Add to calendar (Outlook and others)',
     edNew: 'New reminder', edEdit: 'Edit reminder', neverRuns: 'That schedule never comes round', nextRuns: 'Next times: ',
     writeWhat: 'Write what the reminder is about', fixCron: 'Fix the cron expression first', enterEvery: 'Enter how often it repeats', pickDate: 'Pick a date and time',
     confirmPast: 'That time has already passed, so the reminder will pop up right away. Save anyway?', saved: 'Saved',
@@ -3063,11 +3075,11 @@ const T = {
     notifNotOn: 'Notifications were not turned on. See Settings for details',
     highPrio: 'High priority · ', dismissTitle: 'Dismiss (keeps it in the list)', dismiss: 'Dismiss',
     titleCount: n => n + ' reminder' + (n === 1 ? '' : 's'),
-    noteEmpty: '(empty note)', noNotesMatch: 'No notes match.', noNotes: 'No notes yet.', pin: 'Pin', unpin: 'Unpin',
+    noteEmpty: '(empty note)', noNotesMatch: 'No notes match.', noNotes: 'No notes yet.', pin: 'Pin to top', unpin: 'Unpin',
     dataCount: (r, n) => `${r} reminders · ${n} notes`, noteEdited: w => 'Edited ' + w + ' · saves automatically',
     noteStart: 'Start typing to create a note. It saves automatically.', saving: 'Saving…', savedAt: x => 'Saved ✓ ' + x,
     newNoteStatus: 'New note. Start typing.', openedLog: 'Opened today’s log',
-    dTitle: 'Daily log', dDone: 'Done', dToday: 'Today', dBlockers: 'Blockers', dNotes: 'Notes', logCreated: 'Daily log created from your reminders',
+    dTitle: 'Daily log', dDone: 'Done', dToday: 'Today', dBlockers: 'Blockers', dNotes: 'Notes', logCreated: 'Daily log created: a note for today with the reminders you’ve done and the ones coming up',
     snd_chime: 'Chime', snd_urgent: 'Urgent', snd_bell: 'Bell', snd_marimba: 'Marimba', snd_soft: 'Soft', snd_pop: 'Pop',
     snd_beep: 'Beep', snd_digital: 'Digital', snd_alarm: 'Alarm', sndNone: 'Silent',
     loopOnce: 'Once', loopUntil: 'Over and over until I respond', useDefault: x => `Default (${x})`,
@@ -3154,6 +3166,7 @@ const T = {
     emptyFresh: 'Inga påminnelser än', emptyNone: 'Inget matchar', emptyFreshP: 'Skriv en i rutan ovan och tryck Enter, eller tryck på ett exempel för att prova:', emptyNoneP: 'Prova ett annat filter, en annan tagg eller sökning.',
     tagOverdue: 'Försenad', tagSnoozed: 'Uppskjuten', doneAt: w => 'Klar ' + w,
     reopen: 'Öppna igen', markDoneTitle: 'Markera som klar (x)', stopRepeating: 'Sluta upprepa', doneBtn: '✓ Klar', snooze: 'Skjut upp', snoozeTitle: 'Skjut upp (s)',
+    rowMore: 'Mer: redigera, kalender, ta bort', tapToEdit: 'Tryck för att redigera', addToCalendar: 'Lägg i kalendern (Outlook med flera)',
     outlookTitle: 'Ladda ner som en Outlook-kalenderpost', edit: 'Redigera', editTitle: 'Redigera (e)', delete: 'Ta bort', deleteTitle: 'Ta bort (Del)',
     edNew: 'Ny påminnelse', edEdit: 'Redigera påminnelse', neverRuns: 'Det schemat inträffar aldrig', nextRuns: 'Nästa gånger: ',
     writeWhat: 'Skriv vad påminnelsen gäller', fixCron: 'Rätta cron-uttrycket först', enterEvery: 'Ange hur ofta den upprepas', pickDate: 'Välj datum och tid',
@@ -3175,11 +3188,11 @@ const T = {
     notifNotOn: 'Aviseringar slogs inte på. Se Inställningar för detaljer',
     highPrio: 'Hög prioritet · ', dismissTitle: 'Stäng (finns kvar i listan)', dismiss: 'Stäng',
     titleCount: n => n + (n === 1 ? ' påminnelse' : ' påminnelser'),
-    noteEmpty: '(tom anteckning)', noNotesMatch: 'Inga anteckningar matchar.', noNotes: 'Inga anteckningar än.', pin: 'Fäst', unpin: 'Lossa',
+    noteEmpty: '(tom anteckning)', noNotesMatch: 'Inga anteckningar matchar.', noNotes: 'Inga anteckningar än.', pin: 'Fäst överst', unpin: 'Ta bort fästning',
     dataCount: (r, n) => `${r} påminnelser · ${n} anteckningar`, noteEdited: w => 'Ändrad ' + w + ' · sparas automatiskt',
     noteStart: 'Börja skriva för att skapa en anteckning. Den sparas automatiskt.', saving: 'Sparar…', savedAt: x => 'Sparad ✓ ' + x,
     newNoteStatus: 'Ny anteckning. Börja skriva.', openedLog: 'Öppnade dagens logg',
-    dTitle: 'Dagslogg', dDone: 'Klart', dToday: 'Idag', dBlockers: 'Hinder', dNotes: 'Anteckningar', logCreated: 'Dagsloggen skapades från dina påminnelser',
+    dTitle: 'Dagslogg', dDone: 'Klart', dToday: 'Idag', dBlockers: 'Hinder', dNotes: 'Anteckningar', logCreated: 'Dagsloggen skapades: en anteckning för idag med påminnelserna du är klar med och de som kommer',
     setupNotifOn: '✓ Aviseringar är redan på i den här webbläsaren.', stepOf: (i, n) => `Steg ${i} av ${n}`,
     snd_chime: 'Klang', snd_urgent: 'Brådskande', snd_bell: 'Klocka', snd_marimba: 'Marimba', snd_soft: 'Mjuk', snd_pop: 'Plopp',
     snd_beep: 'Pip', snd_digital: 'Digital', snd_alarm: 'Larm', sndNone: 'Tyst',
@@ -3212,6 +3225,7 @@ const T = {
     sugKnownTitle: 'Du har markerat det här som kod förut. Klicka för att välja.', sugGuessTitle: 'Det här ser ut som kod. Klicka för att välja.',
     imgAlt: 'Skärmbild', imgTooBig: 'Bilden är för stor, även efter förminskning (högst 1,5 MB)', imgFailed: 'Kunde inte läsa bilden', imgUnavailable: 'Bilder kan inte sparas i den här webbläsaren',
     dailyLog: 'Dagslogg', newNote: 'Ny anteckning',
+    fmtCode: 'Kod i texten', codeInsert: 'Infoga kod', fmtTable: 'Tabell', fmtHr: 'Avdelare',
     sideHide: 'Dölj listan med anteckningar (Ctrl+Shift+L)', sideShow: 'Visa listan med anteckningar (Ctrl+Shift+L)',
     restoreInfo: (w, r, n, i) => `Säkerhetskopian är från ${w} och innehåller ${r} påminnelser och ${n} anteckningar${i ? ` och ${i} bilder` : ''}.`, restoredAll: 'Allt ersattes med säkerhetskopian',
     bannerFile: '<strong>Pinglapp behöver ett klick för att fortsätta spara i din fil.</strong> Webbläsaren frågar om lov igen efter en omstart. Det är en säkerhetsfunktion, inte ett fel. Välj gärna ”Tillåt vid varje besök” så slipper du frågan. Inget har försvunnit, allt finns kvar i webbläsaren under tiden.',
@@ -4095,7 +4109,7 @@ function openPop(anchor, items, opts = {}) {
   if (pop.ownerDocument !== anchor.ownerDocument) anchor.ownerDocument.body.appendChild(pop);   // open the menu in the window that was clicked
   const view = pop.ownerDocument.defaultView;
   pop.innerHTML = '';
-  items.forEach(([label, fn]) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.onclick = () => { closePop(); fn(); }; pop.appendChild(b); });
+  items.forEach(([label, fn, o]) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; if (o && o.danger) b.className = 'danger'; b.onclick = () => { closePop(); fn(); }; pop.appendChild(b); });
   pop.hidden = false;
   const r = anchor.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
   pop.style.left = Math.max(8, Math.min(r.left, view.innerWidth - pw - 8)) + 'px';
@@ -4269,19 +4283,17 @@ function rowHtml(r) {
   if (r.repeat !== 'none') tags.push(`<span class="tag repeat${r.repeat === 'cron' ? ' mono' : ''}">${esc(repeatLabel(r))}</span>`);
   r.tags.forEach(t => tags.push(`<span class="tag hash" data-tagclick="${esc(t)}">#${esc(t)}</span>`));
   if (r.notes) tags.push(`<span class="snip">${linkify(r.notes.split('\n')[0])}</span>`);
+  // Everyday actions in sight (Klar, Skjut upp); the rest (Redigera, the note, calendar, Ta bort) in the ⋯ menu.
   const acts = r.done
     ? `<button class="btn sm ghost" type="button" data-act="reopen">${esc(t('reopen'))}</button>`
     : `<button class="btn sm" type="button" data-act="done" title="${esc(t(r.repeat === 'none' ? 'markDoneTitle' : 'stopRepeating'))}">${esc(t('doneBtn'))}</button>
-       <button class="btn sm ghost" type="button" data-act="snooze" title="${esc(t('snoozeTitle'))}">${esc(t('snooze'))}</button>
-       <button class="btn sm ghost" type="button" data-act="ics" title="${esc(t('outlookTitle'))}">Outlook</button>`;
+       <button class="btn sm ghost" type="button" data-act="snooze" title="${esc(t('snoozeTitle'))}">${esc(t('snooze'))}</button>`;
   const rc = COLORS[r.color];
   return `<li class="rem ${cls}${rc ? ' colored' : ''}" data-id="${r.id}"${rc ? ` style="--rc:${rc}"` : ''}>
     <div class="when"><span class="t">${fmtTime(n)}</span><span class="d">${esc(fmtDay(n))}</span></div>
-    <div><div class="title">${r.priority ? `<span class="prio p${r.priority}">${esc(prioName(r.priority).toUpperCase())}</span>` : ''}<span>${linkify(r.title)}</span></div><div class="meta">${tags.join('')}</div></div>
+    <div class="rem-text" title="${esc(t('tapToEdit'))}"><div class="title">${r.priority ? `<span class="prio p${r.priority}">${esc(prioName(r.priority).toUpperCase())}</span>` : ''}<span>${linkify(r.title)}</span></div><div class="meta">${tags.join('')}</div></div>
     <div class="acts">${acts}
-      ${linkedNote(r) ? `<button class="btn sm ghost" type="button" data-act="open-note" title="${esc(t('openNote'))}" aria-label="${esc(t('openNote'))}">📝</button>` : ''}
-      <button class="btn sm ghost" type="button" data-act="edit" title="${esc(t('editTitle'))}">${esc(t('edit'))}</button>
-      <button class="btn sm ghost danger" type="button" data-act="delete" title="${esc(t('deleteTitle'))}" aria-label="${esc(t('delete'))}">✕</button></div></li>`;
+      <button class="btn sm ghost more-btn" type="button" data-act="row-more" title="${esc(t('rowMore'))}" aria-label="${esc(t('rowMore'))}" aria-haspopup="menu">⋯</button></div></li>`;
 }
 $('groups').addEventListener('click', e => {
   const ex = e.target.closest('[data-example]');
@@ -4292,11 +4304,13 @@ $('groups').addEventListener('click', e => {
   const li = e.target.closest('.rem'); if (!li) return;
   const r = find(li.dataset.id); if (!r) return;
   selId = r.id; markSel();
-  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const b = e.target.closest('button[data-act]');
+  if (!b) { if (e.target.closest('.rem-text') && !getSelection().toString()) openEditor(r, false); return; }   // tapping the text edits it
   switch (b.dataset.act) {
     case 'done': askDone(r); break;
     case 'reopen': reopen(r); break;
     case 'snooze': openPop(b, snoozeOptions().map(([l, t]) => [l, () => snooze(r, t)])); break;
+    case 'row-more': openPop(b, rowMenu(r)); break;
     case 'ics': downloadIcs(r); break;
     case 'edit': openEditor(r, false); break;
     case 'open-note': openNote(r.noteId); break;
@@ -4304,9 +4318,17 @@ $('groups').addEventListener('click', e => {
   }
 });
 $('groups').addEventListener('dblclick', e => {
-  const li = e.target.closest('.rem'); if (!li || e.target.closest('button, a')) return;
+  const li = e.target.closest('.rem'); if (!li || e.target.closest('button, a, .rem-text')) return;
   const r = find(li.dataset.id); if (r) openEditor(r, false);
 });
+// The ⋯ menu of a reminder row. Ta bort comes last, set apart, and can be undone.
+function rowMenu(r) {
+  const m = [[t('edit'), () => openEditor(r, false)]];
+  if (linkedNote(r)) m.push([t('openNote'), () => openNote(r.noteId)]);
+  if (!r.done) m.push([t('addToCalendar'), () => downloadIcs(r)]);
+  m.push([t('delete'), () => remove(r), { danger: true }]);
+  return m;
+}
 function markSel() { document.querySelectorAll('.rem').forEach(li => li.classList.toggle('sel', li.dataset.id === selId)); }
 function moveSel(delta) {
   const rows = [...document.querySelectorAll('#groups .rem')]; if (!rows.length) return;
@@ -5274,6 +5296,7 @@ $('noteList').addEventListener('click', e => {
   const li = e.target.closest('li[data-id]'); if (!li) return;
   const same = curNote && curNote.id === li.dataset.id;
   loadNote(S.notes.find(n => n.id === li.dataset.id));
+  notesScreen(true);
   // Picked from far down a long note: start the new note at its top, not halfway down.
   const top = $('view-notes').getBoundingClientRect().top + scrollY - 10;
   if (!same && scrollY > top) scrollTo({ top, behavior: 'instant' });
@@ -5281,6 +5304,7 @@ $('noteList').addEventListener('click', e => {
 $('noteSearch').addEventListener('input', renderNotes);
 function newNote(text) {
   flushNote();
+  notesScreen(true);
   $('noteSearch').value = '';
   if (text) {
     curNote = { id: uid(), text, created: Date.now(), modified: Date.now(), pinned: false };
@@ -5295,6 +5319,7 @@ function newNote(text) {
 function dailyLog() {
   const today = isoDate(new Date());
   const existing = S.notes.find(n => n.daily === today && isLive(n));
+  notesScreen(true);
   if (existing) { loadNote(existing); toast(t('openedLog')); return; }
   const start = sod(new Date()).getTime(), yStart = start - 86400000, end = start + 86400000;
   const doneRecently = S.reminders.filter(r => r.done && r.completedAt >= yStart).sort((a, b) => a.completedAt - b.completedAt);
@@ -5522,7 +5547,7 @@ const linkedNote = r => r && r.noteId ? S.notes.find(n => n.id === r.noteId && i
 function openNote(id) {
   const n = S.notes.find(x => x.id === id && isLive(x));
   if (!n) { toast(t('noteGone')); return; }
-  closeEditor(); showTab('notes'); loadNote(n); try { window.focus(); } catch (e) { }
+  closeEditor(); showTab('notes'); loadNote(n); notesScreen(true); try { window.focus(); } catch (e) { }
 }
 // A reminder from one line of the note (the cursor's line, or a checklist line clicked in the formatted note).
 // Times in the line are understood the same way as in quick add: "- [ ] Ring IT imorgon 10".
@@ -5777,6 +5802,10 @@ const queueCaretCheck = () => { if (!caretQueued) { caretQueued = true; requestA
 noteText.addEventListener('input', queueCaretCheck);
 noteText.addEventListener('keyup', e => { if (/^(Arrow|Page|Home|End|Enter|Backspace|Delete)/.test(e.key)) queueCaretCheck(); });
 
+
+// ---------------------------------------------------------------- notes on a phone: the list and the open note are two screens
+// (CSS shows one or the other at phone width; on bigger screens both stay side by side and this class does nothing).
+function notesScreen(note) { $('view-notes').querySelector('.notes').classList.toggle('phone-note', !!note); }
 
 // ---------------------------------------------------------------- notes: hide the list of notes for more room
 const sideOpen = () => { try { return localStorage.getItem('ping.notesSide') !== '0'; } catch (e) { return true; } };
@@ -7891,7 +7920,7 @@ document.addEventListener('click', e => {
       if (curNote) {
         const gone = curNote;
         clearTimeout(noteTimer); noteTimer = null;
-        undoable(t('noteTrashed'), () => { gone.trashed = Date.now(); curNote = null; save(); loadNote(null); },
+        undoable(t('noteTrashed'), () => { gone.trashed = Date.now(); curNote = null; save(); loadNote(null); notesScreen(false); },
           () => { gone.trashed = null; gone.modified = Date.now(); save(); if (currentTab() === 'notes') loadNote(gone); else renderNotes(); });
       }
       break;
@@ -7904,11 +7933,14 @@ document.addEventListener('click', e => {
     case 'close-trash': $('trashDlg').hidden = true; break;
     case 'trash-empty': emptyTrash(); break;
     case 'new-note-menu': newNoteMenu(b); break;
+    case 'note-tools-more': openPop(b, [['` ' + t('fmtCode'), () => applyFmt('code')], ['</> ' + t('codeInsert'), () => openCodeDlg()],
+      ['▦ ' + t('fmtTable'), () => applyFmt('table')], ['― ' + t('fmtHr'), () => applyFmt('hr')]], { noFocus: true }); break;
     case 'close-link': closeLinkDlg(); break;
     case 'find-open': openFind(); break;
     case 'restore-go': doRestore(); break;
     case 'close-restore': pendingRestore = null; $('restoreDlg').hidden = true; break;
     case 'toggle-side': setSide(!sideOpen()); break;
+    case 'notes-back': flushNote(); notesScreen(false); renderNotes(); scrollTo({ top: 0, behavior: 'instant' }); break;
     case 'sug-all': markAllSugs(); break;
     case 'sug-show': sugShowMenu(b); break;
     case 'find-next': findStep(1); break;
