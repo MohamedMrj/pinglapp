@@ -20,6 +20,15 @@ Click **Log in** at the top of Pinglapp, then **Create an account**, or use **Co
 - **Account page** (click your @username): edit the profile, change email address or password, **download all my data**, log out (on this device or all of them), or **delete the account**, which removes everything in it for good.
 - **Logging out on a shared computer:** choose **Remove from this device**. Pinglapp first checks that everything has reached your account.
 
+## Friends and sharing (with an account)
+
+- **Avatar:** everyone gets a drawn avatar made from their username. Change it under **Edit profile** (pick each part, or **Shuffle**), or upload a photo instead.
+- **Friends:** open someone's profile (**Find people**) and click **Add as friend**. They answer in their **inbox**: the bell in the header shows when something is waiting. Your friends are listed under **Account → Friends**. Friends can see each other's profile even if it's hidden from search.
+- **Send a reminder:** on a friend's profile, **Send a reminder** and write it like a quick add (`Call mum tomorrow 18:00`); the preview shows how it reads. Your friend chooses **Add** (it becomes their own reminder) or **No thanks**. You aren't told which.
+- **Invite to a whiteboard:** while you share a board live, **Share → Invite a friend**. They get it in their inbox and join with one click. An invitation works for a day.
+- **Shared notes and lists:** in a note, **Share ▾ → Share with friends…**, pick friends and whether each **can edit** or **can read**. The note appears in their notes with 👥. Everyone's changes come together line by line, and the open note refreshes every few seconds. If two people change the same line at the same time, the version saved first is kept and the other is saved in the note's history, so nothing is lost. Earlier versions from before you shared stay private to you. Pictures in a shared note count towards the owner's storage. The owner can change who is in it or **stop sharing** (the others get a copy in their trash); anyone else can **leave**, optionally keeping a copy.
+- Only friends can send or share anything. Removing a friend or blocking someone ends everything you share with each other.
+
 ## Without an account: make sure your data is never lost
 
 Pinglapp saves everything in the browser on your computer. If the computer breaks, you switch computers or the browser's data is cleared, it can disappear. An account (above) solves this. Without one, the fix takes five minutes: put Pinglapp's save file in a folder that syncs to the cloud. Pick **one** of the two guides below. Both services are free.
@@ -128,6 +137,8 @@ Everything else works offline. Without an account, nothing is sent to any server
 
 The accounts backend runs on Supabase (Postgres, Auth, Storage). Everything it needs is in `supabase/`: the database migrations, the `delete-account` Edge Function, copies of the auth email templates, and a setup guide in `supabase/README.md`. Only the public (publishable) key and the Turnstile site key are in `index.html`; every rule about who may read or write what is enforced by the database (row-level security).
 
+**Backups:** a weekly GitHub Action (`.github/workflows/backup.yml`) copies the prod database and its files, encrypts them on the runner, and keeps each copy as a workflow artifact for 30 days. How to set it up and restore from it: `supabase/README.md` → "Backups".
+
 Storage keys (`reminder-by-me.v1` in localStorage, the `reminder-by-me` IndexedDB database) keep their old names on purpose. Renaming them without a migration would make everyone's reminders disappear.
 
 ### Tests
@@ -137,7 +148,7 @@ The `tests/` folder holds the test suite. It isn't needed to run Pinglapp.
 cd tests
 npm install        # once: installs playwright-core and PGlite
 npm test           # everything
-npm run test:unit  # fast Node-only tests: sync merge, account sync, quick-add parser, whiteboard model, code colours, code suggestions, delete-account function
+npm run test:unit  # fast Node-only tests: sync merge, account sync, quick-add parser, whiteboard model, code colours, code suggestions, delete-account function, avatars, shared-note merging
 npm run test:db    # the database migrations and their rules, in PGlite (real Postgres in WebAssembly)
 npm run test:app   # the real page in a headless browser, including a whiteboard host and guests
 npm run serve      # http://localhost:8080 to try it by hand (accounts use the staging project)

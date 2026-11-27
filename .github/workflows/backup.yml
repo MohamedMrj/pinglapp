@@ -1,0 +1,103 @@
+# Weekly backup of the prod Supabase project: the database (public, auth and storage schemas) and the files in
+# Storage (pictures, boards, avatars), so there is always a copy of user data outside Supabase.
+#
+# The repo is public, and so are workflow artifacts (any signed-in GitHub user can download them). So the backup is
+# encrypted on the runner before it is uploaded (AES-256, gpg, with BACKUP_PASSPHRASE) and nothing readable ever
+# leaves it; the run log shows only sizes and file counts. Each copy is kept for 30 days, which is what the privacy
+# policy promises ("copies in backups are gone within 30 days" after an account is deleted).
+#
+# Secrets (Settings → Secrets and variables → Actions → New repository secret); setup and restore steps are in
+# supabase/README.md → "Backups":
+#   PROD_DB_URL                 Session pooler connection string (port 5432) with the database password
+#   PROD_S3_ENDPOINT            Storage → S3 Connection → Endpoint
+#   PROD_S3_ACCESS_KEY_ID       Storage → S3 Connection → New access key
+#   PROD_S3_SECRET_ACCESS_KEY   (shown once, with the key above)
+#   BACKUP_PASSPHRASE           a long random passphrase, kept in a password manager: without it no backup can be read
+#
+# Secrets are never given to workflows started from forks or pull requests; this one only runs on a schedule or by hand.
+# If a run fails, GitHub emails the repo owner. Like keep-alive.yml, GitHub pauses schedules after 60 days with no
+# commits (it emails first; Actions → this workflow → Enable turns it back on).
+name: Weekly backup (prod)
+
+on:
+  schedule:
+    - cron: '23 2 * * 1'      # Mondays 02:23 UTC
+  workflow_dispatch: {}        # "Run workflow" button, for the first try and before risky changes
+
+permissions: {}                # needs no access to the repo itself
+
+concurrency:
+  group: backup-prod
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+      PROD_S3_ENDPOINT: ${{ secrets.PROD_S3_ENDPOINT }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.PROD_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.PROD_S3_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: eu-west-1
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check the secrets
+        run: |
+          missing=0
+          for v in PROD_DB_URL PROD_S3_ENDPOINT AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY BACKUP_PASSPHRASE; do
+            if [ -z "${!v}" ]; then echo "::error::A secret is missing (needed for $v). See supabase/README.md → Backups."; missing=1; fi
+          done
+          if [ "${#BACKUP_PASSPHRASE}" -lt 20 ]; then echo "::error::BACKUP_PASSPHRASE is too short (use at least 20 characters)."; missing=1; fi
+          case "$PROD_DB_URL" in *:6543/*) echo "::error::PROD_DB_URL uses port 6543 (transaction pooler). Use the Session pooler string (port 5432)."; missing=1;; esac
+          exit $missing
+
+      - name: Install the PostgreSQL client (latest, from postgresql.org)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common > /dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -qq postgresql-client > /dev/null
+          pg_dump --version
+
+      - name: Dump the database
+        run: |
+          umask 077
+          mkdir -p backup
+          pg_dump "$PROD_DB_URL" --format=custom --no-owner --no-privileges \
+            --schema=public --schema=auth --schema=storage --file=backup/database.dump
+          pg_restore --list backup/database.dump > /dev/null      # the dump is complete and readable
+          echo "database: $(du -h backup/database.dump | cut -f1)"
+
+      - name: Copy the files in Storage
+        run: |
+          umask 077
+          for b in avatars note-images boards; do
+            mkdir -p "backup/storage/$b"
+            aws s3 sync "s3://$b" "backup/storage/$b" --endpoint-url "$PROD_S3_ENDPOINT" --only-show-errors
+            echo "$b: $(find "backup/storage/$b" -type f | wc -l) files, $(du -sh "backup/storage/$b" | cut -f1)"
+          done
+
+      - name: Pack, encrypt and check that it decrypts
+        run: |
+          umask 077
+          name="pinglapp-prod-$(date -u +%F)"
+          printf '{"made":"%s","run":"%s"}\n' "$(date -u +%FT%TZ)" "$GITHUB_RUN_ID" > backup/about.json
+          tar -C backup -czf "$name.tar.gz" .
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --quiet --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 --s2k-count 65011712 --compress-algo none \
+            --output "$name.tar.gz.gpg" "$name.tar.gz"
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --quiet --pinentry-mode loopback --passphrase-fd 0 \
+            --decrypt "$name.tar.gz.gpg" | tar -tzf - > /dev/null
+          rm -rf backup "$name.tar.gz"                             # only the encrypted file is left
+          echo "backup: $(du -h "$name.tar.gz.gpg" | cut -f1)"
+          echo "NAME=$name" >> "$GITHUB_ENV"
+
+      - name: Keep the encrypted backup for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: ${{ env.NAME }}.tar.gz.gpg
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error

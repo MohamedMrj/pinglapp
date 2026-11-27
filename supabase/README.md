@@ -50,6 +50,70 @@ Tests (in `../tests`, run with `npm test`):
    test with a session older than a day), download all my data, then delete a throwaway account and check in the
    dashboard that its user, its rows and its files (Storage, all three buckets) are gone.
 
+## Backups (prod)
+
+`.github/workflows/backup.yml` runs every Monday at 02:23 UTC (and with **Run workflow**). It dumps the prod database
+(schemas `public`, `auth`, `storage`) with `pg_dump`, copies every file in Storage (`avatars`, `note-images`,
+`boards`) over Supabase's S3 connection, packs both, **encrypts the pack on the runner** (gpg, AES-256) and keeps it as
+a workflow artifact for **30 days** (the privacy policy says deleted accounts are gone from backups within 30 days).
+The repo is public and so are artifacts, which is why only the encrypted file ever leaves the runner. Supabase's free
+plan has no backups of its own, so this is the only copy of user data outside Supabase.
+
+### Setting it up (once)
+
+Add five **repository secrets** (GitHub → the repo → Settings → Secrets and variables → Actions → New repository
+secret):
+
+| Secret | Where to get it |
+|---|---|
+| `PROD_DB_URL` | Supabase (prod) → **Connect** → **Session pooler** → the URI (port **5432**), with `[YOUR-PASSWORD]` replaced by the database password. If you don't have the password, reset it under Project Settings → Database; the app doesn't use it, so nothing else changes. |
+| `PROD_S3_ENDPOINT` | Storage → Settings → **S3 Connection** (turn on "Enable connection via S3 protocol" if it's off) → **Endpoint** |
+| `PROD_S3_ACCESS_KEY_ID` | Same page → **New access key** (description e.g. `github-backup`) → Access key ID |
+| `PROD_S3_SECRET_ACCESS_KEY` | Shown once, together with the key above |
+| `BACKUP_PASSPHRASE` | Make a long random one in your password manager (32+ characters) and keep it there. **Without it no backup can ever be read**, and anyone who has it plus an artifact can read everything. |
+
+Then **Actions → Weekly backup (prod) → Run workflow**. A green run ends with an artifact
+`pinglapp-prod-YYYY-MM-DD`. Try decrypting it once (below) so you know the passphrase works.
+
+What the secrets can do: `PROD_DB_URL` gives full access to the database, the S3 key full access to Storage. GitHub
+only hands them to workflows in this repo started by its owner (never to forks or pull requests), and masks them in
+logs. If one leaks: reset the database password / revoke the S3 key in Supabase and update the secret.
+
+### Reading a backup
+
+1. Actions → Weekly backup (prod) → a run → **Artifacts** → download, and unzip: `pinglapp-prod-YYYY-MM-DD.tar.gz.gpg`.
+2. Decrypt (gpg comes with Git for Windows; use Git Bash), then unpack:
+   ```sh
+   gpg --decrypt pinglapp-prod-YYYY-MM-DD.tar.gz.gpg > backup.tar.gz     # asks for BACKUP_PASSPHRASE
+   mkdir backup && tar -xzf backup.tar.gz -C backup
+   ```
+   Inside: `database.dump` (pg_dump custom format), `storage/<bucket>/<path>` (the files), `about.json`.
+3. See what's in the dump without restoring anything: `pg_restore --list backup/database.dump`.
+4. To read rows, restore into a **local** Postgres (not a Supabase project):
+   ```sh
+   createdb pinglapp_restore
+   psql -d pinglapp_restore -c "create role anon; create role authenticated; create role service_role;"
+   pg_restore --no-owner --no-privileges -d pinglapp_restore backup/database.dump   # some Supabase-only objects may warn; the tables load
+   ```
+   Then, for example, `select data from public.notes where user_id = '<user id>' and id = '<note id>';`. To give one
+   person back something they lost, put it back by hand in the prod SQL Editor (an `insert … on conflict … do update`
+   with `updated` set to the current time in milliseconds, so the sync guard accepts it and their devices pull it).
+   Delete the local copy when done: it is personal data.
+
+### Restoring everything (disaster recovery, outline)
+
+Only if the prod project itself is lost. Do it with care (and ideally with help):
+1. Create a new Supabase project (eu-west-1) and apply every migration in `migrations/` in order, then set it up as in
+   this guide (auth settings, SMTP, providers, Turnstile, `delete-account`).
+2. Restore the users first: `pg_restore --data-only --no-owner -d "<new session pooler URI>" -n auth -t users -t identities backup/database.dump`.
+   The sign-up trigger creates empty `profiles` / `account_private` rows; delete those, then restore the app's data:
+   `pg_restore --data-only --no-owner -d "<URI>" -n public backup/database.dump`.
+3. Files: for each bucket, `aws s3 sync backup/storage/<bucket> s3://<bucket> --endpoint-url <new endpoint>` (with an S3
+   key of the new project). Storage records the files itself; don't restore the `storage` schema. Then run
+   `select public.recount_storage_use();`.
+4. Point `ACCT_PROJECTS.prod` in `index.html` (and `keep-alive.yml`) at the new project, and update the OAuth
+   redirect URLs at Google and Microsoft.
+
 ## One-time setup (phase 0)
 
 Do these in order. Each step is free except the domain.

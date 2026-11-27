@@ -44,7 +44,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <h2>Kort sagt</h2>
 <ul>
   <li><b>Utan konto</b> stannar allt du skriver i din webbläsare (och i en sparfil, om du själv väljer en). Vi ser inget av det.</li>
-  <li><b>Med konto</b> sparas dina påminnelser, anteckningar, bilder, tavlor och inställningar hos oss, så att de finns på alla dina enheter. Vi använder dem bara till det.</li>
+  <li><b>Med konto</b> sparas dina påminnelser, anteckningar, bilder, tavlor och inställningar hos oss, så att de finns på alla dina enheter. Vi använder dem bara till det. Det du själv väljer att dela med vänner ser de också.</li>
   <li>Ingen reklam, ingen spårning, inga analysverktyg. Vi säljer aldrig uppgifter och använder dem inte för att träna AI.</li>
   <li>Du kan när som helst ladda ner allt och radera kontot, direkt i appen.</li>
 </ul>
@@ -61,11 +61,11 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <tr><th>Uppgifter</th><th>Varför</th><th>Rättslig grund</th></tr>
 <tr><td>E-postadress, lösenord (bara i krypterad form, aldrig i klartext), hur du loggar in, när kontot skapades, när du godkände villkoren, språk och tidszon</td><td>För att du ska kunna logga in och få e-post om ditt konto</td><td>Avtal</td></tr>
 <tr><td>Profil: användarnamn, namn som andra ser, ”om dig”, profilbild eller de delar du valt för din avatar, och om andra får hitta dig</td><td>För att andra inloggade ska kunna hitta dig, om du vill det</td><td>Avtal</td></tr>
+<tr><td>Ditt innehåll: påminnelser, anteckningar, bilder i anteckningar, tavlor och inställningar</td><td>För att synka dem mellan dina enheter</td><td>Avtal</td></tr>
 <tr><td>Vänner: vilka du är vän med, och vänförfrågningar du har skickat eller fått</td><td>För att du ska kunna lägga till vänner och se deras profiler</td><td>Avtal</td></tr>
 <tr><td>Påminnelser som vänner skickar till varandra: texten, vem som skickade den, till vem, när, och om den har besvarats</td><td>För att din vän ska kunna lägga till påminnelsen hos sig</td><td>Avtal</td></tr>
-<tr><td>Delade anteckningar: texten och dess tidigare versioner, bilder i den, vem som delade den, vilka som är med och om de kan ändra eller bara läsa</td><td>För att ni ska kunna skriva i samma anteckning eller lista</td><td>Avtal</td></tr>
+<tr><td>Delade anteckningar: texten och dess versioner sedan den delades, bilder i den, vem som delade den, vilka som är med och om de kan ändra eller bara läsa</td><td>För att ni ska kunna skriva i samma anteckning eller lista</td><td>Avtal</td></tr>
 <tr><td>Inbjudningar till en tavla som delas live: tavlans namn och kod, vem som bjöd in, till vem, när, och om den har besvarats (själva tavlan sparas inte)</td><td>För att din vän ska kunna gå med på tavlan</td><td>Avtal</td></tr>
-<tr><td>Ditt innehåll: påminnelser, anteckningar, bilder i anteckningar, tavlor och inställningar</td><td>För att synka dem mellan dina enheter</td><td>Avtal</td></tr>
 <tr><td>Vilka du har blockerat, och anmälningar du skickar (vem du anmäler och varför)</td><td>För att skydda användare mot otrevligt beteende</td><td>Berättigat intresse</td></tr>
 <tr><td>Tekniska uppgifter: IP-adress, webbläsare och tidpunkter i serverloggar, och robotkontrollen när du loggar in eller skapar ett konto</td><td>För att stoppa missbruk och hålla tjänsten igång</td><td>Berättigat intresse</td></tr>
 </table></div>
@@ -88,7 +88,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
   <li><b>Brevo</b>: skickar e-post om ditt konto (bekräftelse, nytt lösenord, byte av e-post). EU (Frankrike).</li>
   <li><b>Cloudflare</b>: robotkontrollen (Turnstile) när du loggar in, skapar ett konto eller begär nytt lösenord, och adressen pinglapp.com. Läser tekniska uppgifter om webbläsaren för att skilja människor från robotar.</li>
   <li><b>Google</b> och <b>Microsoft</b>: bara om du väljer att logga in med dem. Då får vi ditt namn och din e-postadress därifrån.</li>
-  <li><b>GitHub</b>: lagrar och visar själva appen.</li>
+  <li><b>GitHub</b>: lagrar och visar själva appen, och förvarar våra veckovisa säkerhetskopior, krypterade (se nedan).</li>
   <li><b>jsDelivr</b>: levererar två kodbibliotek (för konton och för att dela tavlor live), bara när de används.</li>
   <li><b>PeerJS</b>: kopplar ihop webbläsare när du delar en tavla live.</li>
 </ul>
@@ -98,6 +98,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <ul>
   <li>Ditt konto och innehåll: tills du tar bort det. Något du raderar sparas i 90 dagar som en markering (så att alla dina enheter hinner få veta det) och tas sedan bort.</li>
   <li>Raderar du kontot tas allt bort direkt ur databasen och fillagringen. Kopior i säkerhetskopior försvinner inom 30 dagar.</li>
+  <li>Säkerhetskopior: en gång i veckan kopieras databasen och fillagringen till en fil som krypteras innan den lämnar servern, med en nyckel som bara den som driver Pinglapp har. Varje kopia sparas i 30 dagar och tas sedan bort automatiskt. Den används bara för att återställa data efter ett fel.</li>
   <li>Vänförfrågningar som inte besvaras tas bort efter 30 dagar. En vänskap finns kvar tills någon av er tar bort den, blockerar den andra eller raderar sitt konto.</li>
   <li>En påminnelse från en vän tas bort ur inkorgen en dag efter att du har svarat på den, och efter 30 dagar om du inte svarar. Lägger du till den blir den en vanlig påminnelse hos dig, som du själv bestämmer över.</li>
   <li>En inbjudan till en tavla visas i ett dygn och tas bort senast efter 30 dagar.</li>
@@ -135,7 +136,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <h2>In short</h2>
 <ul>
   <li><b>Without an account</b>, everything you write stays in your browser (and in a save file, if you choose one). We see none of it.</li>
-  <li><b>With an account</b>, your reminders, notes, pictures, boards and settings are stored with us so they’re on all your devices. That’s the only thing we use them for.</li>
+  <li><b>With an account</b>, your reminders, notes, pictures, boards and settings are stored with us so they’re on all your devices. That’s the only thing we use them for. What you choose to share with friends, they see too.</li>
   <li>No ads, no tracking, no analytics. We never sell data, and we don’t use it to train AI.</li>
   <li>You can download everything and delete your account at any time, right in the app.</li>
 </ul>
@@ -152,11 +153,11 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <tr><th>Data</th><th>Why</th><th>Legal basis</th></tr>
 <tr><td>Email address, password (only in hashed form, never in plain text), how you sign in, when the account was created, when you accepted the terms, language and time zone</td><td>So you can log in and get email about your account</td><td>Contract</td></tr>
 <tr><td>Profile: username, name others see, “about you”, profile picture or the parts you chose for your avatar, and whether others may find you</td><td>So other signed-in people can find you, if you want that</td><td>Contract</td></tr>
+<tr><td>Your content: reminders, notes, pictures in notes, boards and settings</td><td>To sync them between your devices</td><td>Contract</td></tr>
 <tr><td>Friends: who you are friends with, and friend requests you have sent or received</td><td>So you can add friends and see their profiles</td><td>Contract</td></tr>
 <tr><td>Reminders friends send each other: the text, who sent it, to whom, when, and whether it has been answered</td><td>So your friend can add the reminder on their side</td><td>Contract</td></tr>
-<tr><td>Shared notes: the text and its earlier versions, pictures in it, who shared it, who is in it and whether they can edit or only read</td><td>So you can write in the same note or list together</td><td>Contract</td></tr>
+<tr><td>Shared notes: the text and its versions since it was shared, pictures in it, who shared it, who is in it and whether they can edit or only read</td><td>So you can write in the same note or list together</td><td>Contract</td></tr>
 <tr><td>Invitations to a board shared live: the board’s name and code, who invited, whom, when, and whether it has been answered (the board itself isn’t stored)</td><td>So your friend can join the board</td><td>Contract</td></tr>
-<tr><td>Your content: reminders, notes, pictures in notes, boards and settings</td><td>To sync them between your devices</td><td>Contract</td></tr>
 <tr><td>Who you’ve blocked, and reports you send (who you report and why)</td><td>To protect users from abusive behaviour</td><td>Legitimate interest</td></tr>
 <tr><td>Technical data: IP address, browser and times in server logs, and the robot check when you log in or create an account</td><td>To stop abuse and keep the service running</td><td>Legitimate interest</td></tr>
 </table></div>
@@ -179,7 +180,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
   <li><b>Brevo</b>: sends email about your account (confirmation, new password, change of email). EU (France).</li>
   <li><b>Cloudflare</b>: the robot check (Turnstile) when you log in, create an account or ask for a new password, and the pinglapp.com address. It reads technical details about the browser to tell people from robots.</li>
   <li><b>Google</b> and <b>Microsoft</b>: only if you choose to log in with them. We then get your name and email address from them.</li>
-  <li><b>GitHub</b>: stores and serves the app itself.</li>
+  <li><b>GitHub</b>: stores and serves the app itself, and keeps our weekly backups, encrypted (see below).</li>
   <li><b>jsDelivr</b>: delivers two code libraries (for accounts and for sharing boards live), only when they’re used.</li>
   <li><b>PeerJS</b>: connects browsers when you share a board live.</li>
 </ul>
@@ -189,6 +190,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <ul>
   <li>Your account and content: until you remove them. Something you delete is kept for 90 days as a marker (so all your devices hear about it) and then removed.</li>
   <li>If you delete your account, everything is removed from the database and file storage right away. Copies in backups are gone within 30 days.</li>
+  <li>Backups: once a week the database and file storage are copied into a file that is encrypted before it leaves the server, with a key only whoever runs Pinglapp has. Each copy is kept for 30 days and then removed automatically. It is used only to restore data after a failure.</li>
   <li>Friend requests that aren’t answered are removed after 30 days. A friendship stays until one of you removes it, blocks the other or deletes their account.</li>
   <li>A reminder from a friend is removed from the inbox a day after you answer it, and after 30 days if you don’t. If you add it, it becomes an ordinary reminder of yours, which you control.</li>
   <li>An invitation to a board is shown for a day and removed after 30 days at the latest.</li>
