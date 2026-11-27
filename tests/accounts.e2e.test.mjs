@@ -425,6 +425,39 @@ test('accounts are off on pinglapp.com until switched on with ?accounts=staging 
   await ctx.close();
 });
 
+test('first-run guide: a guest is offered a free account first; the save file stays as the way without one', async () => {
+  const { ctx, page, errors } = await open();
+  await page.evaluate(() => { S.settings.onboarded = false; openSetup(0); });
+  assert.equal(await page.isVisible('#setupStep0 .setup-acct'), true);
+  assert.equal(await page.isVisible('#setupStep0 .setup-or'), true);
+  await page.click('[data-act="setup-drive-next"]');
+  assert.equal(await page.isVisible('#setupStep1 [data-acct-only]'), true, 'says "without an account…"');
+  assert.equal(await page.isVisible('#setupStep1 [data-acct-off]'), false, 'not "no server and no account"');
+  await page.evaluate(() => openSetup(0));
+  await page.click('#setupStep0 [data-act="setup-acct"][data-to="signup"]');
+  assert.equal(await page.isVisible('#setupDlg'), false);
+  assert.equal(await view(page), 'signup');
+  assert.equal(await page.evaluate(() => S.settings.onboarded), true, 'the guide doesn\'t come back');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => openSetup(0, true));
+  await page.click('#setupStep0 [data-act="setup-acct"][data-to="signin"]');
+  assert.equal(await view(page), 'signin');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('first-run guide: signed in, the save-file steps are skipped; opened on purpose, no account offer', async () => {
+  const { ctx, page, errors } = await open({ session: ALICE.session });
+  await page.waitForFunction(() => /^@/.test(document.getElementById('acctChipText').textContent));
+  await page.evaluate(() => { S.settings.onboarded = false; openSetup(0); });
+  assert.equal(await page.isVisible('#setupStep0'), false);
+  await page.evaluate(() => openSetup(0, true));
+  assert.equal(await page.isVisible('#setupStep0'), true);
+  assert.equal(await page.isVisible('#setupStep0 .setup-acct'), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 // ---- phase 6: email, password, download my data, delete the account, the legal pages
 const ALICE_S = ALICE.session;
 const signedIn = async (opts = {}) => {

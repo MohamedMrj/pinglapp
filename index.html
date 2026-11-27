@@ -545,6 +545,11 @@ details.adv[open] { display: grid; gap: 8px; }
 .acct-legal { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12.5px; color: var(--muted); }
 .acct-legal a { color: inherit; }
 .acct-legal .btn { margin-left: auto; }
+.setup-acct { display: grid; gap: 8px; padding: 12px 14px; margin: 4px 0 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.setup-acct[hidden] { display: none; }
+.setup-acct h3 { margin: 0; font-size: 15px; }
+.setup-acct p { margin: 0; }
+.setup-or { margin: 10px 0 0; font-size: 15px; }
 .acct-people { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; max-height: 300px; overflow: auto; }
 .acct-people:empty { display: none; }
 .acct-people li { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -1236,6 +1241,16 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     <div id="setupStep0" class="setup-step modal-scroll">
       <p class="step" data-i18n="step0">Steg 1 av 3</p>
       <h2 id="setupTitle0" data-i18n="driveT">Se till att du aldrig förlorar något</h2>
+      <div class="setup-acct" data-acct-guest hidden>
+        <h3 data-i18n="setupAcctT">Enklast: ett gratis konto</h3>
+        <p data-i18n="setupAcctP">Med ett konto sparas dina påminnelser, anteckningar, bilder och tavlor i ditt konto och finns på alla dina enheter. Inget att installera, och inget försvinner om datorn går sönder.</p>
+        <div class="row">
+          <button class="btn primary" type="button" data-act="setup-acct" data-to="signup" data-i18n="acctCreate">Skapa ett konto</button>
+          <button class="btn" type="button" data-act="setup-acct" data-to="signin" data-i18n="setupAcctHave">Jag har redan ett konto</button>
+        </div>
+        <p class="hint"><a href="privacy.html" target="_blank" rel="noopener" data-i18n="setupAcctPrivacy">Så hanterar vi dina uppgifter</a></p>
+      </div>
+      <h3 class="setup-or" data-acct-guest hidden data-i18n="setupNoAcctT">Eller utan konto: en sparfil i molnet</h3>
       <p data-i18n="driveP1">Pinglapp sparar allt i webbläsaren på den här datorn. Går datorn sönder, byter du dator eller rensas webbläsaren kan allt försvinna. Skyddet är enkelt: låt Pinglapp spara en kopia i en mapp som synkas till molnet, som <strong>Google Drive</strong> eller <strong>OneDrive</strong>. Då finns dina påminnelser och anteckningar kvar även om datorn går sönder, och samma fil finns på alla dina datorer. Båda är gratis.</p>
       <div class="row"><span data-i18n="cloudPick">Välj den tjänst du vill använda:</span>
         <div class="seg" id="cloudSeg" role="group" aria-label="Molntjänst" data-i18n-aria="cloudPickAria">
@@ -1283,7 +1298,8 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     <div id="setupStep1" class="setup-step" hidden>
       <p class="step" data-i18n="step1">Steg 2 av 3</p>
       <h2 id="setupTitle1" data-i18n="setupT1">Spara dina påminnelser säkert</h2>
-      <p data-i18n="setupP1">Pinglapp har ingen server och inget konto. Allt du skriver sparas bara här på din dator, i webbläsaren. Det betyder att det kan försvinna om webbläsarens data rensas eller om du byter dator.</p>
+      <p data-acct-only hidden data-i18n="setupP1Acct">Utan konto sparas allt du skriver bara här på din dator, i webbläsaren. Det kan försvinna om webbläsarens data rensas eller om du byter dator.</p>
+      <p data-acct-off data-i18n="setupP1">Pinglapp har ingen server och inget konto. Allt du skriver sparas bara här på din dator, i webbläsaren. Det betyder att det kan försvinna om webbläsarens data rensas eller om du byter dator.</p>
       <p data-i18n="setupP2">Därför sparar Pinglapp också en kopia i en fil som du själv väljer. Klicka på <strong>Välj plats och spara</strong> och välj mappen <strong>Pinglapp</strong> som du skapade i Google Drive (<strong>Min enhet → Pinglapp</strong>) eller OneDrive (<strong>OneDrive → Pinglapp</strong>), eller en annan mapp som synkas, som iCloud Drive eller Dropbox. Då finns allt kvar även om datorn går sönder, och du kan använda Pinglapp på flera datorer.</p>
       <details>
         <summary data-i18n="setupWhy">Varför frågar webbläsaren om lov?</summary>
@@ -7468,6 +7484,7 @@ document.addEventListener('click', e => {
     case 'snap-restore': restoreSnapshot(); break;
     case 'setup-open-wizard': openSetup(0, true); break;
     case 'setup-drive-next': openSetup(1); break;
+    case 'setup-acct': finishSetup(); acctOpen(b.dataset.to); break;   // the banner still offers notifications later
     case 'cloud-pick': S.settings.cloud = b.dataset.cloudSet; save(); setCloud(); break;
     case 'setup-create': fileCreate().then(() => { if (fileHandle) openSetup(2); }); break;
     case 'setup-open': fileOpen().then(() => { if (fileHandle) openSetup(2); }); break;
@@ -7510,8 +7527,13 @@ let setupForced = false;
 function openSetup(step, force) {
   if (force) setupForced = true;
   const perm = canNotify() ? Notification.permission : 'unsupported';
+  // With accounts switched on, step 1 offers a free account first (the save file stays as the no-account way).
+  const accounts = typeof acct !== 'undefined' && !!acct.project, signedIn = accounts && !!acct.session;
+  document.querySelectorAll('#setupDlg [data-acct-guest]').forEach(el => { el.hidden = !accounts || signedIn; });
+  document.querySelectorAll('#setupDlg [data-acct-only]').forEach(el => { el.hidden = !accounts; });
+  document.querySelectorAll('#setupDlg [data-acct-off]').forEach(el => { el.hidden = accounts; });
   if (!setupForced) {
-    if (step <= 1 && fileHandle) step = 2;
+    if (step <= 1 && (fileHandle || signedIn)) step = 2;    // signed in: everything is already kept in the account
     if (step === 2 && perm !== 'default') { finishSetup(); return; }
   }
   $('setupFileOk').hidden = !fileApi;
@@ -7840,6 +7862,11 @@ Object.assign(T.en, {
   acctDeleteSaveP: 'Want to keep a copy first?', acctDeleteType: 'Type your username to confirm',
   acctDeleteWipe: 'Also remove everything from this device. Otherwise it stays here, as without an account.',
   acctDeleteGo: 'Delete the account for good',
+  setupAcctT: 'Easiest: a free account',
+  setupAcctP: 'With an account, your reminders, notes, pictures and boards are kept in your account and are on all your devices. Nothing to install, and nothing is lost if the computer breaks.',
+  setupAcctHave: 'I already have an account', setupAcctPrivacy: 'How we handle your data',
+  setupNoAcctT: 'Or without an account: a save file in the cloud',
+  setupP1Acct: 'Without an account, everything you write is saved only here on your computer, in the browser. It can disappear if the browser’s data is cleared or you change computers.',
 });
 const ACCT_T = {
   en: {

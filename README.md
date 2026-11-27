@@ -1,12 +1,28 @@
 # Pinglapp
 
-Reminders, notes and a live whiteboard that run in your browser and can be installed as an app. There's no account and no server: everything is saved in your own browser, plus (if you follow the guide below) in a file in your own Google Drive or OneDrive. The only time anything goes over the internet is when you share a whiteboard (see below).
+Reminders, notes and a live whiteboard that run in your browser and can be installed as an app. Free, Swedish and English.
 
-**Open Pinglapp:** https://pinglapp.com/
+You can use Pinglapp in two ways:
 
-## First: make sure your data is never lost
+- **With a free account:** everything is kept in your account and is on all your devices. Nothing to install.
+- **Without an account:** everything is saved only in your own browser, plus (if you follow the guide below) in a file in your own Google Drive or OneDrive. Nothing goes over the internet except when you share a whiteboard live.
 
-Pinglapp saves everything in the browser on your computer. If the computer breaks, you switch computers or the browser's data is cleared, it can disappear. The fix takes five minutes: put Pinglapp's save file in a folder that syncs to the cloud. Pick **one** of the two guides below. Both services are free.
+**Open Pinglapp:** https://pinglapp.com/ · [Privacy policy](https://pinglapp.com/privacy.html) · [Terms](https://pinglapp.com/terms.html) · Contact: support@pinglapp.com
+
+## Your account (optional)
+
+Click **Log in** at the top of Pinglapp, then **Create an account**, or use **Continue with Google** / **Continue with Microsoft**. You need to be at least 13. With an email address you confirm the account with the link Pinglapp emails you; open it in the same browser.
+
+- **What's in the account:** reminders, notes, pictures in notes, whiteboards and your settings. They sync on their own when something changes, when you come back to Pinglapp and every couple of minutes. The account button in the header shows whether everything is synced.
+- **Already using Pinglapp without an account?** The first time you log in, Pinglapp asks whether to add what's on this device to your account. Say yes and it's on all your devices from then on.
+- **Storage:** 25 MB for pictures and boards. Text doesn't count.
+- **Profile:** a username, a name and an optional picture and "about you". Other signed-in people can find you by your username unless you turn that off. They never see your email or your reminders and notes. You can block and report people.
+- **Account page** (click your @username): edit the profile, change email address or password, **download all my data**, log out (on this device or all of them), or **delete the account**, which removes everything in it for good.
+- **Logging out on a shared computer:** choose **Remove from this device**. Pinglapp first checks that everything has reached your account.
+
+## Without an account: make sure your data is never lost
+
+Pinglapp saves everything in the browser on your computer. If the computer breaks, you switch computers or the browser's data is cleared, it can disappear. An account (above) solves this. Without one, the fix takes five minutes: put Pinglapp's save file in a folder that syncs to the cloud. Pick **one** of the two guides below. Both services are free.
 
 Pinglapp shows the same guide the first time you open it, and you can open it again any time under **Settings → Your data**.
 
@@ -45,7 +61,7 @@ Pinglapp shows the same guide the first time you open it, and you can open it ag
 
 Reminders pop up while Pinglapp is open, so **minimise it instead of closing it**. Anything that fell due while it was closed shows up when you open it again.
 
-Each browser, and each browser profile, keeps its own copy. Use the save file (above) to share one set of reminders and notes between them.
+Without an account, each browser, and each browser profile, keeps its own copy. Log in to the same account, or use the save file (above), to share one set of reminders and notes between them.
 
 ## Quick add
 Type in the big box and press **Enter**. English and Swedish both work.
@@ -100,9 +116,17 @@ Facilitation tools for the host: a countdown timer everyone sees, and secret dot
 How it works, and privacy: the host's browser is the meeting place. A free public service ([PeerJS](https://peerjs.com)) only helps the browsers find each other. The drawings then go directly between the browsers, encrypted. On networks that block direct connections, the encrypted data passes through PeerJS's relay, which can't read it. Nothing is stored anywhere else, and the board is live only while the host has it open. Anyone with the link can ask to join, so share it only with the people you mean, or use the waiting room.
 
 ## For maintainers
-Pinglapp is one static `index.html`, plus `manifest.webmanifest`, `sw.js` (offline support) and two icons. There's no build step: edit `index.html` and push, and everyone gets the update the next time they open Pinglapp.
+Pinglapp is one static `index.html`, plus `manifest.webmanifest`, `sw.js` (offline support), two icons, and the static `privacy.html` and `terms.html`. There's no build step: edit `index.html` and push, and everyone gets the update the next time they open Pinglapp.
 
-The only external file is PeerJS 1.5.5, loaded from jsDelivr with a Subresource Integrity hash, and only when someone shares or joins a whiteboard. Everything else works offline.
+External scripts load only when a feature needs them, so someone who never uses it downloads nothing extra:
+
+- PeerJS 1.5.5 (jsDelivr, Subresource Integrity hash): when someone shares or joins a whiteboard.
+- supabase-js 2.119.0 (jsDelivr, Subresource Integrity hash): when the account dialog is opened, or when already logged in.
+- Cloudflare Turnstile (robot check): only while the log-in, sign-up or forgot-password form is shown. Cloudflare doesn't allow it to be pinned.
+
+Everything else works offline. Without an account, nothing is sent to any server.
+
+The accounts backend runs on Supabase (Postgres, Auth, Storage). Everything it needs is in `supabase/`: the database migrations, the `delete-account` Edge Function, copies of the auth email templates, and a setup guide in `supabase/README.md`. Only the public (publishable) key and the Turnstile site key are in `index.html`; every rule about who may read or write what is enforced by the database (row-level security).
 
 Storage keys (`reminder-by-me.v1` in localStorage, the `reminder-by-me` IndexedDB database) keep their old names on purpose. Renaming them without a migration would make everyone's reminders disappear.
 
@@ -111,10 +135,12 @@ The `tests/` folder holds the test suite. It isn't needed to run Pinglapp.
 
 ```sh
 cd tests
-npm install        # once: installs playwright-core
+npm install        # once: installs playwright-core and PGlite
 npm test           # everything
-npm run test:unit  # fast Node-only tests: sync merge, quick-add parser, whiteboard model, code colours, code suggestions
+npm run test:unit  # fast Node-only tests: sync merge, account sync, quick-add parser, whiteboard model, code colours, code suggestions, delete-account function
+npm run test:db    # the database migrations and their rules, in PGlite (real Postgres in WebAssembly)
 npm run test:app   # the real page in a headless browser, including a whiteboard host and guests
+npm run serve      # http://localhost:8080 to try it by hand (accounts use the staging project)
 ```
 
-The browser tests use Playwright's Chromium if it's installed (`npx playwright install chromium`), otherwise Microsoft Edge. Set `PING_BROWSER` to a browser executable to choose another one. The whiteboard tests connect the host and guests through a local stand-in for PeerJS (`window.PING_WB_LOCAL`), so they need no internet.
+The browser tests use Playwright's Chromium if it's installed (`npx playwright install chromium`), otherwise Microsoft Edge. Set `PING_BROWSER` to a browser executable to choose another one. The whiteboard tests connect the host and guests through a local stand-in for PeerJS (`window.PING_WB_LOCAL`), and the account tests use a stand-in for Supabase (`tests/fake-supabase.mjs`), so they need no internet and touch no real project.
