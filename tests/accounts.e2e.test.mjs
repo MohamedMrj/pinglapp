@@ -561,7 +561,7 @@ test('inbox: a friend request lights up the bell; accept it there, and the frien
   assert.match(await page.textContent('#acctFriendsList'), /<b>Carol<\/b> @carol/);
   await page.click('#acctFriendsList .acct-person');
   await page.waitForFunction(() => acct.view === 'person' && !$('acctFriendBox').hidden);
-  assert.equal(await friendState(page), 'Vänner | Ta bort som vän');
+  assert.equal(await friendState(page), 'Vänner | Ta bort som vän | Skicka en påminnelse');
   await page.click(inView('person', '#acctPersonFoot [data-act=acct-view]'));
   assert.equal(await view(page), 'friends', 'Tillbaka goes back to the friends list');
   assert.deepEqual(errors, []);
@@ -581,7 +581,7 @@ test('inbox: declining removes the request; blocking a friend ends the friendshi
   await fakeDb(page, { friends: [{ a: 'u-a', b: 'u-c', by: 'u-c', status: 'accepted' }] });
   await page.evaluate(() => acctOpenPerson('carol'));
   await page.waitForFunction(() => !$('acctFriendBox').hidden);
-  assert.equal(await friendState(page), 'Vänner | Ta bort som vän');
+  assert.equal(await friendState(page), 'Vänner | Ta bort som vän | Skicka en påminnelse');
   await page.click('#acctBlockBtn');
   await page.waitForFunction(() => /blockerad/.test($('acctMsg').textContent));
   await page.waitForFunction(() => $('acctFriendBox').hidden);
@@ -601,6 +601,130 @@ test('friends: the server\'s refusals are explained (blocked, daily limit)', asy
   await page.waitForFunction(() => !$('acctFriendBox').hidden);
   await page.click('#acctFriendBox [data-act="friend-add"]');
   await page.waitForFunction(() => /många vänförfrågningar/.test($('acctMsg').textContent));
+  await ctx.close();
+});
+
+// ---- social S3: send a reminder to a friend
+const FRIENDS_AC = [{ a: 'u-a', b: 'u-c', by: 'u-c', status: 'accepted' }];
+const itemFromCarol = (id, text, at = new Date().toISOString()) => ({ id, from: 'u-c', to: 'u-a', kind: 'reminder', payload: { text }, at, answered: false });
+const fromCarol = page => page.evaluate(() => S.reminders.filter(r => r.notes === 'Från @carol').map(r => ({ title: r.title, due: r.due, repeat: r.repeat })));
+
+test('send a reminder: only to friends, with the quick-add preview; empty, limit and refusals are explained', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await page.click('#acctChip');
+  await page.evaluate(() => acctOpenPerson('carol'));
+  await page.waitForFunction(() => !$('acctFriendBox').hidden);
+  assert.equal(await page.locator('#acctFriendBox [data-act="send-open"]').count(), 0, 'not friends: nothing to send');
+  await fakeDb(page, { friends: FRIENDS_AC });
+  await page.evaluate(() => acctOpenPerson('carol'));
+  await page.waitForSelector('#acctFriendBox [data-act="send-open"]');
+  assert.equal(await page.isVisible('#acctSendBox'), false);
+  await page.click('#acctFriendBox [data-act="send-open"]');
+  assert.equal(await page.isVisible('#acctSendBox'), true);
+  assert.match(await page.textContent('#acctSendPreview'), /Din vän väljer/);
+  await page.click('#acctSendBox [data-act="send-go"]');
+  await page.waitForFunction(() => /Skriv något att skicka/.test($('acctMsg').textContent));
+  await page.fill('#acctSendText', 'Ring mamma imorgon 18:00');
+  await page.waitForFunction(() => $('acctSendPreview').classList.contains('ok'));
+  assert.match(await page.textContent('#acctSendPreview'), /18:00.*”Ring mamma”/);
+  await page.press('#acctSendText', 'Enter');
+  await page.waitForFunction(() => /Skickad till @carol/.test($('acctMsg').textContent));
+  assert.equal(await page.isVisible('#acctSendBox'), false);
+  assert.equal(await page.inputValue('#acctSendText'), '');
+  const items = await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.items.map(i => [i.from, i.to, i.payload.text]));
+  assert.deepEqual(items, [['u-a', 'u-c', 'Ring mamma imorgon 18:00']]);
+  assert.equal(await page.evaluate(() => S.reminders.filter(r => r.title === 'Ring mamma').length), 0, 'nothing is added on the sender\'s side');
+  // The daily limit; and no longer friends (the server says no).
+  await fakeDb(page, { sendLimit: true });
+  await page.click('#acctFriendBox [data-act="send-open"]');
+  await page.fill('#acctSendText', 'En till');
+  await page.click('#acctSendBox [data-act="send-go"]');
+  await page.waitForFunction(() => /många påminnelser/.test($('acctMsg').textContent));
+  await fakeDb(page, { sendLimit: false, friends: [] });
+  await page.click('#acctSendBox [data-act="send-go"]');
+  await page.waitForFunction(() => /bara skicka påminnelser till vänner/.test($('acctMsg').textContent));
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('inbox: a reminder from a friend is shown as text; "Lägg till" adds it as your own, timed from when it was sent', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  const sent = new Date(); sent.setSeconds(0, 0);
+  await fakeDb(page, { friends: FRIENDS_AC, items: [itemFromCarol(7, '<b>Ring</b> mamma imorgon 18:00', sent.toISOString())] });
+  await page.evaluate(() => inboxRefresh());
+  await page.waitForFunction(() => $('inboxCount').textContent === '1');
+  await page.click('#inboxBtn');
+  await page.waitForSelector('#inboxList [data-act="inbox-add"]');
+  assert.equal(await page.textContent('#inboxList li .what'), 'Carol vill påminna dig:');
+  assert.equal(await page.textContent('#inboxList li .said'), '<b>Ring</b> mamma imorgon 18:00', 'their words as text, never HTML');
+  assert.equal(await page.locator('#inboxList li .said b').count(), 0);
+  await page.click('#inboxList [data-act="inbox-add"]');
+  await page.waitForFunction(() => /Tillagd/.test($('acctMsg').textContent));
+  const want = new Date(sent); want.setDate(want.getDate() + 1); want.setHours(18, 0, 0, 0);
+  assert.deepEqual(await fromCarol(page), [{ title: '<b>Ring</b> mamma', due: want.getTime(), repeat: 'none' }]);
+  assert.deepEqual(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.items.map(i => i.answered)), [true]);
+  await page.waitForFunction(() => $('inboxCount').hidden && /Inget nytt/.test($('inboxHint').textContent));
+  // The reminder list shows it as text too.
+  await page.waitForFunction(() => $('groups').textContent.includes('<b>Ring</b> mamma'));
+  assert.equal(await page.locator('#groups .title b').count(), 0);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('inbox: "Nej tack" adds nothing; with no time, or a time that has passed, the editor opens and saving answers it', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  const dayAgo = new Date(Date.now() - 86400000).toISOString();
+  await fakeDb(page, { friends: FRIENDS_AC, items: [itemFromCarol(1, 'Nej tack-test'), itemFromCarol(2, 'Köp mjölk'), itemFromCarol(3, 'Vattna blommorna om 5 min', dayAgo)] });
+  await page.evaluate(() => inboxRefresh());
+  await page.click('#inboxBtn');
+  await page.waitForSelector('#inboxList [data-id="1"][data-act="inbox-decline"]');
+  await page.click('#inboxList [data-id="1"][data-act="inbox-decline"]');
+  await page.waitForFunction(() => /inte tillagd/.test($('acctMsg').textContent));
+  const answered = () => page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.items.filter(i => i.answered).map(i => i.id));
+  assert.deepEqual(await answered(), [1]);
+  assert.deepEqual(await fromCarol(page), []);
+  // No time: the editor opens with the text; cancelling leaves it waiting, saving adds it and answers it.
+  await page.click('#inboxList [data-id="2"][data-act="inbox-add"]');
+  await page.waitForFunction(() => !$('editor').hidden);
+  assert.equal(await page.inputValue('#edTitle'), 'Köp mjölk');
+  assert.equal(await page.inputValue('#edNotes'), 'Från @carol');
+  assert.equal(await page.isVisible('#acctDlg'), false);
+  await page.evaluate(() => $('editForm').requestSubmit());
+  await page.waitForFunction(() => $('editor').hidden);
+  await page.waitForFunction(() => window.PING_ACCOUNTS_FAKE.db.items.find(i => i.id === 2).answered);
+  assert.deepEqual((await fromCarol(page)).map(r => r.title), ['Köp mjölk']);
+  // "om 5 min", sent a day ago: that time is gone, so the editor asks.
+  await page.click('#inboxBtn');
+  await page.waitForSelector('#inboxList [data-id="3"][data-act="inbox-add"]');
+  await page.click('#inboxList [data-id="3"][data-act="inbox-add"]');
+  await page.waitForFunction(() => !$('editor').hidden);
+  assert.equal(await page.inputValue('#edTitle'), 'Vattna blommorna');
+  assert.deepEqual(await answered(), [1, 2], 'not answered until saved');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('inbox: a double click on "Lägg till" adds the reminder once', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await fakeDb(page, { friends: FRIENDS_AC, items: [itemFromCarol(4, 'Ring Bo imorgon 9:00')] });
+  await page.evaluate(() => inboxRefresh());
+  await page.waitForFunction(() => acct.inbox.length === 1);
+  await page.evaluate(() => Promise.all([inboxAdd(4), inboxAdd(4)]));
+  assert.equal((await fromCarol(page)).length, 1);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('the reminder parser reads a friend\'s text relative to when it was sent; repeating ones start from now', async () => {
+  const { ctx, page } = await signedInAlice();
+  const res = await page.evaluate(() => {
+    const now = new Date(2026, 11, 10, 12, 0), sent = new Date(2026, 11, 8, 12, 0);
+    const a = inboxReminderFor({ username: 'x', created_at: sent.toISOString(), payload: { text: 'Möte den 20 december kl 10' } }, now);
+    const b = inboxReminderFor({ username: 'x', created_at: sent.toISOString(), payload: { text: 'Ring imorgon 18:00' } }, now);
+    const c = inboxReminderFor({ username: 'x', created_at: sent.toISOString(), payload: { text: 'Stretcha varje dag kl 15' } }, now);
+    return [[a.ok, new Date(a.r.due).getDate()], [b.ok], [c.ok, c.r.repeat !== 'none', new Date(c.r.due).getDate()]];
+  });
+  assert.deepEqual(res, [[true, 20], [false], [true, true, 10]]);
   await ctx.close();
 });
 

@@ -574,6 +574,9 @@ body:has(#view-board:not([hidden])) .site-foot, body:has(#view-notes:not([hidden
 .acct-friend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .acct-friend[hidden] { display: none; }
 .acct-friend .state { color: var(--muted); font-size: 13px; margin-right: auto; }
+.acct-send { display: grid; gap: 6px; }
+.acct-send[hidden] { display: none; }
+.inbox-list .said { margin: 2px 0 0; padding: 6px 8px; border-radius: 8px; background: var(--line); overflow-wrap: anywhere; white-space: pre-wrap; }
 .inbox-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 360px; overflow: auto; }
 .inbox-list:empty { display: none; }
 .inbox-list li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 10px; }
@@ -1587,6 +1590,15 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         <p class="acct-who"><b id="acctPersonName"></b> <span id="acctPersonUser"></span><br><span class="hint" id="acctPersonSince"></span></p></div>
       <p class="acct-bio" id="acctPersonBio"></p>
       <div class="acct-friend" id="acctFriendBox" hidden></div>
+      <div class="acct-send" id="acctSendBox" hidden>
+        <label class="field"><span data-i18n="sendLabel">Påminnelse att skicka</span><input type="text" id="acctSendText" maxlength="300" autocomplete="off" spellcheck="false" placeholder="Ring mamma imorgon 18:00" data-i18n-ph="sendPh"></label>
+        <div class="preview" id="acctSendPreview" aria-live="polite"></div>
+        <div class="modal-foot">
+          <button class="btn ghost sm" type="button" data-act="send-cancel" data-i18n="cancel">Avbryt</button>
+          <span class="spacer"></span>
+          <button class="btn primary" type="button" data-act="send-go" data-i18n="sendGo">Skicka</button>
+        </div>
+      </div>
       <div class="acct-report" id="acctReportBox" hidden>
         <label class="field"><span data-i18n="acctReportWhy">Vad är fel med profilen?</span><textarea id="acctReportReason" maxlength="500" rows="3"></textarea></label>
         <div class="modal-foot">
@@ -7586,6 +7598,11 @@ document.addEventListener('click', e => {
     case 'acct-export': acctExport(); break;
     case 'friend-add': case 'friend-accept': case 'friend-decline': case 'friend-remove': acctFriendDo(b.dataset.act, b.dataset.name || acct.person); break;
     case 'inbox-open': acctOpen('inbox'); break;
+    case 'send-open': acctSendOpen(); break;
+    case 'send-cancel': $('acctSendBox').hidden = true; break;
+    case 'send-go': acctSendGo(); break;
+    case 'inbox-add': inboxAdd(+b.dataset.id); break;
+    case 'inbox-decline': inboxDecline(+b.dataset.id); break;
     case 'av-step': acctAvChange(avatarStep(acct.avDraft, b.dataset.part, +b.dataset.d)); break;
     case 'av-random': acctAvChange(avatarRandom()); break;
     case 'move-start': moveStart(); break;
@@ -8015,6 +8032,14 @@ const ACCT_T = {
     friendRemovedMsg: n => `You and ${n} are no longer friends.`, friendDeclinedMsg: 'Request declined.', friendCancelledMsg: 'Request taken back.',
     errFriendUnknown: 'That profile can’t be added.', errFriendBlocked: 'You’ve blocked this person. Unblock them first.',
     errFriendLimit: 'You’ve sent a lot of friend requests today. Try again tomorrow.',
+    sendOpen: 'Send a reminder', sendLabel: 'Reminder to send', sendPh: 'Call mum tomorrow 18:00', sendGo: 'Send',
+    sendHint: 'Write it like a reminder for yourself. Your friend chooses whether to add it.',
+    sendEmpty: 'Write something to send.', sendDone: n => `Sent to ${n}.`,
+    inboxReminder: 'wants to remind you:', inboxAdd: 'Add', inboxNoThanks: 'No thanks',
+    inboxAdded: w => `Added: ${w}.`, inboxNoTime: 'Pick a time, then save.', inboxDeclined: 'Okay, not added.',
+    reminderFrom: n => `From ${n}`,
+    errSendNotFriend: 'You can only send reminders to friends.', errSendText: 'The reminder needs 1–300 characters.',
+    errSendLimit: 'You’ve sent a lot of reminders today. Try again tomorrow.',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -8075,6 +8100,14 @@ const ACCT_T = {
     friendRemovedMsg: n => `Du och ${n} är inte längre vänner.`, friendDeclinedMsg: 'Förfrågan avböjd.', friendCancelledMsg: 'Förfrågan borttagen.',
     errFriendUnknown: 'Den profilen går inte att lägga till.', errFriendBlocked: 'Du har blockerat den personen. Sluta blockera först.',
     errFriendLimit: 'Du har skickat många vänförfrågningar i dag. Försök igen i morgon.',
+    sendOpen: 'Skicka en påminnelse', sendLabel: 'Påminnelse att skicka', sendPh: 'Ring mamma imorgon 18:00', sendGo: 'Skicka',
+    sendHint: 'Skriv den som en påminnelse till dig själv. Din vän väljer om den ska läggas till.',
+    sendEmpty: 'Skriv något att skicka.', sendDone: n => `Skickad till ${n}.`,
+    inboxReminder: 'vill påminna dig:', inboxAdd: 'Lägg till', inboxNoThanks: 'Nej tack',
+    inboxAdded: w => `Tillagd: ${w}.`, inboxNoTime: 'Välj en tid och spara.', inboxDeclined: 'Okej, inte tillagd.',
+    reminderFrom: n => `Från ${n}`,
+    errSendNotFriend: 'Du kan bara skicka påminnelser till vänner.', errSendText: 'Påminnelsen behöver 1–300 tecken.',
+    errSendLimit: 'Du har skickat många påminnelser i dag. Försök igen i morgon.',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -8339,7 +8372,8 @@ function acctErr(e) {
     email_address_invalid: 'acctBadEmail', validation_failed: 'acctFillIn', same_password: 'acctErrSame', captcha_failed: 'acctErrCaptcha',
     user_already_exists: 'acctErrExists', username_taken: 'acctUnameTaken', username_invalid: 'acctUnameRules', username_too_soon: 'acctUnameSoon',
     report_limit: 'acctErrReportLimit', avatar_bad: 'acctPhotoBad', email_exists: 'acctErrEmailTaken', confirm_mismatch: 'acctDelMismatch',
-    friend_unknown: 'errFriendUnknown', friend_blocked: 'errFriendBlocked', friend_limit: 'errFriendLimit' };
+    friend_unknown: 'errFriendUnknown', friend_blocked: 'errFriendBlocked', friend_limit: 'errFriendLimit',
+    send_not_friend: 'errSendNotFriend', send_text_bad: 'errSendText', send_limit: 'errSendLimit' };
   const key = e && (map[e.hint] || map[e.code] || map[e.error_code]);
   if (key) return t(key);
   const m = (e && e.message) || String(e);
@@ -8731,6 +8765,7 @@ async function acctOpenPerson(name) {
   $('acctPersonSince').textContent = since ? t('acctMemberSince', since) : '';
   $('acctPersonBio').textContent = p.bio || '';
   $('acctReportBox').hidden = true; $('acctReportReason').value = '';
+  $('acctSendBox').hidden = true; $('acctSendText').value = '';
   const me = acct.profile && acct.profile.username === p.username;
   $('acctPersonFoot').querySelectorAll('[data-act=acct-report],[data-act=acct-block]').forEach(b => { b.hidden = me; });
   if (me) acctMsg(t('acctYou'));
@@ -8753,7 +8788,8 @@ async function acctFriendBox(state) {
   if (box.hidden) return;
   const btn = (key, act, cls) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + (cls || ''); b.dataset.act = act; b.textContent = t(key); return b; };
   const label = key => { const s = document.createElement('span'); s.className = 'state'; s.textContent = t(key); return s; };
-  if (state === 'friends') box.replaceChildren(label('friendYes'), btn('friendRemove', 'friend-remove', 'ghost'));
+  if (state !== 'friends') $('acctSendBox').hidden = true;
+  if (state === 'friends') box.replaceChildren(label('friendYes'), btn('friendRemove', 'friend-remove', 'ghost'), btn('sendOpen', 'send-open', 'primary'));
   else if (state === 'outgoing') box.replaceChildren(label('friendSent'), btn('friendCancel', 'friend-remove', 'ghost'));
   else if (state === 'incoming') box.replaceChildren(label('friendIncoming'), btn('friendDecline', 'friend-decline', 'ghost'), btn('friendAccept', 'friend-accept', 'primary'));
   else box.replaceChildren(btn('friendAdd', 'friend-add', 'primary'));
@@ -8787,7 +8823,83 @@ async function acctLoadFriends() {
   hint.textContent = friends.length ? '' : t('friendsEmpty');
   list.replaceChildren(...friends.map(acctPersonLi));
 }
-// ---- the inbox: what's waiting for your answer (friend requests now; reminders and board invites later).
+// ---- send a reminder to a friend (social S3). The text goes as typed; the friend's device parses it when they add it.
+// The preview shows how it reads now, with the same parser as quick add.
+function acctSendOpen() {
+  $('acctReportBox').hidden = true;
+  $('acctSendBox').hidden = false;
+  acctSendPreview();
+  $('acctSendText').focus();
+}
+function acctSendPreview() {
+  const q = $('acctSendText').value.trim(), el = $('acctSendPreview');
+  el.className = 'preview';
+  if (!q) { el.textContent = t('sendHint'); return; }
+  const p = QuickParser.parse(q), d = describe(p);
+  if (p.error) { el.classList.add('err'); el.textContent = p.error; }
+  else if (d) { el.classList.add('ok'); el.textContent = d; }
+  else { el.classList.add('warn'); el.textContent = t('noTime'); }
+}
+async function acctSendGo() {
+  const name = acct.person, body = $('acctSendText').value.trim();
+  if (!body) { acctMsg(t('sendEmpty'), 'bad'); $('acctSendText').focus(); return; }
+  const go = $('acctSendBox').querySelector('[data-act=send-go]');
+  go.disabled = true;
+  let r;
+  try { r = await acct.client.rpc('send_reminder', { name, body }); } catch (e) { r = { error: e }; }
+  go.disabled = false;
+  if (r.error) return acctMsg(acctErr(r.error), 'bad');
+  $('acctSendText').value = ''; $('acctSendBox').hidden = true;
+  acctMsg(t('sendDone', '@' + name), 'ok');
+}
+$('acctSendText').addEventListener('input', acctSendPreview);
+$('acctSendText').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); acctSendGo(); } });
+
+// "Lägg till": parse the friend's text on this device and add it as an ordinary reminder of your own. Relative times
+// ("imorgon 18:00") count from when it was sent, so it means what the sender saw in their preview. If that time has
+// passed, or there is no time, the editor opens so you can pick one; the item is answered when you save.
+function inboxReminderFor(it, now = new Date()) {
+  const text = String((it.payload && it.payload.text) || '');
+  const sent = it.created_at ? new Date(it.created_at) : now;
+  let p = QuickParser.parse(text, sent > now ? now : sent);
+  if (p.repeat !== 'none') p = QuickParser.parse(text, now);          // a repeating one simply starts from now
+  const ok = !p.error && p.when && p.when.getTime() > now.getTime();
+  const r = newReminder({ title: p.title || text, repeat: p.error ? 'none' : p.repeat, every: p.every, cron: p.cron, tags: p.tags || [],
+    priority: p.priority || 0, due: ok ? p.when.getTime() : defaultDue(), notes: t('reminderFrom', '@' + it.username) });
+  return { r, ok };
+}
+// True only if this call answered it (false: failed, or already answered, e.g. a double click or another device).
+async function inboxAnswer(id) {
+  let r;
+  try { r = await acct.client.rpc('answer_item', { item: id }); } catch (e) { r = { error: e }; }
+  if (r.error) { acctMsg(acctErr(r.error), 'bad'); return false; }
+  acct.inbox = (acct.inbox || []).filter(x => x.id !== id);
+  if (!$('acctDlg').hidden && acct.view === 'inbox') inboxRender();
+  inboxRefresh();
+  return r.data === true;
+}
+async function inboxAdd(id) {
+  const it = (acct.inbox || []).find(x => x.id === id);
+  if (!it || it.busy) return;
+  it.busy = true;
+  const { r, ok } = inboxReminderFor(it);
+  if (!ok) {
+    it.busy = false;
+    $('acctDlg').hidden = true;
+    openEditor(r, true, () => inboxAnswer(id));
+    toast(t('inboxNoTime'));
+    return;
+  }
+  if (!(await inboxAnswer(id))) { it.busy = false; return; }
+  S.reminders.push(r); changed();
+  acctMsg(t('inboxAdded', fmtWhen(new Date(r.due))), 'ok');
+  maybeAskNotif();
+}
+async function inboxDecline(id) {
+  if (await inboxAnswer(id)) acctMsg(t('inboxDeclined'), 'ok');
+}
+
+// ---- the inbox: what's waiting for your answer (friend requests, reminders from friends; board invites later).
 // Refreshed when signed in, on focus, every 2 minutes, and after each answer. The bell shows how many.
 async function inboxRefresh() {
   const btn = $('inboxBtn');
@@ -8813,14 +8925,22 @@ function inboxRender() {
     who.textContent = it.display_name || '@' + it.username;
     const when = document.createElement('span'); when.className = 'when'; when.textContent = it.created_at ? fmtWhen(new Date(it.created_at)) : '';
     if (it.kind === 'friend_request') what.append(who, ' ' + t('inboxFriendReq'));
+    else if (it.kind === 'reminder') what.append(who, ' ' + t('inboxReminder'));
     else what.append(who);
-    body.append(what, when);
+    body.append(what);
+    if (it.kind === 'reminder') {
+      const said = document.createElement('p'); said.className = 'said';
+      said.textContent = String((it.payload && it.payload.text) || '');      // someone else's words: text only
+      body.append(said);
+    }
+    body.append(when);
     const acts = document.createElement('div'); acts.className = 'acts';
-    if (it.kind === 'friend_request') {
-      for (const [key, act, cls] of [['friendAccept', 'friend-accept', 'primary'], ['friendDecline', 'friend-decline', 'ghost']]) {
-        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + cls; b.dataset.act = act; b.dataset.name = it.username; b.textContent = t(key);
-        acts.append(b);
-      }
+    const pairs = it.kind === 'friend_request' ? [['friendAccept', 'friend-accept', 'primary'], ['friendDecline', 'friend-decline', 'ghost']]
+      : it.kind === 'reminder' ? [['inboxAdd', 'inbox-add', 'primary'], ['inboxNoThanks', 'inbox-decline', 'ghost']] : [];
+    for (const [key, act, cls] of pairs) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + cls; b.dataset.act = act; b.textContent = t(key);
+      if (it.kind === 'friend_request') b.dataset.name = it.username; else b.dataset.id = String(it.id);
+      acts.append(b);
     }
     li.append(av, body, acts);
     return li;
@@ -8908,6 +9028,8 @@ async function acctAccountInfo() {
     language: a.language || null, time_zone: a.time_zone || null, terms_accepted_at: a.terms_accepted_at || null,
     storage_used_bytes: a.used_bytes != null ? +a.used_bytes : null, storage_quota_bytes: a.quota_bytes != null ? +a.quota_bytes : null,
     blocked,
+    inbox_reminders: (acct.inbox || []).filter(i => i.kind === 'reminder')
+      .map(i => ({ from: i.username, text: (i.payload && i.payload.text) || '', sent_at: i.created_at })),
   };
 }
 

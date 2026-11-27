@@ -369,10 +369,94 @@ test('friends: at most 30 requests a day; unanswered requests go after 30 days',
   assert.equal((await rows(P, 'select public.friend_status($1) as s', ['newbie_1']))[0].s, 'outgoing');
 });
 
+test('reminders to friends: send, inbox, answer; friends only; only through the functions', async () => {
+  const R = '00000000-0000-4000-8000-0000000000b1', S2 = '00000000-0000-4000-8000-0000000000b2', T = '00000000-0000-4000-8000-0000000000b3';
+  await signUp(R, 'r@example.com', { username: 'rita', display_name: 'Rita' });
+  await signUp(S2, 's@example.com', { username: 'sam' });
+  await signUp(T, 't@example.com', { username: 'tove' });
+  const call = (uid, sql, p) => rows(uid, sql, p).then(r => Object.values(r[0])[0]);
+  const inbox = uid => rows(uid, 'select * from public.my_inbox()');
+
+  // Not friends yet: nothing can be sent.
+  await fails(R, `select public.send_reminder('sam', 'Ring mamma')`, [], /send_not_friend/);
+  await call(R, `select public.friend_request('sam')`);
+  await fails(R, `select public.send_reminder('sam', 'Ring mamma')`, [], /send_not_friend/);   // a request isn't a friendship
+  await call(S2, `select public.friend_respond('rita', true)`);
+
+  // Friends: the text is trimmed and arrives in the recipient's inbox, with who sent it.
+  const id = Number(await call(R, `select public.send_reminder('SAM', '  Ring mamma imorgon 18:00 ')`));
+  assert.ok(id > 0);
+  const got = await inbox(S2);
+  assert.deepEqual(got.map(i => [i.kind, Number(i.id), i.username, i.display_name, i.payload]),
+    [['reminder', id, 'rita', 'Rita', { text: 'Ring mamma imorgon 18:00' }]]);
+  assert.equal((await inbox(R)).length, 0, 'what you sent is not in your own inbox');
+
+  // Text rules; yourself and strangers; anon.
+  await fails(R, `select public.send_reminder('sam', '   ')`, [], /send_text_bad/);
+  await fails(R, `select public.send_reminder('sam', $1)`, ['x'.repeat(301)], /send_text_bad/);
+  assert.ok(await call(R, `select public.send_reminder('sam', $1)`, ['å'.repeat(300)]), '300 characters is fine');
+  await fails(R, `select public.send_reminder('rita', 'me')`, [], /send_not_friend/);
+  await fails(T, `select public.send_reminder('sam', 'hi')`, [], /send_not_friend/);
+  await fails(R, `select public.send_reminder('nobody_here', 'hi')`, [], /send_not_friend/);
+  await fails(null, `select public.send_reminder('sam', 'hi')`);
+  await fails(null, `select public.answer_item(1)`);
+
+  // Only the recipient can answer, once; then it's gone from the inbox.
+  assert.equal(await call(R, 'select public.answer_item($1)', [id]), false, 'the sender can\'t answer it');
+  assert.equal(await call(T, 'select public.answer_item($1)', [id]), false);
+  assert.equal(await call(S2, 'select public.answer_item($1)', [id]), true);
+  assert.equal(await call(S2, 'select public.answer_item($1)', [id]), false, 'answering twice changes nothing');
+  assert.deepEqual((await inbox(S2)).map(i => i.payload.text), ['å'.repeat(300)]);
+
+  // Friend requests and reminders share the inbox, newest first.
+  await call(T, `select public.friend_request('sam')`);
+  assert.deepEqual((await inbox(S2)).map(i => [i.kind, i.username]), [['friend_request', 'tove'], ['reminder', 'rita']]);
+
+  // No longer friends (or blocked): waiting items aren't shown and nothing new can be sent.
+  await call(S2, `select public.block_user('rita')`);
+  assert.deepEqual((await inbox(S2)).map(i => i.kind), ['friend_request']);
+  await fails(R, `select public.send_reminder('sam', 'hi')`, [], /send_not_friend/);
+
+  // The table itself is out of reach.
+  await fails(S2, 'select * from public.inbox_items');
+  await fails(R, `insert into public.inbox_items (sender, recipient, kind, payload) values ($1, $2, 'reminder', '{"text":"x"}')`, [R, S2]);
+  await fails(S2, `update public.inbox_items set answered_at = null`);
+});
+
+test('reminders to friends: at most 50 a day; old and answered items are removed', async () => {
+  const U = '00000000-0000-4000-8000-0000000000c1', V = '00000000-0000-4000-8000-0000000000c2';
+  await signUp(U, 'u@example.com', { username: 'ulla' });
+  await signUp(V, 'v@example.com', { username: 'vera' });
+  await rows(U, `select public.friend_request('vera')`);
+  await rows(V, `select public.friend_respond('ulla', true)`);
+  for (let i = 0; i < 50; i++) await rows(U, `select public.send_reminder('vera', $1)`, [`nr ${i}`]);
+  await fails(U, `select public.send_reminder('vera', 'one too many')`, [], /send_limit/);
+  // Answering doesn't free up the day's limit.
+  const [first] = (await db.query(`select id from public.inbox_items where sender = $1 order by id limit 1`, [U])).rows;
+  await rows(V, 'select public.answer_item($1)', [first.id]);
+  await fails(U, `select public.send_reminder('vera', 'still too many')`, [], /send_limit/);
+
+  const [job] = (await db.query(`select command from cron.job where jobname = 'ping-old-inbox-items'`)).rows;
+  assert.ok(job, 'cleanup job is scheduled');
+  await db.query(`update public.inbox_items set answered_at = now() - interval '2 days' where id = $1`, [first.id]);
+  await db.query(`update public.inbox_items set created_at = now() - interval '31 days' where sender = $1 and payload->>'text' = 'nr 1'`, [U]);
+  await db.query(`update public.inbox_items set answered_at = now() - interval '1 hour' where sender = $1 and payload->>'text' = 'nr 2'`, [U]);
+  await db.exec(job.command);
+  const left = (await db.query(`select payload->>'text' as t from public.inbox_items where sender = $1`, [U])).rows.map(r => r.t);
+  assert.equal(left.length, 48);
+  assert.ok(!left.includes('nr 0') && !left.includes('nr 1') && left.includes('nr 2'));
+  // A day later the limit frees up.
+  await db.query(`update public.inbox_items set created_at = now() - interval '25 hours' where sender = $1`, [U]);
+  assert.ok(await rows(U, `select public.send_reminder('vera', 'new day')`));
+});
+
 test('deleting an account removes all its rows', async () => {
   const E2 = '00000000-0000-4000-8000-0000000000e2';
   await signUp(E2, 'e2@example.com', { username: 'eve2' });
   await rows(A, `select public.friend_request('eve2')`);
+  await rows(E2, `select public.friend_respond('alice', true)`);
+  await rows(A, `select public.send_reminder('eve2', 'from alice')`);
+  await rows(E2, `select public.send_reminder('alice', 'to alice')`);
   await rows(A, `select public.report_user('bob', 'sent by alice')`);
   const E = '00000000-0000-4000-8000-0000000000e1';
   await signUp(E, 'e@example.com', { username: 'erin' });
@@ -385,4 +469,5 @@ test('deleting an account removes all its rows', async () => {
   for (const t of ['reminders', 'notes', 'boards', 'user_settings']) assert.equal((await db.query(`select 1 from public.${t} where user_id = $1`, [A])).rows.length, 0, t);
   assert.equal((await db.query('select 1 from public.blocks where blocker = $1 or blocked = $1', [A])).rows.length, 0);
   assert.equal((await db.query('select 1 from public.friendships where a = $1 or b = $1 or requested_by = $1', [A])).rows.length, 0);
+  assert.equal((await db.query('select 1 from public.inbox_items where sender = $1 or recipient = $1', [A])).rows.length, 0);
 });

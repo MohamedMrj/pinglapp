@@ -198,8 +198,30 @@ export const FAKE = () => {
       }
       if (name === 'my_friends') return { data: db.friends.filter(f => f.status === 'accepted' && (f.a === me || f.b === me))
         .map(f => { const k = f.a === me ? f.b : f.a, p = pub(k); return { username: p.username, display_name: p.display_name, avatar_path: p.avatar_path, avatar_style: p.avatar_style, since: '2026-11-28' }; }), error: null };
-      if (name === 'my_inbox') return { data: db.friends.filter(f => f.status === 'pending' && f.by !== me && (f.a === me || f.b === me))
-        .map(f => { const p = pub(f.by); return { kind: 'friend_request', id: null, username: p.username, display_name: p.display_name, avatar_path: p.avatar_path, avatar_style: p.avatar_style, payload: null, created_at: '2026-11-28T10:00:00Z' }; }), error: null };
+      // Items from friends, following the inbox_items migration: db.items = [{ id, from, to, kind, payload, at, answered }].
+      db.items ||= [];
+      if (name === 'send_reminder') {
+        const k = idOf(args.name), body = String(args.body ?? '').trim();
+        if (!k || k === me || !isFriend(k)) return err('send_not_friend');
+        if (body.length < 1 || body.length > 300) return err('send_text_bad');
+        if (db.sendLimit) return err('send_limit');
+        const id = (db.items.reduce((m, i) => Math.max(m, i.id), 0) || 0) + 1;
+        db.items.push({ id, from: me, to: k, kind: 'reminder', payload: { text: body }, at: new Date().toISOString(), answered: false }); keep();
+        return { data: id, error: null };
+      }
+      if (name === 'answer_item') {
+        const it = db.items.find(i => i.id === args.item && i.to === me && !i.answered);
+        if (it) { it.answered = true; keep(); }
+        return { data: !!it, error: null };
+      }
+      if (name === 'my_inbox') {
+        const row = (kind, id, k, payload, at) => { const p = pub(k); return { kind, id, username: p.username, display_name: p.display_name, avatar_path: p.avatar_path, avatar_style: p.avatar_style, payload, created_at: at }; };
+        const reqs = db.friends.filter(f => f.status === 'pending' && f.by !== me && (f.a === me || f.b === me))
+          .map(f => row('friend_request', null, f.by, null, '2026-11-28T10:00:00Z'));
+        const items = db.items.filter(i => i.to === me && !i.answered && isFriend(i.from) && db.profiles[i.from])
+          .map(i => row(i.kind, i.id, i.from, i.payload, i.at));
+        return { data: [...reqs, ...items].sort((a, b) => a.created_at < b.created_at ? 1 : -1), error: null };
+      }
       if (name === 'report_user') {
         if (db.reportLimit) return { data: null, error: { code: 'P0001', hint: 'report_limit', message: 'too many reports' } };
         return { data: !!idOf(args.name), error: null };
