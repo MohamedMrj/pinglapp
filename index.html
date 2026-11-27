@@ -567,6 +567,21 @@ body:has(#view-board:not([hidden])) .site-foot, body:has(#view-notes:not([hidden
 .avatar.sm { width: 30px; height: 30px; font-size: 13px; }
 .avatar.xl { width: 72px; height: 72px; font-size: 28px; }
 .avatar img, .avatar .av-svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.inbox-chip { position: relative; padding-inline: 7px; }
+.inbox-chip .badge { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+  background: var(--danger); color: #fff; font-size: 11px; font-weight: 700; line-height: 17px; text-align: center; }
+.inbox-chip .badge[hidden] { display: none; }
+.acct-friend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.acct-friend[hidden] { display: none; }
+.acct-friend .state { color: var(--muted); font-size: 13px; margin-right: auto; }
+.inbox-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 360px; overflow: auto; }
+.inbox-list:empty { display: none; }
+.inbox-list li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 10px; }
+.inbox-list .what { margin: 0; overflow-wrap: anywhere; }
+.inbox-list .who { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.inbox-list .who:hover, .inbox-list .who:focus-visible { text-decoration: underline; }
+.inbox-list .when { color: var(--muted); font-size: 12px; }
+.inbox-list .acts { grid-column: 2; display: flex; gap: 6px; flex-wrap: wrap; }
 .av-maker { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
 .av-maker h3 { margin: 0; font-size: 13.5px; }
 .av-top { display: flex; align-items: center; gap: 14px; }
@@ -762,6 +777,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     <button class="chip" id="saveChip" type="button"><span class="dot"></span><span id="saveChipText">Sparat</span></button>
     <button class="chip" id="notifChip" type="button"><span class="dot"></span><span id="notifChipText">Aviseringar</span></button>
     <button class="chip" id="acctChip" type="button" data-act="acct-open" hidden><span class="dot"></span><span id="acctChipText">Logga in</span></button>
+    <button class="chip inbox-chip" id="inboxBtn" type="button" data-act="inbox-open" hidden aria-label="Inkorg" title="Inkorg"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge" id="inboxCount" hidden></span></button>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="reminders" aria-selected="true" type="button" data-i18n="tabReminders">Påminnelser</button>
       <button role="tab" data-tab="notes" aria-selected="false" type="button" data-i18n="tabNotes">Anteckningar</button>
@@ -1461,6 +1477,8 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <div class="acct-links">
         <button class="btn sm" type="button" data-act="acct-view" data-to="profile" data-i18n="acctEditProfile">Redigera profilen</button>
         <button class="btn sm" type="button" data-act="acct-view" data-to="people" data-i18n="acctFindPeople">Hitta personer</button>
+        <button class="btn sm" type="button" data-act="acct-view" data-to="friends" data-i18n="acctFriends">Vänner</button>
+        <button class="btn sm" type="button" data-act="acct-view" data-to="inbox" data-i18n="acctInbox">Inkorg</button>
         <button class="btn sm" type="button" data-act="acct-view" data-to="email" data-i18n="acctChangeEmail">Byt e-postadress</button>
         <button class="btn sm" type="button" data-act="acct-view" data-to="password" id="acctPwBtn"></button>
         <button class="btn sm" type="button" data-act="acct-export" data-i18n="acctExport">Ladda ner all min data</button>
@@ -1568,6 +1586,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <div class="acct-me"><span class="avatar xl" id="acctPersonAvatar" aria-hidden="true"></span>
         <p class="acct-who"><b id="acctPersonName"></b> <span id="acctPersonUser"></span><br><span class="hint" id="acctPersonSince"></span></p></div>
       <p class="acct-bio" id="acctPersonBio"></p>
+      <div class="acct-friend" id="acctFriendBox" hidden></div>
       <div class="acct-report" id="acctReportBox" hidden>
         <label class="field"><span data-i18n="acctReportWhy">Vad är fel med profilen?</span><textarea id="acctReportReason" maxlength="500" rows="3"></textarea></label>
         <div class="modal-foot">
@@ -1582,6 +1601,22 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         <button class="btn sm" type="button" data-act="acct-report" data-i18n="acctReport">Anmäl</button>
         <button class="btn sm" type="button" data-act="acct-block" id="acctBlockBtn"></button>
       </div>
+    </div>
+
+    <div class="acct-view" data-acct-view="friends">
+      <p class="hint" id="acctFriendsHint" aria-live="polite"></p>
+      <ul class="acct-people" id="acctFriendsList"></ul>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="account" data-i18n="acctBack">Tillbaka</button>
+        <span class="spacer"></span>
+        <button class="btn sm" type="button" data-act="acct-view" data-to="people" data-i18n="acctFindPeople">Hitta personer</button>
+      </div>
+    </div>
+
+    <div class="acct-view" data-acct-view="inbox">
+      <p class="hint" id="inboxHint" aria-live="polite"></p>
+      <ul class="inbox-list" id="inboxList"></ul>
+      <div class="modal-foot"><span class="spacer"></span><button class="btn primary" type="button" data-act="acct-close" data-i18n="finished">Klar</button></div>
     </div>
 
     <div class="acct-view" data-acct-view="merge">
@@ -7549,6 +7584,8 @@ document.addEventListener('click', e => {
     case 'acct-report-cancel': $('acctReportBox').hidden = true; break;
     case 'acct-report-send': acctReport(); break;
     case 'acct-export': acctExport(); break;
+    case 'friend-add': case 'friend-accept': case 'friend-decline': case 'friend-remove': acctFriendDo(b.dataset.act, b.dataset.name || acct.person); break;
+    case 'inbox-open': acctOpen('inbox'); break;
     case 'av-step': acctAvChange(avatarStep(acct.avDraft, b.dataset.part, +b.dataset.d)); break;
     case 'av-random': acctAvChange(avatarRandom()); break;
     case 'move-start': moveStart(); break;
@@ -7912,6 +7949,7 @@ Object.assign(T.en, {
   setupAcctP: 'With an account, your reminders, notes, pictures and boards are kept in your account and are on all your devices. Nothing to install, and nothing is lost if the computer breaks.',
   setupAcctHave: 'I already have an account', setupAcctPrivacy: 'How we handle your data',
   setupNoAcctT: 'Or without an account: a save file in the cloud',
+  acctFriends: 'Friends', acctInbox: 'Inbox',
   avTitle: 'Your avatar', avHint: 'Shown instead of a photo. Pick the parts yourself or shuffle one up.', avRandom: 'Shuffle',
   avPart_s: 'Shape', avPart_c: 'Colour', avPart_e: 'Eyes', avPart_m: 'Mouth', avPart_a: 'Accessory', avPart_b: 'Background',
   avPrev: 'Previous', avNext: 'Next', avPhotoNote: 'Your photo is shown right now. Remove the photo to show the avatar instead.',
@@ -7968,6 +8006,15 @@ const ACCT_T = {
     acctDeleted: 'Your account is deleted. What was on this device is still here, without an account.',
     acctExportNote: 'The file has everything on this device and in your account, plus your profile.',
     acctProviderConfirm: 'Almost there: we’ve sent an email to your address to confirm it. Open the link in it in this browser, and you’re logged in.',
+    acctT_friends: 'Friends', acctT_inbox: 'Inbox', inboxLabel: 'Inbox', inboxLabelN: n => `Inbox, ${n} new`,
+    inboxEmpty: 'Nothing new right now.', inboxFriendReq: 'wants to be your friend',
+    friendsEmpty: 'No friends here yet. Find someone under Find people and add them.', friendsLoading: 'Loading…',
+    friendAdd: 'Add as friend', friendSent: 'Friend request sent', friendCancel: 'Take back', friendIncoming: 'Wants to be your friend',
+    friendAccept: 'Accept', friendDecline: 'Decline', friendYes: 'Friends', friendRemove: 'Remove as friend',
+    friendSentMsg: n => `Friend request sent to ${n}.`, friendNowMsg: n => `You and ${n} are friends now.`,
+    friendRemovedMsg: n => `You and ${n} are no longer friends.`, friendDeclinedMsg: 'Request declined.', friendCancelledMsg: 'Request taken back.',
+    errFriendUnknown: 'That profile can’t be added.', errFriendBlocked: 'You’ve blocked this person. Unblock them first.',
+    errFriendLimit: 'You’ve sent a lot of friend requests today. Try again tomorrow.',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -8019,6 +8066,15 @@ const ACCT_T = {
     acctDeleted: 'Ditt konto är raderat. Det som fanns på den här enheten finns kvar här, utan konto.',
     acctExportNote: 'Filen innehåller allt på den här enheten och i ditt konto, och din profil.',
     acctProviderConfirm: 'Nästan klart: vi har skickat ett mejl till din adress för att bekräfta den. Öppna länken i mejlet i den här webbläsaren, så är du inloggad.',
+    acctT_friends: 'Vänner', acctT_inbox: 'Inkorg', inboxLabel: 'Inkorg', inboxLabelN: n => `Inkorg, ${n} nya`,
+    inboxEmpty: 'Inget nytt just nu.', inboxFriendReq: 'vill bli din vän',
+    friendsEmpty: 'Inga vänner här än. Hitta någon under Hitta personer och lägg till.', friendsLoading: 'Hämtar…',
+    friendAdd: 'Lägg till som vän', friendSent: 'Vänförfrågan skickad', friendCancel: 'Ångra', friendIncoming: 'Vill bli din vän',
+    friendAccept: 'Godkänn', friendDecline: 'Avböj', friendYes: 'Vänner', friendRemove: 'Ta bort som vän',
+    friendSentMsg: n => `Vänförfrågan skickad till ${n}.`, friendNowMsg: n => `Du och ${n} är vänner nu.`,
+    friendRemovedMsg: n => `Du och ${n} är inte längre vänner.`, friendDeclinedMsg: 'Förfrågan avböjd.', friendCancelledMsg: 'Förfrågan borttagen.',
+    errFriendUnknown: 'Den profilen går inte att lägga till.', errFriendBlocked: 'Du har blockerat den personen. Sluta blockera först.',
+    errFriendLimit: 'Du har skickat många vänförfrågningar i dag. Försök igen i morgon.',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -8095,7 +8151,8 @@ async function acctOnAuth(ev, session) {
   if (!session) {
     acct.profile = undefined; acct.priv = null; acct.pendingStep = null; acct.blocks = null; updateAcctChip();
     if (back) acctOpen('signin', acctBackError(back.why), /confirmation email has been sent/i.test(back.why) ? 'ok' : 'bad');
-    else if (!$('acctDlg').hidden && ['account', 'username', 'reset', 'profile', 'people', 'person', 'email', 'password', 'delete'].includes(acct.view)) acctShow('signin');
+    else if (!$('acctDlg').hidden && ['account', 'username', 'reset', 'profile', 'people', 'person', 'email', 'password', 'delete', 'friends', 'inbox'].includes(acct.view)) acctShow('signin');
+    inboxRefresh();                                          // hides the bell
     return;
   }
   if (ev === 'PASSWORD_RECOVERY' || (back && back.reset)) { updateAcctChip(); acctLoadProfile().then(updateAcctChip); acctOpen('reset'); return; }
@@ -8109,7 +8166,10 @@ async function acctOnAuth(ev, session) {
   else if (back) acctOpen('account', t('acctConfirmed'), 'ok');
   else if (open && (acct.view === 'signin' || acct.view === 'signup')) acctShow('account', t('acctSignedIn'), 'ok');
   if (acct.profile) cloudStart();                            // may ask about the data on this device first
+  inboxRefresh();
 }
+setInterval(() => { if (document.visibilityState === 'visible') inboxRefresh(); }, 120000);
+window.addEventListener('focus', () => inboxRefresh());
 // Coming back without a session: say why. Google/Microsoft sign-in where the provider doesn't vouch for the email
 // address makes Supabase email a confirmation link instead; anything else shows Supabase's own reason after ours.
 function acctBackError(why) {
@@ -8188,6 +8248,8 @@ function acctShow(view, msg, kind) {
   if (view === 'signin' || view === 'signup' || view === 'forgot') acctCaptcha(view);
   if (view === 'profile') acctFillProfile(v);
   if (view === 'people' && prev !== 'person') { $('acctPeopleQ').value = ''; acctPeopleSearch(); }   // back from a profile: keep the list
+  if (view === 'friends') acctLoadFriends();
+  if (view === 'inbox') { inboxRender(); inboxRefresh(); }
   const first = v.querySelector('input:not([type=checkbox]):not([type=file])');
   if (first && !first.value) setTimeout(() => first.focus(), 0);
 }
@@ -8276,7 +8338,8 @@ function acctErr(e) {
     over_email_send_rate_limit: 'acctErrRate', over_request_rate_limit: 'acctErrRate', signup_disabled: 'acctErrClosed',
     email_address_invalid: 'acctBadEmail', validation_failed: 'acctFillIn', same_password: 'acctErrSame', captcha_failed: 'acctErrCaptcha',
     user_already_exists: 'acctErrExists', username_taken: 'acctUnameTaken', username_invalid: 'acctUnameRules', username_too_soon: 'acctUnameSoon',
-    report_limit: 'acctErrReportLimit', avatar_bad: 'acctPhotoBad', email_exists: 'acctErrEmailTaken', confirm_mismatch: 'acctDelMismatch' };
+    report_limit: 'acctErrReportLimit', avatar_bad: 'acctPhotoBad', email_exists: 'acctErrEmailTaken', confirm_mismatch: 'acctDelMismatch',
+    friend_unknown: 'errFriendUnknown', friend_blocked: 'errFriendBlocked', friend_limit: 'errFriendLimit' };
   const key = e && (map[e.hint] || map[e.code] || map[e.error_code]);
   if (key) return t(key);
   const m = (e && e.message) || String(e);
@@ -8636,16 +8699,18 @@ function acctPeopleSearch() {
     if (r.error) { hint.textContent = acctErr(r.error); return; }
     const people = r.data || [];
     hint.textContent = people.length ? '' : t('acctPeopleNone');
-    list.replaceChildren(...people.map(p => {
-      const li = document.createElement('li'), b = document.createElement('button'), av = document.createElement('span'), who = document.createElement('span');
-      b.type = 'button'; b.className = 'acct-person'; b.dataset.act = 'acct-person'; b.dataset.name = p.username;
-      av.className = 'avatar sm'; av.setAttribute('aria-hidden', 'true'); acctAvatar(av, p);
-      const nm = document.createElement('b'); nm.textContent = p.display_name || '@' + p.username;
-      who.append(nm, p.display_name ? ' @' + p.username : '');
-      b.append(av, who); li.append(b);
-      return li;
-    }));
+    list.replaceChildren(...people.map(acctPersonLi));
   }, 300);
+}
+// One person in a list (search results, friends): avatar, name, @username; opens their profile. Text only.
+function acctPersonLi(p) {
+  const li = document.createElement('li'), b = document.createElement('button'), av = document.createElement('span'), who = document.createElement('span');
+  b.type = 'button'; b.className = 'acct-person'; b.dataset.act = 'acct-person'; b.dataset.name = p.username;
+  av.className = 'avatar sm'; av.setAttribute('aria-hidden', 'true'); acctAvatar(av, p);
+  const nm = document.createElement('b'); nm.textContent = p.display_name || '@' + p.username;
+  who.append(nm, p.display_name ? ' @' + p.username : '');
+  b.append(av, who); li.append(b);
+  return li;
 }
 // Someone's public profile: picture, name, @username, about, member since. Never their email or anything they made.
 async function acctOpenPerson(name) {
@@ -8656,7 +8721,9 @@ async function acctOpenPerson(name) {
   if (!p) return acctMsg(t('acctPersonGone'), 'bad');
   if (!acct.blocks) await acctLoadBlocks();
   acct.person = p.username;
+  const from = ['friends', 'inbox'].includes(acct.view) ? acct.view : 'people';   // "Tillbaka" returns where you came from
   acctShow('person');
+  $('acctPersonFoot').querySelector('[data-act=acct-view]').dataset.to = from;
   acctAvatar($('acctPersonAvatar'), p);
   $('acctPersonName').textContent = p.display_name || '';
   $('acctPersonUser').textContent = '@' + p.username;
@@ -8668,6 +8735,96 @@ async function acctOpenPerson(name) {
   $('acctPersonFoot').querySelectorAll('[data-act=acct-report],[data-act=acct-block]').forEach(b => { b.hidden = me; });
   if (me) acctMsg(t('acctYou'));
   acctBlockLabel();
+  acctFriendBox(me ? 'self' : null);
+}
+// ---- friends (social S2). The database decides everything (friend_* functions); the app shows the state and asks.
+// The friend area on a profile, for the state 'none' | 'outgoing' | 'incoming' | 'friends' (null = ask the server).
+async function acctFriendBox(state) {
+  const box = $('acctFriendBox'), name = acct.person;
+  if (state === null) {
+    box.hidden = true;
+    let r;
+    try { r = await acct.client.rpc('friend_status', { name }); } catch (e) { return; }
+    if (r.error || acct.view !== 'person' || acct.person !== name) return;
+    state = r.data;
+  }
+  const blocked = (acct.blocks || []).includes(name);
+  box.hidden = state === 'self' || blocked;
+  if (box.hidden) return;
+  const btn = (key, act, cls) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + (cls || ''); b.dataset.act = act; b.textContent = t(key); return b; };
+  const label = key => { const s = document.createElement('span'); s.className = 'state'; s.textContent = t(key); return s; };
+  if (state === 'friends') box.replaceChildren(label('friendYes'), btn('friendRemove', 'friend-remove', 'ghost'));
+  else if (state === 'outgoing') box.replaceChildren(label('friendSent'), btn('friendCancel', 'friend-remove', 'ghost'));
+  else if (state === 'incoming') box.replaceChildren(label('friendIncoming'), btn('friendDecline', 'friend-decline', 'ghost'), btn('friendAccept', 'friend-accept', 'primary'));
+  else box.replaceChildren(btn('friendAdd', 'friend-add', 'primary'));
+  box.dataset.state = state;
+}
+// Add / accept / decline / remove for `name`; then refresh the profile's friend area, the friends list and the inbox.
+async function acctFriendDo(act, name) {
+  const before = $('acctFriendBox').dataset.state;
+  const call = act === 'friend-add' ? ['friend_request', { name }] : act === 'friend-remove' ? ['friend_remove', { name }]
+    : ['friend_respond', { name, accept: act === 'friend-accept' }];
+  let r;
+  try { r = await acct.client.rpc(call[0], call[1]); } catch (e) { r = { error: e }; }
+  if (r.error) return acctMsg(acctErr(r.error), 'bad');
+  const who = '@' + name;
+  const state = act === 'friend-remove' ? 'none' : r.data;
+  acctMsg(act === 'friend-remove' ? (before === 'outgoing' ? t('friendCancelledMsg') : t('friendRemovedMsg', who))
+    : act === 'friend-decline' ? t('friendDeclinedMsg')
+    : state === 'friends' ? t('friendNowMsg', who) : t('friendSentMsg', who), 'ok');
+  if (acct.view === 'person' && acct.person === name) acctFriendBox(typeof state === 'string' ? state : null);
+  if (acct.view === 'friends') acctLoadFriends();
+  inboxRefresh();
+}
+async function acctLoadFriends() {
+  const hint = $('acctFriendsHint'), list = $('acctFriendsList');
+  hint.textContent = t('friendsLoading');
+  let r;
+  try { r = await acct.client.rpc('my_friends'); } catch (e) { r = { error: e }; }
+  if (acct.view !== 'friends') return;
+  if (r.error) { hint.textContent = acctErr(r.error); return; }
+  const friends = r.data || [];
+  hint.textContent = friends.length ? '' : t('friendsEmpty');
+  list.replaceChildren(...friends.map(acctPersonLi));
+}
+// ---- the inbox: what's waiting for your answer (friend requests now; reminders and board invites later).
+// Refreshed when signed in, on focus, every 2 minutes, and after each answer. The bell shows how many.
+async function inboxRefresh() {
+  const btn = $('inboxBtn');
+  if (!acct || !acct.session || !acct.profile || !acct.client) { btn.hidden = true; acct.inbox = []; return; }
+  let r;
+  try { r = await acct.client.rpc('my_inbox'); } catch (e) { return; }
+  if (r.error || !acct.session) return;
+  acct.inbox = r.data || [];
+  const n = acct.inbox.length, c = $('inboxCount');
+  btn.hidden = !n;                                // the bell appears only when something is waiting (Konto → Inkorg always works)
+  c.hidden = !n; c.textContent = n > 99 ? '99+' : String(n);
+  btn.setAttribute('aria-label', n ? t('inboxLabelN', n) : t('inboxLabel')); btn.title = btn.getAttribute('aria-label');
+  if (!$('acctDlg').hidden && acct.view === 'inbox') inboxRender();
+}
+function inboxRender() {
+  const list = $('inboxList'), items = acct.inbox || [];
+  $('inboxHint').textContent = items.length ? '' : t('inboxEmpty');
+  list.replaceChildren(...items.map(it => {
+    const li = document.createElement('li'), av = document.createElement('span'), body = document.createElement('div');
+    av.className = 'avatar'; av.setAttribute('aria-hidden', 'true'); acctAvatar(av, it);
+    const what = document.createElement('p'); what.className = 'what';
+    const who = document.createElement('button'); who.type = 'button'; who.className = 'who'; who.dataset.act = 'acct-person'; who.dataset.name = it.username;
+    who.textContent = it.display_name || '@' + it.username;
+    const when = document.createElement('span'); when.className = 'when'; when.textContent = it.created_at ? fmtWhen(new Date(it.created_at)) : '';
+    if (it.kind === 'friend_request') what.append(who, ' ' + t('inboxFriendReq'));
+    else what.append(who);
+    body.append(what, when);
+    const acts = document.createElement('div'); acts.className = 'acts';
+    if (it.kind === 'friend_request') {
+      for (const [key, act, cls] of [['friendAccept', 'friend-accept', 'primary'], ['friendDecline', 'friend-decline', 'ghost']]) {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm ' + cls; b.dataset.act = act; b.dataset.name = it.username; b.textContent = t(key);
+        acts.append(b);
+      }
+    }
+    li.append(av, body, acts);
+    return li;
+  }));
 }
 function acctBlockLabel() { $('acctBlockBtn').textContent = t((acct.blocks || []).includes(acct.person) ? 'acctUnblock' : 'acctBlock'); }
 async function acctBlock(name, block) {
@@ -8676,7 +8833,8 @@ async function acctBlock(name, block) {
     if (r.error) return acctMsg(acctErr(r.error), 'bad');
     acct.blocks = (acct.blocks || []).filter(n => n !== name).concat(block ? [name] : []);
     acctMsg(t(block ? 'acctBlocked' : 'acctUnblocked', '@' + name), 'ok');
-    if (acct.view === 'person') acctBlockLabel(); else acctLoadBlocks();
+    if (acct.view === 'person') { acctBlockLabel(); acctFriendBox(null); } else acctLoadBlocks();   // blocking ends a friendship
+    inboxRefresh();
   } catch (e) { acctMsg(acctErr(e), 'bad'); }
 }
 async function acctReport() {

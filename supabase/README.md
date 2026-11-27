@@ -13,6 +13,7 @@ database password stay in the Supabase dashboard, Edge Function secrets and GitH
 | `migrations/…_jobs.sql` | `pg_cron`: tombstone cleanup after 90 days, weekly storage recount |
 | `migrations/…_profiles.sql` | Phase 5: `avatar_path` may only name your own avatar file, `{id}/avatar.webp?v={n}` |
 | `migrations/…_avatars.sql` | Social S1: `profiles.avatar_style` (creative avatar spec, checked by `valid_avatar_style`); `get_profile` / `find_profiles` return it |
+| `migrations/…_friends.sql` | Social S2: `friendships` (only through `friend_*` RPCs), `my_friends`, `my_inbox`; friends see each other's private profile; blocking ends a friendship; `pg_cron` removes unanswered requests after 30 days |
 | `migrations/…_retention.sql` | Phase 6: `pg_cron` removes reports older than 12 months (as `privacy.html` says) |
 | `functions/delete-account/` | Phase 6 Edge Function: deletes the signed-in user's files in every bucket, then the user (all rows cascade) |
 | `templates/` | The auth email templates pasted into Authentication → Emails (copies, for the record) |

@@ -507,6 +507,103 @@ test('avatars: the database refuses a broken spec (the stand-in does too), and t
   await ctx.close();
 });
 
+// ---- social S2: friends and the inbox
+const signedInAlice = async () => {
+  const o = await open(ALICE);
+  await o.page.waitForFunction(() => /^@/.test(document.getElementById('acctChipText').textContent));
+  return o;
+};
+const friendState = page => page.evaluate(() => $('acctFriendBox').hidden ? 'hidden' : [...$('acctFriendBox').children].map(e => e.textContent).join(' | '));
+
+test('friends: add from a profile, the request shows as sent, and can be taken back', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await page.click('#acctChip');
+  await page.evaluate(() => acctOpenPerson('carol'));
+  await page.waitForFunction(() => !$('acctFriendBox').hidden);
+  assert.equal(await friendState(page), 'Lägg till som vän');
+  await page.click('#acctFriendBox [data-act="friend-add"]');
+  await page.waitForFunction(() => /Vänförfrågan skickad till @carol/.test($('acctMsg').textContent));
+  assert.equal(await friendState(page), 'Vänförfrågan skickad | Ångra');
+  assert.deepEqual(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.friends), [{ a: 'u-a', b: 'u-c', by: 'u-a', status: 'pending' }]);
+  await page.click('#acctFriendBox [data-act="friend-remove"]');
+  await page.waitForFunction(() => /Förfrågan borttagen/.test($('acctMsg').textContent));
+  assert.equal(await friendState(page), 'Lägg till som vän');
+  assert.equal(await page.isVisible('#acctFriendBox'), true);
+  // Your own profile has no friend button.
+  await page.evaluate(() => acctOpenPerson('alice'));
+  await page.waitForFunction(() => acct.person === 'alice');
+  assert.equal(await friendState(page), 'hidden');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('inbox: a friend request lights up the bell; accept it there, and the friend is in the list', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await page.evaluate(() => inboxRefresh());
+  assert.equal(await page.isVisible('#inboxBtn'), false, 'no bell while nothing is waiting');
+  await fakeDb(page, { friends: [{ a: 'u-a', b: 'u-c', by: 'u-c', status: 'pending' }],
+    profiles: { 'u-a': { username: 'alice', display_name: 'Alice' }, 'u-c': { username: 'carol', display_name: '<b>Carol</b>' } } });
+  await page.evaluate(() => inboxRefresh());
+  await page.waitForFunction(() => $('inboxCount').textContent === '1' && !$('inboxCount').hidden);
+  assert.equal(await page.getAttribute('#inboxBtn', 'aria-label'), 'Inkorg, 1 nya');
+  await page.click('#inboxBtn');
+  assert.equal(await view(page), 'inbox');
+  await page.waitForSelector('#inboxList li');
+  assert.match(await page.textContent('#inboxList li .what'), /^<b>Carol<\/b> vill bli din vän$/, 'a name is shown as text, never as HTML');
+  assert.equal(await page.locator('#inboxList li .what b').count(), 0);
+  assert.equal(await page.locator('#inboxList li svg.av-svg').count(), 1, 'with their avatar');
+  await page.click('#inboxList [data-act="friend-accept"]');
+  await page.waitForFunction(() => /Du och @carol är vänner nu/.test($('acctMsg').textContent));
+  await page.waitForFunction(() => $('inboxCount').hidden && /Inget nytt/.test($('inboxHint').textContent));
+  // The friends list, and back from a friend's profile to the list.
+  await page.evaluate(() => acctShow('friends'));
+  await page.waitForSelector('#acctFriendsList .acct-person');
+  assert.match(await page.textContent('#acctFriendsList'), /<b>Carol<\/b> @carol/);
+  await page.click('#acctFriendsList .acct-person');
+  await page.waitForFunction(() => acct.view === 'person' && !$('acctFriendBox').hidden);
+  assert.equal(await friendState(page), 'Vänner | Ta bort som vän');
+  await page.click(inView('person', '#acctPersonFoot [data-act=acct-view]'));
+  assert.equal(await view(page), 'friends', 'Tillbaka goes back to the friends list');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('inbox: declining removes the request; blocking a friend ends the friendship; the bell is gone after logging out', async () => {
+  const { ctx, page, errors } = await signedInAlice();
+  await fakeDb(page, { friends: [{ a: 'u-a', b: 'u-c', by: 'u-c', status: 'pending' }] });
+  await page.evaluate(() => inboxRefresh());
+  await page.click('#inboxBtn');
+  await page.waitForSelector('#inboxList [data-act="friend-decline"]');
+  await page.click('#inboxList [data-act="friend-decline"]');
+  await page.waitForFunction(() => /Förfrågan avböjd/.test($('acctMsg').textContent));
+  assert.deepEqual(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.friends), []);
+  // Friends, then blocked: the friendship ends and the friend area disappears.
+  await fakeDb(page, { friends: [{ a: 'u-a', b: 'u-c', by: 'u-c', status: 'accepted' }] });
+  await page.evaluate(() => acctOpenPerson('carol'));
+  await page.waitForFunction(() => !$('acctFriendBox').hidden);
+  assert.equal(await friendState(page), 'Vänner | Ta bort som vän');
+  await page.click('#acctBlockBtn');
+  await page.waitForFunction(() => /blockerad/.test($('acctMsg').textContent));
+  await page.waitForFunction(() => $('acctFriendBox').hidden);
+  assert.deepEqual(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.friends), []);
+  // Log out: no bell.
+  await page.evaluate(() => acctSignOut(false, true));
+  await page.waitForFunction(() => $('inboxBtn').hidden);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('friends: the server\'s refusals are explained (blocked, daily limit)', async () => {
+  const { ctx, page } = await signedInAlice();
+  await fakeDb(page, { friendLimit: true });
+  await page.click('#acctChip');
+  await page.evaluate(() => acctOpenPerson('carol'));
+  await page.waitForFunction(() => !$('acctFriendBox').hidden);
+  await page.click('#acctFriendBox [data-act="friend-add"]');
+  await page.waitForFunction(() => /många vänförfrågningar/.test($('acctMsg').textContent));
+  await ctx.close();
+});
+
 test('the sign-up screen offers Google / Microsoft too (only those switched on), as the log-in screen does', async () => {
   const { ctx, page, errors } = await open();
   await page.click('#acctChip');

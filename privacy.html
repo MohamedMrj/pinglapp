@@ -61,11 +61,12 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <tr><th>Uppgifter</th><th>Varför</th><th>Rättslig grund</th></tr>
 <tr><td>E-postadress, lösenord (bara i krypterad form, aldrig i klartext), hur du loggar in, när kontot skapades, när du godkände villkoren, språk och tidszon</td><td>För att du ska kunna logga in och få e-post om ditt konto</td><td>Avtal</td></tr>
 <tr><td>Profil: användarnamn, namn som andra ser, ”om dig”, profilbild eller de delar du valt för din avatar, och om andra får hitta dig</td><td>För att andra inloggade ska kunna hitta dig, om du vill det</td><td>Avtal</td></tr>
+<tr><td>Vänner: vilka du är vän med, och vänförfrågningar du har skickat eller fått</td><td>För att du ska kunna lägga till vänner och se deras profiler</td><td>Avtal</td></tr>
 <tr><td>Ditt innehåll: påminnelser, anteckningar, bilder i anteckningar, tavlor och inställningar</td><td>För att synka dem mellan dina enheter</td><td>Avtal</td></tr>
 <tr><td>Vilka du har blockerat, och anmälningar du skickar (vem du anmäler och varför)</td><td>För att skydda användare mot otrevligt beteende</td><td>Berättigat intresse</td></tr>
 <tr><td>Tekniska uppgifter: IP-adress, webbläsare och tidpunkter i serverloggar, och robotkontrollen när du loggar in eller skapar ett konto</td><td>För att stoppa missbruk och hålla tjänsten igång</td><td>Berättigat intresse</td></tr>
 </table></div>
-<p>Andra inloggade ser bara din profil (aldrig din e-post eller ditt innehåll), och bara om du har valt att gå att hitta. Profilbilden ligger på en öppen adress: den som har adressen kan se bilden.</p>
+<p>Andra inloggade ser bara din profil (aldrig din e-post eller ditt innehåll), och bara om du har valt att gå att hitta eller är vän med dem. Vilka dina vänner är visas bara för dig. Profilbilden ligger på en öppen adress: den som har adressen kan se bilden.</p>
 
 <h2>Om du loggar in med Google eller Microsoft</h2>
 <p>Det är frivilligt; du kan alltid använda e-post och lösenord i stället. Väljer du ”Fortsätt med Google” eller ”Fortsätt med Microsoft” ber Pinglapp bara om din grundläggande profil:</p>
@@ -94,6 +95,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <ul>
   <li>Ditt konto och innehåll: tills du tar bort det. Något du raderar sparas i 90 dagar som en markering (så att alla dina enheter hinner få veta det) och tas sedan bort.</li>
   <li>Raderar du kontot tas allt bort direkt ur databasen och fillagringen. Kopior i säkerhetskopior försvinner inom 30 dagar.</li>
+  <li>Vänförfrågningar som inte besvaras tas bort efter 30 dagar. En vänskap finns kvar tills någon av er tar bort den, blockerar den andra eller raderar sitt konto.</li>
   <li>Anmälningar sparas i högst 12 månader. Raderar du ditt konto finns anmälningar du skickat kvar till dess, men utan koppling till dig.</li>
   <li>Serverloggar sparas några dagar.</li>
 </ul>
@@ -144,11 +146,12 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <tr><th>Data</th><th>Why</th><th>Legal basis</th></tr>
 <tr><td>Email address, password (only in hashed form, never in plain text), how you sign in, when the account was created, when you accepted the terms, language and time zone</td><td>So you can log in and get email about your account</td><td>Contract</td></tr>
 <tr><td>Profile: username, name others see, “about you”, profile picture or the parts you chose for your avatar, and whether others may find you</td><td>So other signed-in people can find you, if you want that</td><td>Contract</td></tr>
+<tr><td>Friends: who you are friends with, and friend requests you have sent or received</td><td>So you can add friends and see their profiles</td><td>Contract</td></tr>
 <tr><td>Your content: reminders, notes, pictures in notes, boards and settings</td><td>To sync them between your devices</td><td>Contract</td></tr>
 <tr><td>Who you’ve blocked, and reports you send (who you report and why)</td><td>To protect users from abusive behaviour</td><td>Legitimate interest</td></tr>
 <tr><td>Technical data: IP address, browser and times in server logs, and the robot check when you log in or create an account</td><td>To stop abuse and keep the service running</td><td>Legitimate interest</td></tr>
 </table></div>
-<p>Other signed-in people only see your profile (never your email or your content), and only if you’ve chosen to be findable. The profile picture is at an open address: anyone with the address can see the picture.</p>
+<p>Other signed-in people only see your profile (never your email or your content), and only if you’ve chosen to be findable or are friends with them. Who your friends are is shown only to you. The profile picture is at an open address: anyone with the address can see the picture.</p>
 
 <h2>If you log in with Google or Microsoft</h2>
 <p>This is optional; you can always use email and a password instead. If you choose “Continue with Google” or “Continue with Microsoft”, Pinglapp asks only for your basic profile:</p>
@@ -177,6 +180,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <ul>
   <li>Your account and content: until you remove them. Something you delete is kept for 90 days as a marker (so all your devices hear about it) and then removed.</li>
   <li>If you delete your account, everything is removed from the database and file storage right away. Copies in backups are gone within 30 days.</li>
+  <li>Friend requests that aren’t answered are removed after 30 days. A friendship stays until one of you removes it, blocks the other or deletes their account.</li>
   <li>Reports are kept for at most 12 months. If you delete your account, reports you sent stay until then, but with no link to you.</li>
   <li>Server logs are kept for a few days.</li>
 </ul>

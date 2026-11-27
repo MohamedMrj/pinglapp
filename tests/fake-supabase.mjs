@@ -148,7 +148,8 @@ export const FAKE = () => {
       const me = session && session.user.id;
       if (!me) return { data: null, error: { code: '42501', message: 'permission denied' } };
       const idOf = n => Object.keys(db.profiles).find(k => db.profiles[k].username === String(n).toLowerCase());
-      const visible = k => k === me || (db.profiles[k].visibility !== 'private' && !db.blocks.some(([a, b]) => a === k && b === me));
+      const isFriend = k => (db.friends || []).some(f => f.status === 'accepted' && ((f.a === me && f.b === k) || (f.b === me && f.a === k)));
+      const visible = k => k === me || ((db.profiles[k].visibility !== 'private' || isFriend(k)) && !db.blocks.some(([a, b]) => a === k && b === me));
       const pub = k => { const p = db.profiles[k]; return { username: p.username, display_name: p.display_name || null, avatar_path: p.avatar_path || null, avatar_style: p.avatar_style || null, bio: p.bio || null, member_since: '2026-11-01' }; };
       if (name === 'find_profiles') {
         const pre = String(args.prefix).toLowerCase();
@@ -161,10 +162,44 @@ export const FAKE = () => {
         const k = idOf(args.name);
         if (!k || k === me) return { data: false, error: null };
         db.blocks = db.blocks.filter(([a, b]) => !(a === me && b === k));
-        if (name === 'block_user') db.blocks.push([me, k]);
+        if (name === 'block_user') { db.blocks.push([me, k]); db.friends = (db.friends || []).filter(f => !((f.a === me && f.b === k) || (f.b === me && f.a === k))); }
         keep(); return { data: true, error: null };
       }
       if (name === 'my_blocks') return { data: db.blocks.filter(([a]) => a === me).map(([, b]) => ({ username: db.profiles[b].username, blocked_at: '2026-11-27' })), error: null };
+      // Friends, following the friends migration: db.friends = [{ a, b, by, status }] (a < b).
+      db.friends ||= [];
+      const pair = k => db.friends.find(f => f.a === [me, k].sort()[0] && f.b === [me, k].sort()[1]);
+      const fstatus = k => { if (!k) return 'none'; if (k === me) return 'self'; const f = pair(k); return !f ? 'none' : f.status === 'accepted' ? 'friends' : f.by === me ? 'outgoing' : 'incoming'; };
+      const err = hint => ({ data: null, error: { code: 'P0001', hint, message: hint } });
+      if (name === 'friend_status') return { data: fstatus(idOf(args.name)), error: null };
+      if (name === 'friend_request') {
+        const k = idOf(args.name);
+        if (!k || k === me || !visible(k)) return err('friend_unknown');
+        if (db.blocks.some(([a, b]) => a === me && b === k)) return err('friend_blocked');
+        const f = pair(k);
+        if (f) { if (f.status === 'pending' && f.by !== me) { f.status = 'accepted'; keep(); return { data: 'friends', error: null }; } return { data: fstatus(k), error: null }; }
+        if (db.friendLimit) return err('friend_limit');
+        const [a, b] = [me, k].sort(); db.friends.push({ a, b, by: me, status: 'pending' }); keep();
+        return { data: 'outgoing', error: null };
+      }
+      if (name === 'friend_respond') {
+        const k = idOf(args.name), f = k && pair(k);
+        if (f && f.status === 'pending' && f.by === k) {
+          if (args.accept) f.status = 'accepted'; else db.friends = db.friends.filter(x => x !== f);
+          keep();
+        }
+        return { data: args.accept ? fstatus(k) : 'none', error: null };
+      }
+      if (name === 'friend_remove') {
+        const k = idOf(args.name), f = k && pair(k);
+        const ok = !!f && (f.status === 'accepted' || f.by === me);
+        if (ok) { db.friends = db.friends.filter(x => x !== f); keep(); }
+        return { data: ok, error: null };
+      }
+      if (name === 'my_friends') return { data: db.friends.filter(f => f.status === 'accepted' && (f.a === me || f.b === me))
+        .map(f => { const k = f.a === me ? f.b : f.a, p = pub(k); return { username: p.username, display_name: p.display_name, avatar_path: p.avatar_path, avatar_style: p.avatar_style, since: '2026-11-28' }; }), error: null };
+      if (name === 'my_inbox') return { data: db.friends.filter(f => f.status === 'pending' && f.by !== me && (f.a === me || f.b === me))
+        .map(f => { const p = pub(f.by); return { kind: 'friend_request', id: null, username: p.username, display_name: p.display_name, avatar_path: p.avatar_path, avatar_style: p.avatar_style, payload: null, created_at: '2026-11-28T10:00:00Z' }; }), error: null };
       if (name === 'report_user') {
         if (db.reportLimit) return { data: null, error: { code: 'P0001', hint: 'report_limit', message: 'too many reports' } };
         return { data: !!idOf(args.name), error: null };

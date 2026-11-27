@@ -288,7 +288,91 @@ test('scheduled jobs: reports are removed after 12 months, as the privacy policy
   assert.deepEqual(left, ['new one']);
 });
 
+test('friends: request, inbox, accept, decline, remove; only through the functions', async () => {
+  const F = '00000000-0000-4000-8000-0000000000f1', G = '00000000-0000-4000-8000-0000000000f2', H = '00000000-0000-4000-8000-0000000000f3';
+  await signUp(F, 'f@example.com', { username: 'fred', display_name: 'Fred' });
+  await signUp(G, 'g@example.com', { username: 'gina' });
+  await signUp(H, 'h@example.com', { username: 'hugo' });
+  const st = (uid, n) => rows(uid, 'select public.friend_status($1) as s', [n]).then(r => r[0].s);
+  const call = (uid, sql, p) => rows(uid, sql, p).then(r => Object.values(r[0])[0]);
+
+  assert.equal(await st(F, 'gina'), 'none');
+  assert.equal(await st(F, 'fred'), 'self');
+  assert.equal(await call(F, `select public.friend_request('gina')`), 'outgoing');
+  assert.equal(await call(F, `select public.friend_request('GINA')`), 'outgoing', 'asking twice changes nothing');
+  assert.equal(await st(F, 'gina'), 'outgoing');
+  assert.equal(await st(G, 'fred'), 'incoming');
+  const inbox = await rows(G, 'select * from public.my_inbox()');
+  assert.deepEqual(inbox.map(i => [i.kind, i.username, i.display_name]), [['friend_request', 'fred', 'Fred']]);
+  assert.equal((await rows(F, 'select * from public.my_inbox()')).length, 0, 'your own request is not in your inbox');
+  assert.equal((await rows(F, 'select * from public.my_friends()')).length, 0, 'not friends until accepted');
+
+  assert.equal(await call(G, `select public.friend_respond('fred', true)`), 'friends');
+  assert.equal(await st(F, 'gina'), 'friends');
+  assert.deepEqual((await rows(F, 'select username from public.my_friends()')).map(r => r.username), ['gina']);
+  assert.deepEqual((await rows(G, 'select username from public.my_friends()')).map(r => r.username), ['fred']);
+  assert.equal((await rows(G, 'select * from public.my_inbox()')).length, 0, 'answered: gone from the inbox');
+
+  // Friends see each other's profile even when it isn't findable; strangers don't.
+  await rows(G, `update public.profiles set visibility = 'private' where id = $1`, [G]);
+  assert.equal((await rows(F, `select * from public.get_profile('gina')`)).length, 1);
+  assert.equal((await rows(H, `select * from public.get_profile('gina')`)).length, 0);
+  assert.equal((await rows(F, `select * from public.find_profiles('gin')`)).length, 1, 'a friend can find a private profile');
+  await fails(H, `select public.friend_request('gina')`, [], /friend_unknown/);   // private and not a friend
+  await fails(H, `select public.friend_request('nobody_here')`, [], /friend_unknown/);
+  await fails(H, `select public.friend_request('hugo')`, [], /friend_unknown/);   // yourself
+
+  // Removing ends it for both; a declined request just disappears.
+  assert.equal(await call(F, `select public.friend_remove('gina')`), true);
+  assert.equal(await st(G, 'fred'), 'none');
+  await rows(G, `update public.profiles set visibility = 'users' where id = $1`, [G]);
+  await call(H, `select public.friend_request('fred')`);
+  assert.equal(await call(F, `select public.friend_respond('hugo', false)`), 'none');
+  assert.equal(await st(H, 'fred'), 'none');
+  // Taking back your own request; the other person can't "remove" it for you by answering a request you didn't get.
+  await call(H, `select public.friend_request('gina')`);
+  assert.equal(await call(H, `select public.friend_respond('gina', true)`), 'outgoing', 'you can\'t accept your own request');
+  assert.equal(await call(H, `select public.friend_remove('gina')`), true);
+  assert.equal(await st(G, 'hugo'), 'none');
+  // Asking someone who already asked you makes you friends.
+  await call(F, `select public.friend_request('hugo')`);
+  assert.equal(await call(H, `select public.friend_request('fred')`), 'friends');
+
+  // Blocking ends the friendship; you can't send a request to someone you blocked; they can't find you to ask.
+  await rows(F, `select public.block_user('hugo')`);
+  assert.equal(await st(H, 'fred'), 'none');
+  await fails(F, `select public.friend_request('hugo')`, [], /friend_blocked/);
+  await fails(H, `select public.friend_request('fred')`, [], /friend_unknown/);
+
+  // The table itself is out of reach; anon can't call the functions.
+  await fails(F, 'select * from public.friendships');
+  await fails(F, `insert into public.friendships (a, b, requested_by) values ($1, $2, $1)`, [F < G ? F : G, F < G ? G : F]);
+  await fails(null, `select public.friend_request('fred')`);
+  await fails(null, `select * from public.my_inbox()`);
+});
+
+test('friends: at most 30 requests a day; unanswered requests go after 30 days', async () => {
+  const P = '00000000-0000-4000-8000-0000000000a9';
+  await signUp(P, 'p@example.com', { username: 'popular' });
+  const ids = [];
+  for (let i = 0; i < 31; i++) {
+    const id = `00000000-0000-4000-8001-${String(i).padStart(12, '0')}`;
+    ids.push(id);
+    await signUp(id, `n${i}@example.com`, { username: `newbie_${i}` });
+  }
+  for (let i = 0; i < 30; i++) await rows(P, `select public.friend_request($1)`, [`newbie_${i}`]);
+  await fails(P, `select public.friend_request('newbie_30')`, [], /friend_limit/);
+  const [job] = (await db.query(`select command from cron.job where jobname = 'ping-old-friend-requests'`)).rows;
+  await db.query(`update public.friendships set created_at = now() - interval '31 days' where requested_by = $1 and (a = $2 or b = $2)`, [P, ids[0]]);
+  await db.exec(job.command);
+  assert.equal((await rows(P, 'select public.friend_status($1) as s', ['newbie_0']))[0].s, 'none');
+  assert.equal((await rows(P, 'select public.friend_status($1) as s', ['newbie_1']))[0].s, 'outgoing');
+});
+
 test('deleting an account removes all its rows', async () => {
+  const E2 = '00000000-0000-4000-8000-0000000000e2';
+  await signUp(E2, 'e2@example.com', { username: 'eve2' });
+  await rows(A, `select public.friend_request('eve2')`);
   await rows(A, `select public.report_user('bob', 'sent by alice')`);
   const E = '00000000-0000-4000-8000-0000000000e1';
   await signUp(E, 'e@example.com', { username: 'erin' });
@@ -300,4 +384,5 @@ test('deleting an account removes all its rows', async () => {
   for (const t of ['profiles', 'account_private']) assert.equal((await db.query(`select 1 from public.${t} where id = $1`, [A])).rows.length, 0, t);
   for (const t of ['reminders', 'notes', 'boards', 'user_settings']) assert.equal((await db.query(`select 1 from public.${t} where user_id = $1`, [A])).rows.length, 0, t);
   assert.equal((await db.query('select 1 from public.blocks where blocker = $1 or blocked = $1', [A])).rows.length, 0);
+  assert.equal((await db.query('select 1 from public.friendships where a = $1 or b = $1 or requested_by = $1', [A])).rows.length, 0);
 });
