@@ -133,4 +133,4 @@ PGlite stands in for Supabase's `auth`, `storage` and `cron` schemas, so these w
 - ⬜ Google and Microsoft sign-up (providers enabled 2026-11-27, not tried yet);
 - ⬜ profiles (phase 5): apply `…_profiles.sql`, then edit profile, upload a picture, find, block, report;
 - ⬜ `pg_cron` jobs under Integrations → Cron (three after phase 6: `ping-tombstones`, `ping-recount-storage`, `ping-old-reports`);
-- ⬜ phase 6: `…_retention.sql`, `delete-account` deployed, secure password change on; the hand test above.
+- ✅ phase 6: `…_retention.sql`, `delete-account` deployed, secure password change on; the hand test above (2026-11-27).
