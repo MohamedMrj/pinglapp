@@ -313,6 +313,8 @@ header .tabs { grid-column: 1 / -1; justify-self: start; }
 /* quick add */
 .quick { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .quick-row { display: flex; gap: 8px; }
+/* Phones: the box gets the whole width, so the example in it can be read; the buttons share the row below. */
+@media (max-width: 720px) { .quick-row { flex-wrap: wrap; } .quick .quick-row input { flex: 1 1 100%; } .quick-row .btn { flex: 1; } }
 .quick input { flex: 1; min-width: 0; font-size: 17px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); }
 .quick input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 .preview { font-size: 13.5px; color: var(--muted); min-height: 1.45em; overflow-wrap: anywhere; }
@@ -320,6 +322,7 @@ header .tabs { grid-column: 1 / -1; justify-self: start; }
 .preview.warn { color: var(--warn); }
 .preview.done { color: var(--ok); font-weight: 600; }
 .preview.err { color: var(--danger); }
+.linkish { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
 kbd { font-size: 11.5px; line-height: 1; padding: 2px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--surface-2); color: var(--muted); }
 
 /* toolbar */
@@ -372,7 +375,7 @@ kbd { font-size: 11.5px; line-height: 1; padding: 2px 5px; border: 1px solid var
 .empty { text-align: center; padding: 40px 20px; background: var(--surface); border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; justify-items: center; }
 .empty h3 { margin: 0; font: 600 17px var(--font-display); color: var(--ink); }
 .examples { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.examples .btn { font-family: var(--mono); font-weight: 500; font-size: 12.5px; }
+.examples .btn { font-weight: 500; }
 
 /* popover */
 .pop { max-height: min(60vh, 440px); overflow: auto; position: fixed; z-index: 78; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 5px; min-width: 200px; display: grid; }
@@ -587,6 +590,15 @@ body:has(#view-board:not([hidden])) .site-foot, body:has(#view-notes:not([hidden
 .setup-acct h3 { margin: 0; font-size: 15px; }
 .setup-acct p { margin: 0; }
 .setup-or { margin: 10px 0 0; font-size: 15px; }
+.setup-opt { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; }
+.setup-opt h3 { margin: 0; font-size: 15px; }
+.setup-opt p { margin: 0; }
+.wel-example { display: grid; gap: 4px; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); }
+.wel-type { font-size: 17px; font-weight: 600; }
+.wel-type::before { content: '✎ '; color: var(--accent); }
+.wel-then { color: var(--muted); }
+.wel-then::before { content: '⏰ '; }
+.wel-list { list-style: none; padding-left: 0 !important; }
 .acct-people { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; max-height: 300px; overflow: auto; }
 .acct-people:empty { display: none; }
 .acct-people li { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -641,6 +653,9 @@ body:has(#view-board:not([hidden])) .site-foot, body:has(#view-notes:not([hidden
 .modal-foot { display: flex; gap: 8px; align-items: center; }
 .modal-foot .spacer { flex: 1; }
 .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13.5px; align-items: center; }
+.keys-h { margin-top: 6px; }
+/* Touch-only devices have no keyboard: the help shows how to write reminders, not shortcuts. */
+@media (hover: none) and (pointer: coarse) { .keys-h, .keys-h + .keys { display: none; } }
 .keys kbd { justify-self: start; }
 
 /* alerts */
@@ -873,7 +888,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
   <section id="view-reminders">
     <div class="quick">
       <div class="quick-row">
-        <input id="quickInput" type="text" autocomplete="off" spellcheck="false" placeholder="Kolla DAG-fel var 30 min #airflow !!" aria-label="Ny påminnelse" data-i18n-ph="quickPh" data-i18n-aria="edNew">
+        <input id="quickInput" type="text" autocomplete="off" spellcheck="false" placeholder="T.ex. Ring mamma imorgon kl 18" aria-label="Ny påminnelse" data-i18n-ph="quickPh" data-i18n-aria="edNew">
         <button class="btn primary" type="button" data-act="quick-add" data-i18n="add">Lägg till</button>
         <button class="btn" type="button" data-act="quick-more" data-i18n="more">Mer…</button>
       </div>
@@ -905,7 +920,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         <ul class="note-list" id="noteList" role="listbox" aria-label="Anteckningar" data-i18n-aria="tabNotes"></ul>
         <div class="row">
           <div class="split-btn"><button class="btn primary" type="button" data-act="new-note" data-i18n="newNote">Ny anteckning</button><button class="btn primary" type="button" data-act="new-note-menu" title="Mallar och fler sorters anteckningar" aria-label="Mallar och fler sorters anteckningar" data-i18n-title="newNoteMenu" data-i18n-aria="newNoteMenu">▾</button></div>
-          <button class="btn" type="button" data-act="daily-log" title="Dagens standup-anteckning, ifylld från dina påminnelser" data-i18n="dailyLog" data-i18n-title="dailyLogTitle">Dagslogg</button>
+          <button class="btn" type="button" data-act="daily-log" title="En anteckning för idag med det du har gjort och ska göra, ifylld från dina påminnelser" data-i18n="dailyLog" data-i18n-title="dailyLogTitle">Dagslogg</button>
         </div>
         <div class="row">
           <button class="btn danger ghost" type="button" data-act="del-note" id="delNoteBtn" data-i18n="delete">Ta bort</button>
@@ -958,7 +973,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         </div>
         </div>
         <div class="note-body" id="noteBody">
-          <div class="md live" id="notePreview"><div class="live-ed" id="liveEd" hidden><div class="ed-wrap" id="noteWrap"><pre class="ed-find" id="noteFind" aria-hidden="true"></pre><pre class="ed-find ed-measure" id="noteMeasure" aria-hidden="true"></pre><pre class="ed-hl" id="noteHl" aria-hidden="true"></pre><textarea id="noteText" class="ed-in" spellcheck="false" placeholder="# Rubrik&#10;&#10;Skriv vad som helst. Markdown fungerar: **fetstil**, `kod`, ```sql-block```, - [ ] uppgifter, | tabeller |" aria-label="Anteckningstext" data-i18n-ph="notePh" data-i18n-aria="noteAria"></textarea></div></div></div>
+          <div class="md live" id="notePreview"><div class="live-ed" id="liveEd" hidden><div class="ed-wrap" id="noteWrap"><pre class="ed-find" id="noteFind" aria-hidden="true"></pre><pre class="ed-find ed-measure" id="noteMeasure" aria-hidden="true"></pre><pre class="ed-hl" id="noteHl" aria-hidden="true"></pre><textarea id="noteText" class="ed-in" spellcheck="false" placeholder="# Rubrik&#10;&#10;Skriv vad som helst. Använd knapparna ovanför för fetstil, listor och checklistor." aria-label="Anteckningstext" data-i18n-ph="notePh" data-i18n-aria="noteAria"></textarea></div></div></div>
         </div>
       </div>
     </div>
@@ -1140,17 +1155,17 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
             <button type="button" data-theme-set="dark" aria-pressed="false" data-i18n="dark">Mörkt</button>
           </div>
         </div>
-        <label class="check"><input type="checkbox" id="setMono"> <span data-i18n="monoLabel">Monospace-typsnitt i anteckningseditorn</span></label>
-        <label class="check"><input type="checkbox" id="setUtc"> <span data-i18n="utcLabel">Visa UTC-klockan bredvid namnet</span></label>
+        <label class="check"><input type="checkbox" id="setMono"> <span data-i18n="monoLabel">Skrivmaskinsstil (lika breda bokstäver) i anteckningar</span></label>
+        <label class="check"><input type="checkbox" id="setUtc"> <span data-i18n="utcLabel">Visa världstid (UTC) bredvid namnet</span></label>
       </div>
       <div class="card">
         <h3>Outlook</h3>
-        <p data-i18n="outlookP">Varje påminnelse har en ”Outlook”-knapp. Den laddar ner en kalenderfil; öppna den och klicka på <em>Spara och stäng</em> i Outlook. Då påminner Outlook dig på den här datorn och i mobilen, även när Pinglapp är stängd. Intervallupprepningar följer med; för cron-scheman får Outlook bara nästa körning.</p>
+        <p data-i18n="outlookP">Varje påminnelse har en ”Outlook”-knapp. Den laddar ner en kalenderfil; öppna den och klicka på <em>Spara och stäng</em> i Outlook. Då påminner Outlook dig på den här datorn och i mobilen, även när Pinglapp är stängd. Upprepningar följer med, utom avancerade scheman (cron): då får Outlook bara nästa gång.</p>
         <label class="check"><input type="checkbox" id="setIcs"> <span data-i18n="icsLabel">Ladda ner en Outlook-kalenderpost automatiskt varje gång jag sparar en påminnelse</span></label>
       </div>
       <div class="card">
         <h3 data-i18n="dataH">Dina data</h3>
-        <p data-i18n="dataP">Allt sparas automatiskt så fort du ändrar något och finns kvar när du stänger fönstret. Det lagras bara på den här datorn. Påminnelser dyker bara upp medan Pinglapp är öppen, så minimera den i stället för att stänga den. Det du missat medan den var stängd visas när du öppnar den igen.</p>
+        <p data-i18n="dataP">Allt sparas automatiskt så fort du ändrar något och finns kvar när du stänger fönstret. Utan konto sparas det bara på den här enheten. Påminnelser kommer bara medan Pinglapp är öppen, så minimera den i stället för att stänga den. Det du missat medan den var stängd visas när du öppnar den igen.</p>
         <div id="fileCard" class="row" hidden>
           <p style="flex:1 1 100%" id="fileStatus"></p>
           <button class="btn primary" type="button" data-act="file-create" data-i18n="fileCreate">Skapa en sparfil…</button>
@@ -1210,13 +1225,13 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <label class="field"><span data-i18n="repeat">Upprepa</span>
         <select id="edRepeat">
           <option value="none" data-i18n="rNone">Upprepas inte</option>
-          <option value="interval" data-i18n="rInterval">Var N:e minut / timme</option>
+          <option value="interval" data-i18n="rInterval">Med några minuters eller timmars mellanrum</option>
           <option value="daily" data-i18n="repDaily">Varje dag</option>
           <option value="weekdays" data-i18n="rWeekdays">Varje vardag (mån–fre)</option>
           <option value="weekly" data-i18n="repWeekly">Varje vecka</option>
           <option value="monthly" data-i18n="repMonthly">Varje månad</option>
           <option value="yearly" data-i18n="repYearly">Varje år</option>
-          <option value="cron" data-i18n="rCron">Cron-schema</option>
+          <option value="cron" data-i18n="rCron">Avancerat schema (cron)</option>
         </select>
       </label>
       <label class="field"><span data-i18n="prio">Prioritet</span>
@@ -1242,7 +1257,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <input type="text" id="edCron" spellcheck="false" placeholder="0 9 * * 1-5">
       <div class="runs" id="edRuns"></div>
     </div>
-    <label class="field"><span data-i18n="tags">Taggar</span><input type="text" id="edTags" spellcheck="false" placeholder="#etl #prod"></label>
+    <label class="field"><span data-i18n="tags">Taggar</span><input type="text" id="edTags" spellcheck="false" placeholder="#jobb #hem" data-i18n-ph="tagsPh"></label>
     <label class="field"><span data-i18n="tabNotes">Anteckningar</span><textarea id="edNotes" placeholder="Detaljer, länkar…" data-i18n-ph="notesPh"></textarea></label>
     <label class="check"><input type="checkbox" id="edIcs"> <span data-i18n="edIcsLabel">Ladda också ner en Outlook-kalenderpost</span></label>
     <div class="modal-foot">
@@ -1256,8 +1271,19 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 
 <!-- keyboard help -->
 <div class="scrim" id="keysDlg" hidden>
-  <div class="modal" role="dialog" aria-label="Kortkommandon" data-i18n-aria="keysH">
-    <h2 data-i18n="keysH">Kortkommandon</h2>
+  <div class="modal" role="dialog" aria-label="Hjälp" data-i18n-aria="navHelp">
+    <h2 data-i18n="syntaxH">Så skriver du en påminnelse</h2>
+    <div class="keys">
+      <code data-i18n="sx1c">imorgon 10:00</code><span data-i18n="sx1">Datum: idag, imorgon, på fredag, 25/11, 2026-12-01, 24 dec, övermorgon. Engelska fungerar också: tomorrow, friday</span>
+      <code data-i18n="sx2c">om 45 min</code><span data-i18n="sx2">Om en stund: om 2 timmar, om 3 dagar, om en halvtimme</span>
+      <code data-i18n="sx5c">varje vardag kl 9</code><span data-i18n="sx5">Upprepning: varje dag, varje måndag, varje vecka, varje månad</span>
+      <code data-i18n="sx4c">var 30 min</code><span data-i18n="sx4">Med jämna mellanrum: var 2 timmar, varje timme</span>
+      <code data-i18n="sx8c">!!! eller p1</code><span data-i18n="sx8">Prioritet: ! låg, !! medel, !!! hög</span>
+      <code data-i18n="tagsPh">#jobb #hem</code><span data-i18n="sxTags">Taggar, för att sortera och hitta</span>
+      <code>14:00 UTC</code><span data-i18n="sx3">Tider i UTC (världstid) räknas om till din tid</span>
+      <code>cron `0 9 * * 1-5`</code><span data-i18n="sx6">Avancerat: cron-schema (minut timme dag månad veckodag)</span>
+    </div>
+    <h2 class="keys-h" data-i18n="keysH">Kortkommandon</h2>
     <div class="keys">
       <kbd>Ctrl K</kbd><span data-i18n="k1">Ny påminnelse (var du än är)</span>
       <kbd>Enter</kbd><span data-i18n="k2">Lägg till påminnelsen · <kbd>Ctrl Enter</kbd> spara som anteckning</span>
@@ -1278,17 +1304,6 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <kbd>Ctrl /</kbd><span data-i18n="k13">Anteckningar: kommentera eller avkommentera kodrader</span>
       <kbd>Shift Tab</kbd><span data-i18n="k14">Anteckningar: dra in (Tab) eller ut (Shift Tab) markerade rader</span>
       <kbd>Esc</kbd><span data-i18n="k12">Stäng dialoger</span>
-    </div>
-    <h2 style="margin-top:6px" data-i18n="syntaxH">Snabbsyntax</h2>
-    <div class="keys">
-      <code data-i18n="sx1c">imorgon 10:00</code><span data-i18n="sx1">Datum: idag, imorgon, på fredag, 25/11, 2026-12-01, 24 dec, övermorgon. Engelska fungerar också: tomorrow, friday</span>
-      <code data-i18n="sx2c">om 45 min</code><span data-i18n="sx2">Relativt: om 2 h, om 3 dagar, om en halvtimme</span>
-      <code>14:00 UTC</code><span data-i18n="sx3">Tider i UTC räknas om till din lokala tid</span>
-      <code data-i18n="sx4c">var 30 min</code><span data-i18n="sx4">Intervall: var 2 h, varje timme</span>
-      <code data-i18n="sx5c">varje vardag kl 9</code><span data-i18n="sx5">Upprepning: varje dag, varje måndag, varje vecka, varje månad</span>
-      <code>cron `0 9 * * 1-5`</code><span data-i18n="sx6">Cron-schema (minut timme dag månad veckodag)</span>
-      <code>#etl #prod</code><span data-i18n="tags">Taggar</span>
-      <code data-i18n="sx8c">!!! eller p1</code><span data-i18n="sx8">Prioritet: ! låg, !! medel, !!! hög</span>
     </div>
     <div class="modal-foot"><span class="spacer"></span><button class="btn primary" type="button" data-act="close-keys" data-i18n="close">Stäng</button></div>
   </div>
@@ -1353,12 +1368,61 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 <div id="printArea"></div>
 <div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="toastAct" hidden></button></div>
 
-<!-- first-run setup: explains why the browser asks for permission -->
+<!-- first-run welcome: what Pinglapp does → where things are kept (account first) → notifications.
+     The Google Drive / OneDrive guide (steps 0 and 1) is a side path from "where things are kept", and opens directly
+     from Settings and the save chip. Step labels ("Steg 1 av 3") are set by setupLabels() from data-flow. -->
 <div class="scrim" id="setupDlg" hidden>
-  <div class="modal setup" role="dialog" aria-labelledby="setupTitle0">
+  <div class="modal setup" role="dialog" aria-labelledby="setupTitlewelcome">
+    <div id="setupStepwelcome" class="setup-step modal-scroll" hidden>
+      <p class="step"></p>
+      <h2 id="setupTitlewelcome" data-i18n="welT">Välkommen till Pinglapp</h2>
+      <p data-i18n="welP">Pinglapp hjälper dig att komma ihåg saker. Skriv vad du vill bli påmind om och när, med vanliga ord, så säger Pinglapp till när det är dags.</p>
+      <div class="wel-example">
+        <span class="wel-type" data-i18n="welExample">Ring mamma imorgon kl 18</span>
+        <span class="wel-then" data-i18n="welExampleThen">Pinglapp påminner dig imorgon klockan 18.</span>
+      </div>
+      <ul class="wel-list">
+        <li data-i18n="welLi1"><strong>Påminnelser</strong> som kommer en gång eller varje dag, vecka eller månad.</li>
+        <li data-i18n="welLi2"><strong>Anteckningar och listor</strong>, till exempel en inköpslista du kan bocka av.</li>
+        <li data-i18n="welLi3"><strong>En tavla</strong> där du kan rita och planera, ensam eller tillsammans med andra.</li>
+      </ul>
+      <p class="hint" data-i18n="welFree">Gratis. Fungerar på dator, surfplatta och mobil.</p>
+      <div class="row">
+        <button class="btn primary" type="button" data-act="setup-welcome-next" data-i18n="welNext">Kom igång</button>
+        <button class="btn ghost" type="button" data-act="setup-done" data-i18n="welSkip">Hoppa över</button>
+      </div>
+    </div>
+    <div id="setupStepsafe" class="setup-step modal-scroll" hidden>
+      <p class="step"></p>
+      <h2 id="setupTitlesafe" data-i18n="safeT">Var ska dina saker sparas?</h2>
+      <div class="setup-acct" data-acct-guest hidden>
+        <h3 data-i18n="safeAcctT">Rekommenderas: ett gratis konto</h3>
+        <p data-i18n="safeAcctP">Allt du skriver sparas i ditt konto. Du ser samma saker på mobilen och datorn, och inget försvinner om du tappar bort mobilen eller byter dator.</p>
+        <div class="row">
+          <button class="btn primary" type="button" data-act="setup-acct" data-to="signup" data-i18n="acctCreate">Skapa ett konto</button>
+          <button class="btn" type="button" data-act="setup-acct" data-to="signin" data-i18n="setupAcctHave">Jag har redan ett konto</button>
+        </div>
+        <p class="hint"><a href="privacy.html" target="_blank" rel="noopener" data-i18n="setupAcctPrivacy">Så hanterar vi dina uppgifter</a></p>
+      </div>
+      <div class="setup-opt" id="safeDrive">
+        <h3 data-acct-only hidden data-i18n="safeDriveT">Utan konto: spara en kopia i Google Drive eller OneDrive</h3>
+        <h3 data-acct-off data-i18n="safeDriveTOff">Rekommenderas: spara en kopia i Google Drive eller OneDrive</h3>
+        <p data-i18n="safeDriveP">Pinglapp sparar en fil i en mapp som finns i molnet. Det tar några minuter att ställa in, och vi visar hur steg för steg.</p>
+        <div class="row"><button class="btn" type="button" data-act="setup-safe-drive" data-i18n="safeDriveBtn">Visa hur</button></div>
+      </div>
+      <div class="setup-opt">
+        <h3 data-i18n="safeLocalT">Bara på den här enheten</h3>
+        <p data-i18n="safeLocalP">Allt sparas i webbläsaren här. Det fungerar direkt, men det kan försvinna om webbläsarens data rensas eller om enheten går sönder.</p>
+        <p class="hint" id="safeLocalBackup" data-i18n="safeLocalBackup">Du kan ladda ner en säkerhetskopia när du vill under Inställningar → Dina data.</p>
+        <div class="row">
+          <button class="btn" type="button" data-act="setup-safe-local" data-acct-only hidden data-i18n="safeLocalBtn">Fortsätt utan konto</button>
+          <button class="btn" type="button" data-act="setup-safe-local" data-acct-off data-i18n="safeLocalBtnOff">Fortsätt så här</button>
+        </div>
+      </div>
+    </div>
     <!-- step 1: a synced folder (Google Drive) so the save file survives a broken or new computer -->
     <div id="setupStep0" class="setup-step modal-scroll">
-      <p class="step" data-i18n="step0">Steg 1 av 3</p>
+      <p class="step"></p>
       <h2 id="setupTitle0" data-i18n="driveT">Se till att du aldrig förlorar något</h2>
       <div class="setup-acct" data-acct-guest hidden>
         <h3 data-i18n="setupAcctT">Enklast: ett gratis konto</h3>
@@ -1415,7 +1479,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       </div>
     </div>
     <div id="setupStep1" class="setup-step" hidden>
-      <p class="step" data-i18n="step1">Steg 2 av 3</p>
+      <p class="step"></p>
       <h2 id="setupTitle1" data-i18n="setupT1">Spara dina påminnelser säkert</h2>
       <p data-acct-only hidden data-i18n="setupP1Acct">Utan konto sparas allt du skriver bara här på din dator, i webbläsaren. Det kan försvinna om webbläsarens data rensas eller om du byter dator.</p>
       <p data-acct-off data-i18n="setupP1">Pinglapp har ingen server och inget konto. Allt du skriver sparas bara här på din dator, i webbläsaren. Det betyder att det kan försvinna om webbläsarens data rensas eller om du byter dator.</p>
@@ -1448,7 +1512,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       </div>
     </div>
     <div id="setupStep2" class="setup-step" hidden>
-      <p class="step" data-i18n="step2">Steg 3 av 3</p>
+      <p class="step"></p>
       <h2 id="setupTitle2" data-i18n="setupT2">Få en avisering när det är dags</h2>
       <p data-i18n="setupP3">Tillåt aviseringar så att dina påminnelser syns i hörnet av skärmen, även när Pinglapp ligger bakom andra fönster.</p>
       <ul>
@@ -2813,12 +2877,12 @@ const T = {
     bannerNotif: '<strong>Turn on notifications</strong> so your reminders show up in the corner of the screen, even when Pinglapp is behind other windows. Pinglapp only uses them for reminders you created yourself, and nothing is sent over the internet.',
     allowNotif: 'Allow notifications', notNow: 'Not now',
     bannerFile: '<strong>Pinglapp needs a click to keep saving to your file.</strong> The browser asks for permission again after a restart. That’s a security feature, not an error. Choose “Allow on every visit” to skip the question. Nothing is lost; everything stays in the browser meanwhile.',
-    reconnect: 'Reconnect', quickPh: 'Check DAG failures every 30 min #airflow !!', add: 'Add', more: 'More…',
+    reconnect: 'Reconnect', quickPh: 'E.g. Call mum tomorrow at 6pm', add: 'Add', more: 'More…',
     fUpcoming: 'Upcoming', fToday: 'Today', fOverdue: 'Overdue', fRepeat: 'Recurring', fDone: 'Done', fAll: 'All',
     searchPh: 'Search  /', searchAria: 'Search reminders', noteSearchPh: 'Search notes',
-    newNote: 'New note', dailyLog: 'Daily log', dailyLogTitle: 'Today’s standup note, filled from your reminders', delete: 'Delete',
+    newNote: 'New note', dailyLog: 'Daily log', dailyLogTitle: 'A note for today with what you’ve done and what’s next, filled in from your reminders', delete: 'Delete',
     edit: 'Edit', copy: 'Copy', remindMe: 'Remind me…',
-    notePh: '# Title\n\nWrite anything. Markdown works: **bold**, `code`, ```sql blocks```, - [ ] tasks, | tables |', noteAria: 'Note text',
+    notePh: '# Title\n\nWrite anything. Use the buttons above for bold text, lists and checklists.', noteAria: 'Note text',
     notifications: 'Notifications', testAlert: 'Send a test reminder', soundLabel: 'Play a sound when a reminder is due',
     lookH: 'Look and feel', themeAria: 'Theme', palLagoon: 'Calm teal, the default', palFjord: 'Cool blue and slate', palSolarized: 'The classic editor palette',
     palSunsetN: 'Sunset', palSunset: 'Warm coral, peach and plum', palForestN: 'Forest', palForest: 'Moss, pines and bark',
@@ -2827,29 +2891,44 @@ const T = {
     palNatureN: 'Nature', palNature: 'Spring green, sky blue and flowers', palMountainN: 'Mountain', palMountain: 'Slate, ice and mountain peaks',
     palDesertN: 'Desert', palDesert: 'Terracotta, sand and dunes',
     mode: 'Mode', modeAria: 'Light or dark mode', light: 'Light', dark: 'Dark',
-    monoLabel: 'Monospace font in the note editor', utcLabel: 'Show the UTC clock next to the name',
-    outlookP: 'Every reminder has an “Outlook” action. It downloads a calendar file; open it and click <em>Save &amp; Close</em> in Outlook. Outlook then reminds you on this PC and your phone, even when Pinglapp is closed. Interval repeats are included; for cron schedules Outlook gets the next run only.',
+    monoLabel: 'Typewriter-style letters (all the same width) in notes', utcLabel: 'Show world time (UTC) next to the name',
+    outlookP: 'Every reminder has an “Outlook” action. It downloads a calendar file; open it and click <em>Save &amp; Close</em> in Outlook. Outlook then reminds you on this computer and your phone, even when Pinglapp is closed. Repeats come along too, except advanced (cron) schedules: Outlook then gets only the next time.',
     icsLabel: 'Download an Outlook calendar entry automatically each time I save a reminder',
-    dataH: 'Your data', dataP: 'Everything saves automatically the moment you change it, and stays saved when you close the window. It is kept on this PC only. Reminders pop up only while Pinglapp is open, so minimise it rather than closing it. Anything missed while it was closed appears when you open it again.',
+    dataH: 'Your data', dataP: 'Everything saves automatically the moment you change it, and stays saved when you close the window. Without an account, it is kept on this device only. Reminders only come while Pinglapp is open, so minimise it rather than closing it. Anything missed while it was closed appears when you open it again.',
     fileCreate: 'Create a save file…', fileOpen: 'Use an existing save file…', fileStop: 'Stop using the file',
     export: 'Download backup (JSON)', exportCsv: 'Export reminders (CSV)', import: 'Restore from backup…',
     snapsLabel: 'Automatic daily copies (last 14 days)', snapsAria: 'Automatic copies', snapRestore: 'Restore this copy', rerunSetup: 'Run the save setup again', driveGuideBtn: 'Guide: save in Google Drive or OneDrive so nothing is ever lost',
     startupH: 'Open Pinglapp when the browser starts', startupP: 'Then Pinglapp is always running, so you never miss a reminder. A web page isn’t allowed to change the browser’s startup settings itself, so this takes three quick steps; the button shows you how.',
     showMe: 'Show me how', what: 'What', whatPh: 'What do you want to be reminded about?', when: 'When',
     plus1h: '+1 hour', plus3h: '+3 hours', tonight19: 'Tonight 19:00', tomorrow9: 'Tomorrow 09:00', monday9: 'Monday 09:00',
-    repeat: 'Repeat', rNone: 'Does not repeat', rInterval: 'Every N minutes / hours', rWeekdays: 'Every weekday (Mon–Fri)', rCron: 'Cron schedule',
+    repeat: 'Repeat', rNone: 'Does not repeat', rInterval: 'Every few minutes or hours', rWeekdays: 'Every weekday (Mon–Fri)', rCron: 'Advanced schedule (cron)',
     prio: 'Priority', pNone: 'None', pLow: 'Low', pMed: 'Medium', pHigh: 'High', repeatEvery: 'Repeat every', minutes: 'minutes', hours: 'hours',
     cronLabel: 'Cron expression (minute hour day month weekday)', tags: 'Tags', notesPh: 'Details, links…',
     edIcsLabel: 'Also download an Outlook calendar entry', cancel: 'Cancel', save: 'Save',
     k1: 'New reminder (from anywhere)', k2: 'Add the reminder · <kbd>Ctrl Enter</kbd> save as a note', k3: 'Move down / up the list',
     k4: 'Mark selected done', k5: 'Snooze selected', k6: 'Edit selected', k7: 'Open the first link in the selected reminder', k8: 'Delete selected',
     k9: 'Search', k10: 'Reminders · Notes · Settings', k11: 'Notes: stop writing and show the whole note formatted', k12: 'Close dialogs',
-    syntaxH: 'Quick add syntax',
+    syntaxH: 'How to write a reminder', sxTags: 'Tags, to sort and find things', tagsPh: '#work #home',
     sx1c: 'tomorrow 10:00', sx1: 'Dates: today, tomorrow, friday, 25/11, 2026-12-01, dec 24. Swedish works too: imorgon, på torsdag',
-    sx2c: 'in 45 min', sx2: 'Relative: in 2h, in 3 days, in half an hour', sx3: 'Times in UTC are converted to your local time',
-    sx4c: 'every 30 min', sx4: 'Intervals: every 2h, every hour', sx5c: 'every weekday at 9', sx5: 'Repeats: every day, every monday, every week, every month',
-    sx6: 'Cron schedule (minute hour day month weekday)', sx8c: '!!! or p1', sx8: 'Priority: ! low, !! medium, !!! high', close: 'Close',
-    step0: 'Step 1 of 3', driveT: 'Make sure you never lose anything',
+    sx2c: 'in 45 min', sx2: 'From now: in 2 hours, in 3 days, in half an hour', sx3: 'Times in UTC (world time) are converted to your time',
+    sx4c: 'every 30 min', sx4: 'At regular times: every 2 hours, every hour', sx5c: 'every weekday at 9', sx5: 'Repeats: every day, every monday, every week, every month',
+    sx6: 'Advanced: cron schedule (minute hour day month weekday)', sx8c: '!!! or p1', sx8: 'Priority: ! low, !! medium, !!! high', close: 'Close',
+    welT: 'Welcome to Pinglapp',
+    welP: 'Pinglapp helps you remember things. Write what you want to be reminded about and when, in everyday words, and Pinglapp tells you when it’s time.',
+    welExample: 'Call mum tomorrow at 6pm', welExampleThen: 'Pinglapp reminds you tomorrow at 6 pm.',
+    welLi1: '<strong>Reminders</strong> that come once, or every day, week or month.',
+    welLi2: '<strong>Notes and lists</strong>, like a shopping list you can tick off.',
+    welLi3: '<strong>A whiteboard</strong> where you can draw and plan, alone or together with others.',
+    welFree: 'Free. Works on computers, tablets and phones.', welNext: 'Get started', welSkip: 'Skip',
+    safeT: 'Where should your things be kept?', safeAcctT: 'Recommended: a free account',
+    safeAcctP: 'Everything you write is kept in your account. You see the same things on your phone and your computer, and nothing is lost if you lose your phone or get a new computer.',
+    safeDriveT: 'Without an account: keep a copy in Google Drive or OneDrive', safeDriveTOff: 'Recommended: keep a copy in Google Drive or OneDrive',
+    safeDriveP: 'Pinglapp saves a file in a folder that is kept in the cloud. It takes a few minutes to set up, and we show you how, step by step.',
+    safeDriveBtn: 'Show me how', safeLocalT: 'Only on this device',
+    safeLocalP: 'Everything is kept in the browser here. It works straight away, but it can be lost if the browser’s data is cleared or the device breaks.',
+    safeLocalBackup: 'You can download a backup whenever you like under Settings → Your data.',
+    safeLocalBtn: 'Continue without an account', safeLocalBtnOff: 'Continue like this',
+    driveT: 'Make sure you never lose anything',
     driveP1: 'Pinglapp saves everything in the browser on this computer. If the computer breaks, you switch computers or the browser is cleared, it can all disappear. The fix is simple: let Pinglapp keep a copy in a folder that syncs to the cloud, like <strong>Google Drive</strong> or <strong>OneDrive</strong>. Then your reminders and notes survive even if the computer breaks, and the same file is on all your computers. Both are free.',
     cloudPick: 'Choose the service you want to use:', cloudPickAria: 'Cloud service',
     odS1: '<strong>Check whether you already have OneDrive.</strong> Windows 10 and 11 have it built in: look for the cloud icon at the bottom right, by the clock, or for <strong>OneDrive</strong> in the left column of File Explorer. On a Mac, download it from <a href="https://www.microsoft.com/microsoft-365/onedrive/download" target="_blank" rel="noopener">microsoft.com/onedrive</a> or the App Store.',
@@ -2871,7 +2950,7 @@ const T = {
     driveOtherP: 'It works the same way. Create a folder called Pinglapp in the folder that syncs and choose it in the next step. What matters is that the file is in a folder that syncs to the cloud, not only on the computer.',
     driveDownload: 'Download Google Drive', driveNext: 'Next: choose where the file is saved',
     setupNoFileDrive: 'When the backup has downloaded, move it from your Downloads folder to the <strong>Pinglapp</strong> folder in Google Drive or OneDrive. Then it’s safe in the cloud even if the computer breaks.',
-    step1: 'Step 2 of 3', setupT1: 'Keep your reminders safe',
+    setupT1: 'Keep your reminders safe',
     setupP1: 'Pinglapp has no server and no account. Everything you write is saved only here on your computer, in the browser. That means it can disappear if the browser’s data is cleared or you switch computers.',
     setupP2: 'That’s why Pinglapp also keeps a copy in a file you choose. Click <strong>Choose a place and save</strong> and pick the <strong>Pinglapp</strong> folder you created in Google Drive (<strong>My Drive → Pinglapp</strong>) or OneDrive (<strong>OneDrive → Pinglapp</strong>), or another folder that syncs, like iCloud Drive or Dropbox. Then everything survives even if the computer breaks, and you can use Pinglapp on several computers.',
     setupWhy: 'Why does the browser ask for permission?',
@@ -2883,7 +2962,7 @@ const T = {
     setupHint: 'Want the same reminders and notes on several computers or in several browsers? Put the file in a folder that syncs, such as Google Drive. Then choose “I already have a save file” in the other browsers and open the same Pinglapp-data.json. Changes carry over automatically.',
     setupSkip: 'Skip (not recommended)', next: 'Next',
     setupNoFileBrave: 'Brave turns this off by default. You can turn it on: paste <code>brave://flags/#file-system-access-api</code> into the address bar, choose <strong>Enabled</strong> and restart Brave. Then run the save setup again.',
-    setupNotifOn: '✓ Notifications are already on in this browser.',step2: 'Step 3 of 3', setupT2: 'Get a notification when it’s time',
+    setupNotifOn: '✓ Notifications are already on in this browser.', stepOf: (i, n) => `Step ${i} of ${n}`, setupT2: 'Get a notification when it’s time',
     setupP3: 'Allow notifications so your reminders show up in the corner of the screen, even when Pinglapp is behind other windows.',
     setupLi5: 'Pinglapp uses notifications only for reminders you created yourself. No ads, no news.',
     setupLi6: 'The notifications are created here on your computer. Nothing is sent over the internet.',
@@ -2942,7 +3021,7 @@ const T = {
     undo: 'Undo', undone: 'Undone', loadedFromFile: 'Picked up changes from the save file', notPingFile: 'That file is not a Pinglapp save file',
     savingTo: n => 'Saving to ' + n, couldNotCreate: e => 'Could not create the file: ' + e, couldNotOpen: e => 'Could not open the file: ' + e,
     fileStopped: 'Stopped saving to the file. The file itself is kept',
-    fileNone: 'Extra safety: also keep a save file on your PC. It updates with every change and survives even if the browser’s data is cleared. Put it in your Pinglapp folder in Google Drive or OneDrive (or another folder that syncs to the cloud) and it survives even if the computer breaks. You can then use the same reminders and notes on several computers and browsers: choose “Use an existing save file” in each of them.',
+    fileNone: 'Extra safety: also keep a save file on your computer. It updates with every change and survives even if the browser’s data is cleared. Put it in your Pinglapp folder in Google Drive or OneDrive (or another folder that syncs to the cloud) and it survives even if the computer breaks. You can then use the same reminders and notes on several computers and browsers: choose “Use an existing save file” in each of them.',
     fileOk: (n, w) => `✓ Also saving to “${n}”${w ? ', last saved ' + w : ''}.`,
     fileNeeds: n => `Save file “${n}” needs one click to reconnect (the browser asks again after a restart).`,
     fileErr: (n, e) => `Couldn’t write to “${n}”: ${e}`,
@@ -2954,20 +3033,20 @@ const T = {
     nothingToPreview: 'Nothing to preview yet.', copied: 'Copied', copyFailed: 'Copy failed. Select the text and press Ctrl+C',
     snMin: n => n + ' minutes', snHour: n => n === 1 ? '1 hour' : n + ' hours', snEvening: 'This evening (19:00)', snTomorrow: 'Tomorrow 09:00', snMonday: 'Next Monday 09:00',
     snoozedUntil: w => 'Snoozed until ' + w, reminderDeleted: 'Reminder deleted', confirmStop: x => `Stop repeating “${x}”?`,
-    quickHint: 'Write it like you would say it. <kbd>Enter</kbd> adds it, <kbd>Ctrl Enter</kbd> saves it as a note, <kbd>?</kbd> shows the syntax: <code>every 30 min</code>, <code>cron `0 9 * * 1-5`</code>, <code>#tag</code>, <code>!!!</code>',
-    noTime: 'No time found yet. Enter lets you pick one, or add “tomorrow 9:00”, “in 20 min” or “every 2h”.',
-    savedAsNote: '✓ Saved as a note', setFor: w => 'Set for ' + w,
+    quickHint: 'Write what and when, the way you would say it, for example <em>“buy milk in 2 hours”</em> or <em>“gym every monday 6pm”</em>. Press <kbd>Enter</kbd> to add it. <button type="button" class="linkish" data-act="keys">More ways to write</button>',
+    noTime: 'No time yet. Press Enter to pick one, or add, for example, “tomorrow 9:00” or “in 20 min”.',
+    savedAsNote: '✓ Saved as a note', setFor: w => 'I’ll remind you ' + w,
     count: (u, o) => u + ' upcoming' + (o ? ' · ' + o + ' overdue' : ''),
     gOverdue: 'Overdue', gToday: 'Today', gTomorrow: 'Tomorrow', gWeek: 'Next 7 days', gLater: 'Later', gDone: 'Done',
-    examples: ['Review PR DATA-142 tomorrow 10:00 #review', 'Check pipeline runs every 30 min #etl !!', 'Standup cron `45 8 * * 1-5`', 'Deploy window friday 14:00 UTC #prod !!!', 'Call mum tomorrow 18:00'],
-    emptyFresh: 'No reminders yet', emptyNone: 'Nothing matches', emptyFreshP: 'Type one in the box above and press Enter. Click an example to try it:', emptyNoneP: 'Try another filter, tag or search.',
+    examples: ['Call mum tomorrow at 6pm', 'Take medicine every day at 8', 'Buy milk in 2 hours', 'Gym every monday 6pm #health', 'Dentist on friday 2:30pm !!'],
+    emptyFresh: 'No reminders yet', emptyNone: 'Nothing matches', emptyFreshP: 'Type one in the box above and press Enter, or tap an example to try it:', emptyNoneP: 'Try another filter, tag or search.',
     tagOverdue: 'Overdue', tagSnoozed: 'Snoozed', doneAt: w => 'Done ' + w,
     reopen: 'Reopen', markDoneTitle: 'Mark as done (x)', stopRepeating: 'Stop repeating', doneBtn: '✓ Done', snooze: 'Snooze', snoozeTitle: 'Snooze (s)',
     outlookTitle: 'Download as an Outlook calendar entry', editTitle: 'Edit (e)', deleteTitle: 'Delete (Del)',
-    edNew: 'New reminder', edEdit: 'Edit reminder', neverRuns: 'That schedule never runs', nextRuns: 'Next runs: ',
+    edNew: 'New reminder', edEdit: 'Edit reminder', neverRuns: 'That schedule never comes round', nextRuns: 'Next times: ',
     writeWhat: 'Write what the reminder is about', fixCron: 'Fix the cron expression first', enterEvery: 'Enter how often it repeats', pickDate: 'Pick a date and time',
     confirmPast: 'That time has already passed, so the reminder will pop up right away. Save anyway?', saved: 'Saved',
-    icsCron: 'Downloaded the next run only (Outlook can’t read cron). Open it and click Save & Close',
+    icsCron: 'Downloaded the next time only (Outlook can’t read advanced schedules). Open it and click Save & Close',
     icsDone: 'Calendar file downloaded. Open it and click Save & Close in Outlook', csvDone: 'CSV downloaded',
     notifOn: 'Notifications on', notifBlocked: 'Notifications blocked', notifInWindow: 'In-window alerts only', notifTurnOn: 'Turn on notifications',
     stGranted: 'Notifications are on. Reminders also appear as an alert in this window.',
@@ -2986,7 +3065,7 @@ const T = {
     titleCount: n => n + ' reminder' + (n === 1 ? '' : 's'),
     noteEmpty: '(empty note)', noNotesMatch: 'No notes match.', noNotes: 'No notes yet.', pin: 'Pin', unpin: 'Unpin',
     dataCount: (r, n) => `${r} reminders · ${n} notes`, noteEdited: w => 'Edited ' + w + ' · saves automatically',
-    noteStart: 'Start typing to create a note. Markdown works, and it saves automatically.', saving: 'Saving…', savedAt: x => 'Saved ✓ ' + x,
+    noteStart: 'Start typing to create a note. It saves automatically.', saving: 'Saving…', savedAt: x => 'Saved ✓ ' + x,
     newNoteStatus: 'New note. Start typing.', openedLog: 'Opened today’s log',
     dTitle: 'Daily log', dDone: 'Done', dToday: 'Today', dBlockers: 'Blockers', dNotes: 'Notes', logCreated: 'Daily log created from your reminders',
     snd_chime: 'Chime', snd_urgent: 'Urgent', snd_bell: 'Bell', snd_marimba: 'Marimba', snd_soft: 'Soft', snd_pop: 'Pop',
@@ -3003,7 +3082,7 @@ const T = {
     confirmPurge: x => `Delete “${x}” forever? This can’t be undone.`, confirmEmptyTrash: n => `Delete ${n} notes forever? This can’t be undone.`, trashEmptied: 'Trash emptied',
     histNow: 'Current version', histSize: (len, d) => `${len} characters · ${d >= 0 ? '+' : '−'}${Math.abs(d)} compared with now`,
     histNone: 'No earlier versions yet. They’re saved as you change the note.', histRestored: 'Version restored. The one you had before is still in the history.',
-    tplBlank: 'Blank note', tplMeeting: 'Meeting notes', tplIncident: 'Incident / troubleshooting', tplRoutine: 'Routine (step by step)',
+    tplBlank: 'Blank note', tplMeeting: 'Meeting notes', tplIncident: 'Problem and troubleshooting', tplRoutine: 'Routine (step by step)',
     tplSave: 'Save this note as a template', tplDelete: 'Delete one of your templates…', tplDeleteOne: x => `Delete the template “${x}”`,
     tplSaved: x => `“${x}” saved as a template. You’ll find it under ▾ next to New note.`, tplDeleted: 'Template deleted', confirmTplDelete: x => `Delete the template “${x}”?`,
     tplMeetingBody: '# Meeting: Topic – {date}\n\n**Attendees:** \n**Purpose:** \n\n## Agenda\n1. \n\n## Notes\n- \n\n## Decisions\n- \n\n## To do\n- [ ] ',
@@ -3066,20 +3145,20 @@ const T = {
     nothingToPreview: 'Inget att förhandsvisa än.', copy: 'Kopiera', copied: 'Kopierat', copyFailed: 'Kopieringen misslyckades. Markera texten och tryck Ctrl+C',
     snMin: n => n + ' minuter', snHour: n => n === 1 ? '1 timme' : n + ' timmar', snEvening: 'I kväll (19:00)', snTomorrow: 'Imorgon 09:00', snMonday: 'Nästa måndag 09:00',
     snoozedUntil: w => 'Uppskjuten till ' + w, reminderDeleted: 'Påminnelsen togs bort', confirmStop: x => `Sluta upprepa ”${x}”?`,
-    quickHint: 'Skriv som du skulle säga det. <kbd>Enter</kbd> lägger till, <kbd>Ctrl Enter</kbd> sparar som anteckning, <kbd>?</kbd> visar syntaxen: <code>var 30 min</code>, <code>cron `0 9 * * 1-5`</code>, <code>#tagg</code>, <code>!!!</code>',
-    noTime: 'Ingen tid hittad än. Enter låter dig välja en, eller lägg till ”imorgon 9:00”, ”om 20 min” eller ”var 2 h”.',
-    savedAsNote: '✓ Sparad som anteckning', setFor: w => 'Inställd på ' + w,
+    quickHint: 'Skriv vad och när, som du skulle säga det, till exempel <em>”handla mjölk om 2 timmar”</em> eller <em>”träning varje måndag 18:00”</em>. Tryck <kbd>Enter</kbd> för att lägga till. <button type="button" class="linkish" data-act="keys">Fler sätt att skriva</button>',
+    noTime: 'Ingen tid än. Tryck Enter för att välja en, eller lägg till till exempel ”imorgon 9:00” eller ”om 20 min”.',
+    savedAsNote: '✓ Sparad som anteckning', setFor: w => 'Påminner dig ' + w,
     count: (u, o) => u + ' kommande' + (o ? ' · ' + o + ' försenade' : ''),
     gOverdue: 'Försenade', gToday: 'Idag', gTomorrow: 'Imorgon', gWeek: 'Närmaste 7 dagarna', gLater: 'Senare', gDone: 'Klara',
-    examples: ['Granska PR DATA-142 imorgon 10:00 #review', 'Kolla pipelinekörningar var 30 min #etl !!', 'Standup cron `45 8 * * 1-5`', 'Deployfönster på fredag 14:00 UTC #prod !!!', 'Ring mamma imorgon 18'],
-    emptyFresh: 'Inga påminnelser än', emptyNone: 'Inget matchar', emptyFreshP: 'Skriv en i rutan ovan och tryck Enter. Klicka på ett exempel för att testa:', emptyNoneP: 'Prova ett annat filter, en annan tagg eller sökning.',
+    examples: ['Ring mamma imorgon kl 18', 'Ta medicin varje dag kl 8', 'Handla mjölk om 2 timmar', 'Träning varje måndag 18:00 #hälsa', 'Tandläkaren på fredag 14:30 !!'],
+    emptyFresh: 'Inga påminnelser än', emptyNone: 'Inget matchar', emptyFreshP: 'Skriv en i rutan ovan och tryck Enter, eller tryck på ett exempel för att prova:', emptyNoneP: 'Prova ett annat filter, en annan tagg eller sökning.',
     tagOverdue: 'Försenad', tagSnoozed: 'Uppskjuten', doneAt: w => 'Klar ' + w,
     reopen: 'Öppna igen', markDoneTitle: 'Markera som klar (x)', stopRepeating: 'Sluta upprepa', doneBtn: '✓ Klar', snooze: 'Skjut upp', snoozeTitle: 'Skjut upp (s)',
     outlookTitle: 'Ladda ner som en Outlook-kalenderpost', edit: 'Redigera', editTitle: 'Redigera (e)', delete: 'Ta bort', deleteTitle: 'Ta bort (Del)',
-    edNew: 'Ny påminnelse', edEdit: 'Redigera påminnelse', neverRuns: 'Det schemat körs aldrig', nextRuns: 'Nästa körningar: ',
+    edNew: 'Ny påminnelse', edEdit: 'Redigera påminnelse', neverRuns: 'Det schemat inträffar aldrig', nextRuns: 'Nästa gånger: ',
     writeWhat: 'Skriv vad påminnelsen gäller', fixCron: 'Rätta cron-uttrycket först', enterEvery: 'Ange hur ofta den upprepas', pickDate: 'Välj datum och tid',
     confirmPast: 'Den tiden har redan passerat, så påminnelsen dyker upp direkt. Spara ändå?', saved: 'Sparat',
-    icsCron: 'Laddade bara ner nästa körning (Outlook kan inte läsa cron). Öppna filen och klicka på Spara och stäng',
+    icsCron: 'Laddade bara ner nästa gång (Outlook kan inte läsa avancerade scheman). Öppna filen och klicka på Spara och stäng',
     icsDone: 'Kalenderfilen har laddats ner. Öppna den och klicka på Spara och stäng i Outlook', csvDone: 'CSV-filen har laddats ner',
     notifOn: 'Aviseringar på', notifBlocked: 'Aviseringar blockerade', notifInWindow: 'Bara aviseringar i fönstret', notifTurnOn: 'Slå på aviseringar',
     stGranted: 'Aviseringar är på. Påminnelser visas också som en ruta i det här fönstret.',
@@ -3098,10 +3177,10 @@ const T = {
     titleCount: n => n + (n === 1 ? ' påminnelse' : ' påminnelser'),
     noteEmpty: '(tom anteckning)', noNotesMatch: 'Inga anteckningar matchar.', noNotes: 'Inga anteckningar än.', pin: 'Fäst', unpin: 'Lossa',
     dataCount: (r, n) => `${r} påminnelser · ${n} anteckningar`, noteEdited: w => 'Ändrad ' + w + ' · sparas automatiskt',
-    noteStart: 'Börja skriva för att skapa en anteckning. Markdown fungerar, och den sparas automatiskt.', saving: 'Sparar…', savedAt: x => 'Sparad ✓ ' + x,
+    noteStart: 'Börja skriva för att skapa en anteckning. Den sparas automatiskt.', saving: 'Sparar…', savedAt: x => 'Sparad ✓ ' + x,
     newNoteStatus: 'Ny anteckning. Börja skriva.', openedLog: 'Öppnade dagens logg',
     dTitle: 'Dagslogg', dDone: 'Klart', dToday: 'Idag', dBlockers: 'Hinder', dNotes: 'Anteckningar', logCreated: 'Dagsloggen skapades från dina påminnelser',
-    setupNotifOn: '✓ Aviseringar är redan på i den här webbläsaren.',
+    setupNotifOn: '✓ Aviseringar är redan på i den här webbläsaren.', stepOf: (i, n) => `Steg ${i} av ${n}`,
     snd_chime: 'Klang', snd_urgent: 'Brådskande', snd_bell: 'Klocka', snd_marimba: 'Marimba', snd_soft: 'Mjuk', snd_pop: 'Plopp',
     snd_beep: 'Pip', snd_digital: 'Digital', snd_alarm: 'Larm', sndNone: 'Tyst',
     loopOnce: 'En gång', loopUntil: 'Om och om igen tills jag svarar', useDefault: x => `Standard (${x})`,
@@ -3116,7 +3195,7 @@ const T = {
     confirmPurge: x => `Ta bort ”${x}” för alltid? Det går inte att ångra.`, confirmEmptyTrash: n => `Ta bort ${n} anteckningar för alltid? Det går inte att ångra.`, trashEmptied: 'Papperskorgen är tömd',
     histNow: 'Nuvarande version', histSize: (len, d) => `${len} tecken · ${d >= 0 ? '+' : '−'}${Math.abs(d)} jämfört med nu`,
     histNone: 'Inga tidigare versioner än. De sparas när du ändrar i anteckningen.', histRestored: 'Versionen är återställd. Den du hade innan finns kvar i historiken.',
-    tplBlank: 'Tom anteckning', tplMeeting: 'Mötesanteckning', tplIncident: 'Incident / felsökning', tplRoutine: 'Rutin (steg för steg)',
+    tplBlank: 'Tom anteckning', tplMeeting: 'Mötesanteckning', tplIncident: 'Problem och felsökning', tplRoutine: 'Rutin (steg för steg)',
     tplSave: 'Spara den här anteckningen som mall', tplDelete: 'Ta bort en egen mall…', tplDeleteOne: x => `Ta bort mallen ”${x}”`,
     tplSaved: x => `”${x}” är sparad som mall. Du hittar den under ▾ bredvid Ny anteckning.`, tplDeleted: 'Mallen togs bort', confirmTplDelete: x => `Ta bort mallen ”${x}”?`,
     tplMeetingBody: '# Möte: Ämne – {datum}\n\n**Deltagare:** \n**Syfte:** \n\n## Agenda\n1. \n\n## Anteckningar\n- \n\n## Beslut\n- \n\n## Att göra\n- [ ] ',
@@ -3178,6 +3257,7 @@ function applyLang() {
   swap('data-i18n-title', 'title');
   swap('data-i18n-aria', 'aria-label');
   document.querySelectorAll('[data-lang-set]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.langSet === lang())));
+  const sd = document.getElementById('setupDlg'); if (sd && !sd.hidden) setupLabels();
 }
 
 /*SYNC-START*/
@@ -7817,6 +7897,9 @@ document.addEventListener('click', e => {
     case 'file-stop': fileStop(); break;
     case 'snap-restore': restoreSnapshot(); break;
     case 'setup-open-wizard': openSetup(0, true); break;
+    case 'setup-welcome-next': openSetup('safe'); break;
+    case 'setup-safe-drive': openSetup(0, false, 'firstDrive'); break;
+    case 'setup-safe-local': openSetup(2); break;
     case 'setup-drive-next': openSetup(1); break;
     case 'setup-acct': finishSetup(); acctOpen(b.dataset.to); break;   // the banner still offers notifications later
     case 'cloud-pick': S.settings.cloud = b.dataset.cloudSet; save(); setCloud(); break;
@@ -7867,22 +7950,34 @@ document.addEventListener('click', e => {
   }
 });
 
-// ---------------------------------------------------------------- first-run setup (save file + notifications)
-// On first run, steps with nothing to do are skipped silently. When opened on purpose ("Run the save setup again"
-// or the save chip), every step is shown and explains what this browser can and can't do, so the click never looks dead.
+// ---------------------------------------------------------------- first-run welcome (account, save file, notifications)
+// Steps: 'welcome' (what Pinglapp does), 'safe' (where things are kept: account first, a save file in Google Drive /
+// OneDrive, or only this device), 0 + 1 (the save-file guide), 2 (notifications). A first visit walks
+// welcome → safe → 2, with 0 → 1 as a side path from 'safe'. Settings and the save chip open the guide at 0 (0 → 1 → 2).
+// On first run, steps with nothing to do are skipped silently. When opened on purpose, every step is shown and explains
+// what this browser can and can't do, so the click never looks dead.
 let setupForced = false;
-function openSetup(step, force) {
+const SETUP_FLOWS = { first: ['welcome', 'safe', 2], firstDrive: ['welcome', 'safe', 0, 1, 2], guide: [0, 1, 2] };
+function openSetup(step, force, flow) {
   if (force) setupForced = true;
+  const dlg = $('setupDlg');
+  if (flow) dlg.dataset.flow = flow;
+  else if (step === 'welcome') dlg.dataset.flow = 'first';
+  else if (step === 0 || !SETUP_FLOWS[dlg.dataset.flow]) dlg.dataset.flow = 'guide';
   const perm = canNotify() ? Notification.permission : 'unsupported';
-  // With accounts switched on, step 1 offers a free account first (the save file stays as the no-account way).
+  // With accounts switched on, a free account is offered first (the save file stays as the no-account way).
   const accounts = typeof acct !== 'undefined' && !!acct.project, signedIn = accounts && !!acct.session;
   document.querySelectorAll('#setupDlg [data-acct-guest]').forEach(el => { el.hidden = !accounts || signedIn; });
   document.querySelectorAll('#setupDlg [data-acct-only]').forEach(el => { el.hidden = !accounts; });
   document.querySelectorAll('#setupDlg [data-acct-off]').forEach(el => { el.hidden = accounts; });
-  if (!setupForced) {
-    if (step <= 1 && (fileHandle || signedIn)) step = 2;    // signed in: everything is already kept in the account
-    if (step === 2 && perm !== 'default') { finishSetup(); return; }
-  }
+  // Coming from 'safe', the account was offered a moment ago: the guide doesn't repeat it.
+  if (dlg.dataset.flow === 'firstDrive') document.querySelectorAll('#setupStep0 [data-acct-guest]').forEach(el => { el.hidden = true; });
+  $('safeDrive').hidden = !fileApi;
+  // signed in (or with a save file): everything is already kept; the browser already answered: nothing to ask
+  const skip = s => !setupForced && (((s === 'safe' || s === 0 || s === 1) && (fileHandle || signedIn)) || (s === 2 && perm !== 'default'));
+  dlg.dataset.steps = JSON.stringify(SETUP_FLOWS[dlg.dataset.flow].filter(s => !skip(s)));
+  if (skip(step) && step !== 2) step = 2;
+  if (skip(step)) { finishSetup(); return; }
   $('setupFileOk').hidden = !fileApi;
   $('setupFileNo').hidden = fileApi;
   $('setupNoFileBrave').hidden = !navigator.brave;
@@ -7893,13 +7988,23 @@ function openSetup(step, force) {
   $('setupNotifState').hidden = ask;
   $('setupNotifState').textContent = perm === 'granted' ? t('setupNotifOn') : perm === 'denied' ? t('stDenied', browserName()) : ask ? '' : t('stUnsupported');
   setCloud();
-  $('setupStep0').hidden = step !== 0;
-  $('setupStep1').hidden = step !== 1;
-  $('setupStep2').hidden = step !== 2;
-  $('setupDlg').querySelector('.modal').setAttribute('aria-labelledby', 'setupTitle' + step);
-  $('setupDlg').hidden = false;
+  for (const s of ['welcome', 'safe', 0, 1, 2]) $('setupStep' + s).hidden = step !== s;
+  dlg.dataset.step = step;
+  setupLabels();
+  dlg.querySelector('.modal').setAttribute('aria-labelledby', 'setupTitle' + step);
+  dlg.hidden = false;
   const first = $('setupStep' + step).querySelector('.btn.primary'); if (first) setTimeout(() => first.focus({ preventScroll: true }), 0);   // keep the step's title in view
   $('setupStep' + step).scrollTop = 0;
+}
+// "Step 2 of 3", counted along the path being walked (also redrawn when the language changes).
+function setupLabels() {
+  const dlg = $('setupDlg');
+  let flow; try { flow = JSON.parse(dlg.dataset.steps); } catch (e) { flow = SETUP_FLOWS.guide; }
+  for (const s of ['welcome', 'safe', 0, 1, 2]) {
+    const i = flow.indexOf(s), el = $('setupStep' + s).querySelector('.step');
+    el.hidden = i < 0;
+    el.textContent = i < 0 ? '' : t('stepOf', i + 1, flow.length);
+  }
 }
 // The guide shows Google Drive or OneDrive steps; the choice is remembered on this device.
 function setCloud() {
@@ -8014,7 +8119,7 @@ let fileInitDone = false;
 function maybeOnboard() {
   if (!isActiveWindow || !fileInitDone || !$('setupDlg').hidden || moveIncoming || !$('moveDlg').hidden) return;   // data moving in: wait for it
   if (isOldHome) return;                  // the old address only offers the move; setting things up there is wasted
-  if (!S.settings.onboarded) openSetup(0);
+  if (!S.settings.onboarded) openSetup('welcome');
   // People who set Pinglapp up before the Google Drive guide existed and still have no save file see the guide once.
   else if (fileApi && !fileHandle && !S.settings.driveGuideSeen) openSetup(0, true);
 }

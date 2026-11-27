@@ -1025,7 +1025,23 @@ test('the sign-up screen offers Google / Microsoft too (only those switched on),
   await ctx.close();
 });
 
-test('first-run guide: a guest is offered a free account first; the save file stays as the way without one', async () => {
+test('first-run welcome: a guest is offered a free account first; the save file and "only this device" stay as ways without one', async () => {
+  const { ctx, page, errors } = await open();
+  await page.evaluate(() => { S.settings.onboarded = false; openSetup('welcome'); });
+  await page.click('[data-act="setup-welcome-next"]');
+  assert.equal(await page.isVisible('#setupStepsafe .setup-acct'), true);
+  assert.equal(await page.isVisible('#setupStepsafe [data-act="setup-safe-local"][data-acct-only]'), true, '"Continue without an account"');
+  assert.equal(await page.isVisible('#setupStepsafe [data-acct-off]'), false);
+  await page.click('#setupStepsafe [data-act="setup-acct"][data-to="signup"]');
+  assert.equal(await page.isVisible('#setupDlg'), false);
+  assert.equal(await view(page), 'signup');
+  assert.equal(await page.evaluate(() => S.settings.onboarded), true, 'the welcome doesn\'t come back');
+  await page.keyboard.press('Escape');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('the cloud-folder guide opened on its own still offers a free account first', async () => {
   const { ctx, page, errors } = await open();
   await page.evaluate(() => { S.settings.onboarded = false; openSetup(0); });
   assert.equal(await page.isVisible('#setupStep0 .setup-acct'), true);
@@ -1051,6 +1067,12 @@ test('first-run guide: signed in, the save-file steps are skipped; opened on pur
   await page.waitForFunction(() => /^@/.test(document.getElementById('acctChipText').textContent));
   await page.evaluate(() => { S.settings.onboarded = false; openSetup(0); });
   assert.equal(await page.isVisible('#setupStep0'), false);
+  // The welcome still says hello, then skips "where things are kept": the account already keeps them.
+  await page.evaluate(() => openSetup('welcome'));
+  assert.equal(await page.isVisible('#setupStepwelcome'), true);
+  await page.click('[data-act="setup-welcome-next"]');
+  assert.equal(await page.isVisible('#setupStepsafe'), false);
+  await page.evaluate(() => finishSetup());
   await page.evaluate(() => openSetup(0, true));
   assert.equal(await page.isVisible('#setupStep0'), true);
   assert.equal(await page.isVisible('#setupStep0 .setup-acct'), false);

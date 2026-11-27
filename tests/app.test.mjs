@@ -103,9 +103,65 @@ test('every text has both languages: no missing translations and no untranslated
   await ctx.close();
 });
 
-// ------------------------------------------------------------------ the Google Drive / OneDrive guide
-test('a new person sees the cloud-folder guide first, with Google Drive and OneDrive steps', async () => {
+// ------------------------------------------------------------------ the first-run welcome and the Google Drive / OneDrive guide
+const notifDefault = () => { Object.defineProperty(Notification, 'permission', { get: () => 'default' }); };
+test('a new person is welcomed with an everyday example, then chooses where things are kept', async () => {
+  const { ctx, page, errors } = await open({ onboarded: false, init: notifDefault });
+  await page.waitForSelector('#setupStepwelcome', { state: 'visible' });
+  assert.equal(await page.textContent('#setupStepwelcome .step'), 'Steg 1 av 3');
+  assert.match(await page.textContent('#setupStepwelcome .wel-type'), /Ring mamma imorgon kl 18/);
+  await page.click('[data-act="setup-welcome-next"]');
+  assert.equal(await page.isVisible('#setupStepsafe'), true);
+  assert.equal(await page.textContent('#setupStepsafe .step'), 'Steg 2 av 3');
+  assert.equal(await page.isVisible('#safeDrive'), await page.evaluate(() => fileApi), 'the cloud-folder way only where a save file works');
+  // English while the dialog is open: the labels follow
+  await page.evaluate(() => { S.settings.lang = 'en'; applyLang(); });
+  assert.equal(await page.textContent('#setupStepsafe .step'), 'Step 2 of 3');
+  assert.equal(await page.textContent('#setupTitlesafe'), 'Where should your things be kept?');
+  // "Only on this device" goes on to notifications (or finishes, if the browser has already answered)
+  await page.click('#setupStepsafe [data-act="setup-safe-local"]:visible');
+  const perm = await page.evaluate(() => canNotify() ? Notification.permission : 'unsupported');
+  if (perm === 'default') {
+    assert.equal(await page.isVisible('#setupStep2'), true);
+    assert.equal(await page.textContent('#setupStep2 .step'), 'Step 3 of 3');
+    await page.click('#setupStep2 [data-act="setup-done"]:visible');
+  }
+  assert.equal(await page.isHidden('#setupDlg'), true);
+  assert.equal((await stored(page)).settings.onboarded, true);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('the welcome can be skipped, and does not come back', async () => {
   const { ctx, page, errors } = await open({ onboarded: false });
+  await page.waitForSelector('#setupStepwelcome', { state: 'visible' });
+  await page.click('#setupStepwelcome [data-act="setup-done"]');
+  assert.equal(await page.isHidden('#setupDlg'), true);
+  await page.reload(); await page.waitForFunction(() => isActiveWindow && fileInitDone);
+  await page.waitForTimeout(200);
+  assert.equal(await page.isHidden('#setupDlg'), true);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('from the welcome, the Google Drive / OneDrive guide is a side path with its own step count', async () => {
+  const { ctx, page, errors } = await open({ onboarded: false, init: notifDefault });
+  await page.waitForSelector('#setupStepwelcome', { state: 'visible' });
+  if (!await page.evaluate(() => fileApi)) { await ctx.close(); return; }
+  await page.click('[data-act="setup-welcome-next"]');
+  await page.click('[data-act="setup-safe-drive"]');
+  assert.equal(await page.isVisible('#setupStep0'), true);
+  assert.equal(await page.textContent('#setupStep0 .step'), 'Steg 3 av 5');
+  assert.equal(await page.isVisible('#setupStep0 .setup-acct'), false, 'the account was offered one step ago');
+  await page.click('[data-act="setup-drive-next"]');
+  assert.equal(await page.textContent('#setupStep1 .step'), 'Steg 4 av 5');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('opened from Settings, the guide starts at the cloud folder, with Google Drive and OneDrive steps', async () => {
+  const { ctx, page, errors } = await open();
+  await page.evaluate(() => openSetup(0, true));
   await page.waitForSelector('#setupStep0', { state: 'visible' });
   assert.match(await page.textContent('#setupStep0 .step'), /1 av 3/);
   assert.equal(await page.isVisible('[data-cloud="gdrive"]'), true);
@@ -148,6 +204,37 @@ test('Settings has a button that opens the guide', async () => {
   await tab(page, 'settings');
   await page.click('[data-act="setup-open-wizard"]');
   assert.equal(await page.isVisible('#setupStep0'), true);
+  await ctx.close();
+});
+
+// ------------------------------------------------------------------ quick add in everyday words
+test('quick add speaks everyday language: every example, the placeholder and the welcome example get a time', async () => {
+  const { ctx, page, errors } = await open();
+  const r = await page.evaluate(() => {
+    const out = [];
+    for (const l of ['sv', 'en']) {
+      ParserText.lang = l;
+      const ph = (l === 'en' ? T.en.quickPh : document.getElementById('quickInput').getAttribute('placeholder')).replace(/^(T\.ex\.|E\.g\.)\s*/, '');
+      const wel = l === 'en' ? T.en.welExample : 'Ring mamma imorgon kl 18';
+      for (const x of [...T[l].examples, ph, wel]) { const p = QuickParser.parse(x); if (!p.when || p.error) out.push(l + ': ' + x); }
+    }
+    ParserText.lang = lang();
+    return out;
+  });
+  assert.deepEqual(r, [], 'these examples would not set a time');
+  const hint = await page.innerText('#quickPreview');
+  assert.doesNotMatch(hint, /\bcron\b|\bCtrl\b|\bDAG\b|#airflow/, 'no developer words in the hint');
+  // The hint's link opens the help, which starts with how to write a reminder.
+  await page.click('#quickPreview [data-act="keys"]');
+  assert.equal(await page.isVisible('#keysDlg'), true);
+  assert.equal(await page.textContent('#keysDlg h2'), 'Så skriver du en påminnelse');
+  // Tapping an example fills it in, and Enter adds it with a time.
+  await page.keyboard.press('Escape');
+  await page.click('.examples [data-example]');
+  assert.equal(await page.inputValue('#quickInput'), 'Ring mamma imorgon kl 18');
+  await page.press('#quickInput', 'Enter');
+  assert.match(await page.innerText('#quickPreview'), /^✓ Påminner dig /);
+  assert.deepEqual(errors, []);
   await ctx.close();
 });
 
