@@ -273,6 +273,142 @@ test('robot check: no answer from Cloudflare means a clear message, not a stuck 
   await ctx.close();
 });
 
+const ALICE = { session: { user: { id: 'u-a', email: 'a@example.com' } } };
+const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+const fakeCalls = (page, kind) => calls(page).then(cs => cs.filter(c => c[0] === kind));
+const rpcArgs = (page, name) => calls(page).then(cs => cs.filter(c => c[0] === 'rpc' && c[1] === name).map(c => c[2]));
+
+test('profile: edit name, about, visibility and username; the picture is a 256 px square in your own avatar file', async () => {
+  const { ctx, page, errors } = await open(ALICE);
+  await ctx.route('https://storage.invalid/**', r => r.fulfill({ body: PNG_1PX, contentType: 'image/png' }));   // the public avatar address
+  await page.waitForFunction(() => document.getElementById('acctChipText').textContent === '@alice');
+  await page.click('#acctChip');
+  assert.equal(await page.textContent('#acctMyAvatar'), 'A', 'the first letter while there is no picture');
+  await page.click(inView('account', '[data-to=profile]'));
+  assert.equal(await page.textContent('#acctTitle'), 'Din profil');
+  assert.equal(await page.inputValue(inView('profile', '[name=display_name]')), 'Alice');
+  assert.equal(await page.inputValue(inView('profile', '[name=username]')), 'alice');
+  assert.equal(await page.isChecked(inView('profile', '[name=findable]')), true);
+  assert.equal(await page.isVisible('#acctAvatarRemove'), false);
+  await page.fill(inView('profile', '[name=display_name]'), 'Alice A.');
+  await page.fill(inView('profile', '[name=bio]'), 'Hej!\nJag gillar listor.');
+  await page.uncheck(inView('profile', '[name=findable]'));
+  await page.fill(inView('profile', '[name=username]'), 'alice_2');
+  await page.waitForFunction(() => /ledigt/.test(document.querySelector('[data-acct-view=profile] .acct-uname').textContent));
+  await page.click(inView('profile', '[type=submit]'));
+  await page.waitForFunction(() => acct.view === 'account');
+  assert.equal(await msg(page), 'Din profil är sparad.');
+  assert.equal(await page.textContent('#acctChipText'), '@alice_2');
+  const [, , values] = (await fakeCalls(page, 'update'))[0];
+  assert.deepEqual(values, { display_name: 'Alice A.', bio: 'Hej!\nJag gillar listor.', visibility: 'private' });
+  assert.deepEqual(await rpcArgs(page, 'set_username'), [{ name: 'alice_2' }]);
+
+  // the picture: cropped to a square, 256 px, WebP
+  assert.deepEqual(await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 300; c.height = 120;
+    const out = await acctMakeAvatar(await new Promise(r => c.toBlob(r)));
+    const bmp = await createImageBitmap(out);
+    return [bmp.width, bmp.height, out.type];
+  }), [256, 256, 'image/webp']);
+  await page.click(inView('account', '[data-to=profile]'));
+  await page.setInputFiles(inView('profile', '[name=avatar]'), { name: 'me.png', mimeType: 'image/png', buffer: PNG_1PX });
+  await page.waitForFunction(() => document.getElementById('acctMsg').textContent === 'Din bild är sparad.');
+  const [up] = await fakeCalls(page, 'upload');
+  assert.deepEqual(up.slice(1, 4), ['avatars', 'u-a/avatar.webp', 'image/webp']);
+  assert.ok(up[4] > 0 && up[4] < 204800 && up[5] === true, 'small enough, and replaces the old one');
+  const path = (await fakeCalls(page, 'update')).pop()[2].avatar_path;
+  assert.match(path, /^u-a\/avatar\.webp\?v=\d+$/);
+  assert.match(await page.getAttribute('#acctProfAvatar img', 'src'), /\/storage\/v1\/object\/public\/avatars\/u-a\/avatar\.webp\?v=\d+$/);
+  assert.equal(await page.isVisible('#acctAvatarRemove'), true);
+  // a file that isn't a picture
+  await page.setInputFiles(inView('profile', '[name=avatar]'), { name: 'x.png', mimeType: 'image/png', buffer: Buffer.from('not a picture') });
+  await page.waitForFunction(() => /går inte att använda som bild/.test(document.getElementById('acctMsg').textContent));
+  // remove it
+  await page.click('#acctAvatarRemove');
+  await page.waitForFunction(() => document.getElementById('acctMsg').textContent === 'Din bild är borttagen.');
+  assert.deepEqual((await fakeCalls(page, 'remove'))[0].slice(1), ['avatars', ['u-a/avatar.webp']]);
+  assert.equal((await fakeCalls(page, 'update')).pop()[2].avatar_path, null);
+  assert.equal(await page.locator('#acctProfAvatar img').count(), 0);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('find people, view a profile, block, unblock and report; text from other users is never run as HTML', async () => {
+  const { ctx, page, errors } = await open(ALICE);
+  await page.waitForFunction(() => document.getElementById('acctChipText').textContent === '@alice');
+  await page.evaluate(() => {
+    const db = window.PING_ACCOUNTS_FAKE.db;
+    db.profiles['u-x'] = { username: 'carl_xss', display_name: '<img src=x onerror="window.__xss=1">', bio: '<b>bold</b> <script>window.__xss=2</script>' };
+    db.profiles['u-p'] = { username: 'carla', display_name: 'Hidden Carla', visibility: 'private' };
+  });
+  await page.click('#acctChip');
+  await page.click(inView('account', '[data-to=people]'));
+  assert.equal(await view(page), 'people');
+  await page.fill('#acctPeopleQ', 'ca');
+  assert.match(await page.textContent('#acctPeopleHint'), /minst 3 tecken/);
+  await page.fill('#acctPeopleQ', 'Car');
+  await page.waitForFunction(() => document.querySelectorAll('#acctPeopleList li').length === 2);
+  const names = await page.$$eval('#acctPeopleList .acct-person', bs => bs.map(b => b.dataset.name));
+  assert.deepEqual(names, ['carl_xss', 'carol'], 'a hidden profile is not found');
+  assert.match(await page.textContent('#acctPeopleList'), /<img src=x onerror/);
+  assert.equal(await page.locator('#acctPeopleList img').count(), 0, 'the name is shown as text');
+
+  // carol's profile: block, then back to the same search
+  await page.click('#acctPeopleList [data-name=carol]');
+  await page.waitForFunction(() => acct.view === 'person');
+  assert.equal(await page.textContent('#acctPersonUser'), '@carol');
+  assert.equal(await page.textContent('#acctPersonName'), 'Carol');
+  assert.equal(await page.textContent('#acctPersonSince'), 'Medlem sedan november 2026');
+  assert.equal(await page.textContent('#acctBlockBtn'), 'Blockera');
+  await page.click('#acctBlockBtn');
+  await page.waitForFunction(() => /@carol är blockerad/.test(document.getElementById('acctMsg').textContent));
+  assert.equal(await page.textContent('#acctBlockBtn'), 'Sluta blockera');
+  assert.deepEqual(await rpcArgs(page, 'block_user'), [{ name: 'carol' }]);
+  await page.click(inView('person', '[data-to=people]'));
+  assert.equal(await page.locator('#acctPeopleList li').count(), 2, 'the search is kept');
+
+  // carl_xss: the about text is text too; report the profile
+  await page.click('#acctPeopleList [data-name=carl_xss]');
+  await page.waitForFunction(() => acct.view === 'person' && acct.person === 'carl_xss');
+  assert.equal(await page.textContent('#acctPersonBio'), '<b>bold</b> <script>window.__xss=2</script>');
+  assert.equal(await page.locator('#acctPersonBio *').count(), 0);
+  await page.click(inView('person', '[data-act=acct-report]'));
+  assert.equal(await page.isVisible('#acctReportBox'), true);
+  await page.click('[data-act=acct-report-send]');
+  assert.equal(await msg(page), 'Skriv några ord om vad som är fel.');
+  await page.fill('#acctReportReason', 'Stötande namn');
+  await page.click('[data-act=acct-report-send]');
+  await page.waitForFunction(() => document.getElementById('acctMsg').textContent === 'Tack. Anmälan är skickad.');
+  assert.deepEqual(await rpcArgs(page, 'report_user'), [{ name: 'carl_xss', reason: 'Stötande namn' }]);
+  assert.equal(await page.isVisible('#acctReportBox'), false);
+  await page.evaluate(() => { window.PING_ACCOUNTS_FAKE.db.reportLimit = true; });
+  await page.click(inView('person', '[data-act=acct-report]'));
+  await page.fill('#acctReportReason', 'Igen');
+  await page.click('[data-act=acct-report-send]');
+  await page.waitForFunction(() => /många anmälningar/.test(document.getElementById('acctMsg').textContent));
+
+  // your own profile: no block or report
+  await page.click(inView('person', '[data-to=people]'));
+  await page.fill('#acctPeopleQ', 'ali');
+  await page.waitForSelector('#acctPeopleList [data-name=alice]');
+  await page.click('#acctPeopleList [data-name=alice]');
+  await page.waitForFunction(() => acct.view === 'person' && acct.person === 'alice');
+  assert.equal(await msg(page), 'Det här är du.');
+  assert.equal(await page.isVisible('#acctBlockBtn'), false);
+  assert.equal(await page.isVisible(inView('person', '[data-act=acct-report]')), false);
+
+  // the blocked list in "Edit profile"; unblock from there
+  await page.evaluate(() => acctShow('profile'));
+  await page.waitForSelector('#acctBlockedList li');
+  assert.equal(await page.textContent('#acctBlockedList .who'), '@carol');
+  await page.click('#acctBlockedList [data-act=acct-unblock]');
+  await page.waitForFunction(() => /@carol är inte längre blockerad/.test(document.getElementById('acctMsg').textContent));
+  assert.equal(await page.isVisible(inView('profile', '.acct-blocked')), false);
+  assert.equal(await page.evaluate(() => window.__xss), undefined);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
 test('accounts are off on pinglapp.com until switched on with ?accounts=staging (and off again)', async () => {
   const route = { pattern: 'https://pinglapp.com/**' };
   let { ctx, page } = await open({ url: 'https://pinglapp.com/', route, fake: false });

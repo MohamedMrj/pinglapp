@@ -166,6 +166,15 @@ test('profiles: only your own row is readable directly; username changes go thro
   await fails(A, `update public.profiles set bio = repeat('x', 301)`, [], /check constraint/);
 });
 
+test('profiles: the avatar path can only name your own avatar file, with a version', async () => {
+  const set = (uid, v) => rows(uid, 'update public.profiles set avatar_path = $1 returning avatar_path', [v]);
+  assert.equal((await set(A, `${A}/avatar.webp?v=1764000000000`))[0].avatar_path, `${A}/avatar.webp?v=1764000000000`);
+  for (const bad of [`${B}/avatar.webp?v=1`, `${A}/avatar.webp`, `${A}/other.webp?v=1`, 'https://evil.example/x.webp',
+    `${A}/avatar.webp?v=1"><script>`, `../${A}/avatar.webp?v=1`])
+    await fails(A, 'update public.profiles set avatar_path = $1', [bad], /check constraint/);
+  assert.equal((await set(A, null))[0].avatar_path, null);
+});
+
 test('set_username: pick, validate, taken, and at most one change per 30 days', async () => {
   await signUp(C, 'c@example.com', { full_name: 'Carol from Google' });   // OAuth-style: no username yet
   assert.equal((await rows(C, 'select * from public.profiles')).length, 0);

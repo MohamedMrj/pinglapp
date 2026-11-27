@@ -533,6 +533,26 @@ details.adv[open] { display: grid; gap: 8px; }
 .acct-uname.bad { color: var(--danger); }
 .acct-uname.ok { color: var(--ok); }
 .acct-who { margin: 0; }
+.acct-me { display: flex; gap: 12px; align-items: center; }
+.acct-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.acct-file input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.acct-file:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.acct-bio { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.acct-bio:empty, .acct-report[hidden], .acct-blocked[hidden], .acct-links [hidden] { display: none; }
+.acct-blocked h3 { margin: 4px 0 6px; font-size: 13.5px; }
+.acct-people { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; max-height: 300px; overflow: auto; }
+.acct-people:empty { display: none; }
+.acct-people li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.acct-person { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 8px; border: 0; border-radius: 8px;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.acct-person:hover, .acct-person:focus-visible { background: var(--surface-2); }
+.acct-person span:last-child, .acct-people .who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-people .who { flex: 1; }
+.avatar { position: relative; flex: none; display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  overflow: hidden; background: var(--surface-2); color: var(--muted); font-weight: 600; font-size: 16px; }
+.avatar.sm { width: 30px; height: 30px; font-size: 13px; }
+.avatar.xl { width: 72px; height: 72px; font-size: 28px; }
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .pw-meter { height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: -6px; }
 .pw-meter i { display: block; height: 100%; width: 0; background: var(--danger); transition: width .15s; }
 .pw-meter[data-s="2"] i { background: var(--warn); }
@@ -1389,13 +1409,70 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
     </form>
 
     <div class="acct-view" data-acct-view="account">
-      <p class="acct-who"><b id="acctWhoName"></b> <span id="acctWhoUser"></span><br><span class="hint" id="acctWhoEmail"></span></p>
+      <div class="acct-me"><span class="avatar" id="acctMyAvatar" aria-hidden="true"></span>
+        <p class="acct-who"><b id="acctWhoName"></b> <span id="acctWhoUser"></span><br><span class="hint" id="acctWhoEmail"></span></p></div>
       <p class="hint" id="acctSyncState" role="status"></p>
+      <div class="acct-links">
+        <button class="btn sm" type="button" data-act="acct-view" data-to="profile" data-i18n="acctEditProfile">Redigera profilen</button>
+        <button class="btn sm" type="button" data-act="acct-view" data-to="people" data-i18n="acctFindPeople">Hitta personer</button>
+      </div>
       <div class="modal-foot">
         <button class="btn sm" type="button" data-act="acct-signout-ask" data-all="1" data-i18n="acctSignOutAll">Logga ut på alla enheter</button>
         <span class="spacer"></span>
         <button class="btn" type="button" data-act="acct-signout-ask" data-i18n="acctSignOut">Logga ut</button>
         <button class="btn primary" type="button" data-act="acct-close" data-i18n="finished">Klar</button>
+      </div>
+    </div>
+
+    <form class="acct-view" data-acct-view="profile" novalidate>
+      <div class="acct-me">
+        <span class="avatar xl" id="acctProfAvatar" aria-hidden="true"></span>
+        <div class="acct-links">
+          <label class="btn sm acct-file"><span data-i18n="acctPickPhoto">Välj bild</span><input type="file" name="avatar" accept="image/*"></label>
+          <button class="btn ghost sm" type="button" data-act="acct-avatar-remove" id="acctAvatarRemove" data-i18n="acctRemovePhoto">Ta bort bilden</button>
+        </div>
+      </div>
+      <p class="hint" data-i18n="acctPhotoHint">Bilden kan ses av alla som har länken till den, även om din profil är dold.</p>
+      <label class="field"><span data-i18n="acctShownName">Namn som andra ser</span><input type="text" name="display_name" autocomplete="name" maxlength="50"></label>
+      <label class="field"><span data-i18n="acctBio">Om dig (valfritt)</span><textarea name="bio" maxlength="300" rows="3"></textarea></label>
+      <label class="field"><span data-i18n="acctUsername">Användarnamn</span><input type="text" name="username" autocomplete="username" maxlength="20" spellcheck="false" autocapitalize="none" required></label>
+      <p class="hint acct-uname" aria-live="polite"></p>
+      <label class="acct-check"><input type="checkbox" name="findable"> <span data-i18n="acctFindable">Andra inloggade kan hitta mig och se min profil</span></label>
+      <div class="acct-blocked" hidden>
+        <h3 data-i18n="acctBlockedH">Personer du har blockerat</h3>
+        <ul class="acct-people" id="acctBlockedList"></ul>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="account" data-i18n="acctBack">Tillbaka</button>
+        <span class="spacer"></span>
+        <button class="btn primary" type="submit" data-i18n="save">Spara</button>
+      </div>
+    </form>
+
+    <div class="acct-view" data-acct-view="people">
+      <label class="field"><span data-i18n="acctSearchPeople">Sök på användarnamn</span><input type="search" id="acctPeopleQ" maxlength="20" spellcheck="false" autocapitalize="none" autocomplete="off"></label>
+      <p class="hint" id="acctPeopleHint" aria-live="polite"></p>
+      <ul class="acct-people" id="acctPeopleList"></ul>
+      <div class="modal-foot"><button class="btn ghost sm" type="button" data-act="acct-view" data-to="account" data-i18n="acctBack">Tillbaka</button></div>
+    </div>
+
+    <div class="acct-view" data-acct-view="person">
+      <div class="acct-me"><span class="avatar xl" id="acctPersonAvatar" aria-hidden="true"></span>
+        <p class="acct-who"><b id="acctPersonName"></b> <span id="acctPersonUser"></span><br><span class="hint" id="acctPersonSince"></span></p></div>
+      <p class="acct-bio" id="acctPersonBio"></p>
+      <div class="acct-report" id="acctReportBox" hidden>
+        <label class="field"><span data-i18n="acctReportWhy">Vad är fel med profilen?</span><textarea id="acctReportReason" maxlength="500" rows="3"></textarea></label>
+        <div class="modal-foot">
+          <button class="btn ghost sm" type="button" data-act="acct-report-cancel" data-i18n="cancel">Avbryt</button>
+          <span class="spacer"></span>
+          <button class="btn danger" type="button" data-act="acct-report-send" data-i18n="acctReportSend">Skicka anmälan</button>
+        </div>
+      </div>
+      <div class="modal-foot" id="acctPersonFoot">
+        <button class="btn ghost sm" type="button" data-act="acct-view" data-to="people" data-i18n="acctBack">Tillbaka</button>
+        <span class="spacer"></span>
+        <button class="btn sm" type="button" data-act="acct-report" data-i18n="acctReport">Anmäl</button>
+        <button class="btn sm" type="button" data-act="acct-block" id="acctBlockBtn"></button>
       </div>
     </div>
 
@@ -7354,6 +7431,13 @@ document.addEventListener('click', e => {
     case 'acct-signout': acctSignOut(acct.view === 'signout' && !!acct.signoutAll, true); break;
     case 'acct-signout-remove': acctSignOut(!!acct.signoutAll, false); break;
     case 'acct-signout-ask': acct.signoutAll = b.dataset.all === '1'; acctShow('signout'); break;
+    case 'acct-avatar-remove': acctRemoveAvatar(); break;
+    case 'acct-person': acctOpenPerson(b.dataset.name); break;
+    case 'acct-block': acctBlock(acct.person, !(acct.blocks || []).includes(acct.person)); break;
+    case 'acct-unblock': acctBlock(b.dataset.name, false); break;
+    case 'acct-report': $('acctReportBox').hidden = false; $('acctReportReason').focus(); break;
+    case 'acct-report-cancel': $('acctReportBox').hidden = true; break;
+    case 'acct-report-send': acctReport(); break;
     case 'move-start': moveStart(); break;
     case 'move-close': $('moveDlg').hidden = true; break;
     case 'move-file': $('moveDlg').hidden = true; fileOpen(); break;
@@ -7688,6 +7772,11 @@ Object.assign(T.en, {
   acctOtherGo: 'Download the backup and continue',
   acctSignOutP: 'Do you want to keep a copy of your reminders, notes, pictures and boards on this device? Remove them if other people use it. Everything stays in your account.',
   acctRemoveHere: 'Remove from this device', acctKeepHere: 'Keep a copy',
+  acctEditProfile: 'Edit profile', acctFindPeople: 'Find people', acctPickPhoto: 'Choose a picture', acctRemovePhoto: 'Remove the picture',
+  acctPhotoHint: 'Anyone with its link can see the picture, even if your profile is hidden.', acctShownName: 'Name others see',
+  acctBio: 'About you (optional)', acctFindable: 'Other signed-in people can find me and see my profile',
+  acctBlockedH: 'People you’ve blocked', acctSearchPeople: 'Search by username', acctReportWhy: 'What’s wrong with this profile?',
+  acctReportSend: 'Send report', acctReport: 'Report',
 });
 const ACCT_T = {
   en: {
@@ -7721,6 +7810,15 @@ const ACCT_T = {
     cloudStorage: (u, q) => `Pictures and boards: ${u} of ${q} used.`,
     acctT_signout: 'Log out', acctNotAllSynced: 'Not everything has reached your account yet, so nothing was removed. Check your internet connection, or keep a copy.',
     acctRemoving: 'Making sure everything is in your account…',
+    acctT_profile: 'Your profile', acctT_people: 'Find people', acctT_person: 'Profile',
+    acctPeopleShort: 'Type at least 3 characters: a–z, digits or _.', acctPeopleNone: 'No one found.', acctPeopleSearching: 'Searching…',
+    acctPersonGone: 'That profile isn’t available.', acctMemberSince: d => `Member since ${d}`, acctYou: 'This is you.',
+    acctBlock: 'Block', acctUnblock: 'Unblock',
+    acctBlocked: n => `${n} is blocked. They can no longer find you or see your profile.`, acctUnblocked: n => `${n} is no longer blocked.`,
+    acctReportEmpty: 'Write a few words about what’s wrong.', acctReported: 'Thanks. The report has been sent.',
+    acctErrReportLimit: 'You’ve sent a lot of reports today. Try again tomorrow.',
+    acctPhotoSaving: 'Saving the picture…', acctPhotoSaved: 'Your picture is saved.', acctPhotoRemoved: 'Your picture is removed.',
+    acctPhotoBad: 'That file can’t be used as a picture. Try a JPG or PNG.', acctProfileSaved: 'Your profile is saved.',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -7753,6 +7851,15 @@ const ACCT_T = {
     cloudStorage: (u, q) => `Bilder och tavlor: ${u} av ${q} används.`,
     acctT_signout: 'Logga ut', acctNotAllSynced: 'Allt har inte kommit fram till ditt konto än, så inget togs bort. Kontrollera internetanslutningen, eller behåll en kopia.',
     acctRemoving: 'Kontrollerar att allt finns i ditt konto…',
+    acctT_profile: 'Din profil', acctT_people: 'Hitta personer', acctT_person: 'Profil',
+    acctPeopleShort: 'Skriv minst 3 tecken: a–z, siffror eller _.', acctPeopleNone: 'Ingen hittades.', acctPeopleSearching: 'Söker…',
+    acctPersonGone: 'Den profilen är inte tillgänglig.', acctMemberSince: d => `Medlem sedan ${d}`, acctYou: 'Det här är du.',
+    acctBlock: 'Blockera', acctUnblock: 'Sluta blockera',
+    acctBlocked: n => `${n} är blockerad och kan inte längre hitta dig eller se din profil.`, acctUnblocked: n => `${n} är inte längre blockerad.`,
+    acctReportEmpty: 'Skriv några ord om vad som är fel.', acctReported: 'Tack. Anmälan är skickad.',
+    acctErrReportLimit: 'Du har skickat många anmälningar i dag. Försök igen i morgon.',
+    acctPhotoSaving: 'Sparar bilden…', acctPhotoSaved: 'Din bild är sparad.', acctPhotoRemoved: 'Din bild är borttagen.',
+    acctPhotoBad: 'Filen går inte att använda som bild. Prova en JPG eller PNG.', acctProfileSaved: 'Din profil är sparad.',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -7821,9 +7928,9 @@ async function acctOnAuth(ev, session) {
   const back = acct.back; acct.back = null;
   if (back) acctCleanUrl();
   if (!session) {
-    acct.profile = undefined; acct.priv = null; acct.pendingStep = null; updateAcctChip();
+    acct.profile = undefined; acct.priv = null; acct.pendingStep = null; acct.blocks = null; updateAcctChip();
     if (back) acctOpen('signin', t('acctLinkBad'), 'bad');
-    else if (!$('acctDlg').hidden && ['account', 'username', 'reset'].includes(acct.view)) acctShow('signin');
+    else if (!$('acctDlg').hidden && ['account', 'username', 'reset', 'profile', 'people', 'person'].includes(acct.view)) acctShow('signin');
     return;
   }
   if (ev === 'PASSWORD_RECOVERY' || (back && back.reset)) { updateAcctChip(); acctLoadProfile().then(updateAcctChip); acctOpen('reset'); return; }
@@ -7849,7 +7956,7 @@ async function acctLoadProfile() {
   const c = acct.client; if (!c || !acct.session) return false;
   try {
     const [p, a] = await Promise.all([
-      c.from('profiles').select('username,display_name').maybeSingle(),
+      c.from('profiles').select('username,display_name,bio,avatar_path,visibility').maybeSingle(),
       c.from('account_private').select('terms_accepted_at,quota_bytes,used_bytes').maybeSingle(),
     ]);
     if (p.error) return false;
@@ -7884,6 +7991,7 @@ function acctOpen(view, msg, kind) {
   if (!acct.client) acctClient().catch(() => acctMsg(t('acctOffline'), 'bad'));
 }
 function acctShow(view, msg, kind) {
+  const prev = acct.view;
   acct.view = view;
   document.querySelectorAll('#acctDlg .acct-view').forEach(v => { v.hidden = v.dataset.acctView !== view; });
   $('acctTitle').textContent = t('acctT_' + view);
@@ -7895,11 +8003,14 @@ function acctShow(view, msg, kind) {
     $('acctWhoUser').textContent = p.username ? '@' + p.username : '';
     $('acctWhoEmail').textContent = u.email || '';
     $('acctSyncState').textContent = acctSyncLine();
+    acctAvatar($('acctMyAvatar'), acct.profile);
   }
   if (view === 'username') v.querySelector('[data-terms]').hidden = !!(acct.priv && acct.priv.terms_accepted_at);
   if (view === 'signin' || view === 'signup') acctProviders();
   if (view === 'signin' || view === 'signup' || view === 'forgot') acctCaptcha(view);
-  const first = v.querySelector('input:not([type=checkbox])');
+  if (view === 'profile') acctFillProfile(v);
+  if (view === 'people' && prev !== 'person') { $('acctPeopleQ').value = ''; acctPeopleSearch(); }   // back from a profile: keep the list
+  const first = v.querySelector('input:not([type=checkbox]):not([type=file])');
   if (first && !first.value) setTimeout(() => first.focus(), 0);
 }
 function acctMsg(msg, kind) {
@@ -7985,7 +8096,8 @@ function acctErr(e) {
   const map = { invalid_credentials: 'acctErrLogin', email_not_confirmed: 'acctErrConfirm', weak_password: 'acctErrWeak',
     over_email_send_rate_limit: 'acctErrRate', over_request_rate_limit: 'acctErrRate', signup_disabled: 'acctErrClosed',
     email_address_invalid: 'acctBadEmail', validation_failed: 'acctFillIn', same_password: 'acctErrSame', captcha_failed: 'acctErrCaptcha',
-    user_already_exists: 'acctErrExists', username_taken: 'acctUnameTaken', username_invalid: 'acctUnameRules', username_too_soon: 'acctUnameSoon' };
+    user_already_exists: 'acctErrExists', username_taken: 'acctUnameTaken', username_invalid: 'acctUnameRules', username_too_soon: 'acctUnameSoon',
+    report_limit: 'acctErrReportLimit', avatar_bad: 'acctPhotoBad' };
   const key = e && (map[e.hint] || map[e.code] || map[e.error_code]);
   if (key) return t(key);
   const m = (e && e.message) || String(e);
@@ -8003,7 +8115,7 @@ function acctUnameCheck(f) {
   if (input.value !== input.value.toLowerCase()) input.value = input.value.toLowerCase();
   const name = input.value.trim(), seq = ++acctUnameSeq;
   clearTimeout(acctUnameTimer); out.className = 'hint acct-uname';
-  if (!name) { out.textContent = ''; return; }
+  if (!name || (f.dataset.acctView === 'profile' && acct.profile && name === acct.profile.username)) { out.textContent = ''; return; }
   if (!ACCT_UNAME.test(name)) { out.textContent = t('acctUnameRules'); out.classList.add('bad'); return; }
   out.textContent = t('acctUnameChecking');
   acctUnameTimer = setTimeout(async () => {
@@ -8082,10 +8194,183 @@ async function acctSubmit(view, f) {
       f.reset(); f.querySelector('.acct-uname').textContent = '';
       acctShow('account', t('acctWelcome', '@' + name), 'ok');
       cloudStart();
+    } else if (view === 'profile') {
+      const name = val('username').toLowerCase(), me = acct.profile || {};
+      if (!ACCT_UNAME.test(name)) return acctMsg(t('acctUnameRules'), 'bad');
+      const r = await c.from('profiles').update({ display_name: val('display_name') || null, bio: f.elements.bio.value.trim() || null,
+        visibility: f.elements.findable.checked ? 'users' : 'private' }).eq('id', acct.session.user.id);
+      if (r.error) return acctMsg(acctErr(r.error), 'bad');
+      if (name !== me.username) {
+        const u = await c.rpc('set_username', { name });
+        if (u.error) { await acctLoadProfile(); updateAcctChip(); return acctMsg(acctErr(u.error), 'bad'); }
+      }
+      await acctLoadProfile(); updateAcctChip();
+      acctShow('account', t('acctProfileSaved'), 'ok');
     }
   } catch (e) { acctMsg(acctErr(e), 'bad'); }
   finally { btns.forEach(b => { b.disabled = false; }); }
 }
+// ---- profiles (phase 5). Everything that comes from other users goes into the page as text (textContent), never as
+// HTML, and a picture is only ever loaded from Pinglapp's own avatars bucket.
+const ACCT_AVATAR = /^[A-Za-z0-9-]{1,64}\/avatar\.webp\?v=\d{1,15}$/;   // the database allows only {own id}/avatar.webp?v=…
+function acctAvatarUrl(path) {
+  if (!path || !ACCT_AVATAR.test(path)) return '';
+  const base = window.PING_ACCOUNTS_FAKE ? 'https://storage.invalid' : ACCT_PROJECTS[acct.project].url;
+  return base + '/storage/v1/object/public/avatars/' + path;
+}
+// The picture, or the first letter of the name while there's none (or it doesn't load).
+function acctAvatar(el, p) {
+  p = p || {};
+  el.textContent = ([...String(p.display_name || p.username || '').trim()][0] || '?').toUpperCase();
+  const url = acctAvatarUrl(p.avatar_path);
+  if (!url) return;
+  const img = document.createElement('img');
+  img.alt = ''; img.decoding = 'async'; img.referrerPolicy = 'no-referrer';
+  img.onerror = () => img.remove();
+  img.src = url;
+  el.appendChild(img);
+}
+// A square 256 px picture, made in the browser: WebP where the browser can make it, else JPEG. Max 200 KB in the bucket;
+// this comes out at 10–40 KB.
+async function acctMakeAvatar(file) {
+  let bmp;
+  try { bmp = await createImageBitmap(file); } catch (e) { throw { code: 'avatar_bad' }; }
+  const N = 256, s = Math.min(bmp.width, bmp.height), cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const g = cv.getContext('2d');
+  g.imageSmoothingQuality = 'high';
+  g.drawImage(bmp, (bmp.width - s) / 2, (bmp.height - s) / 2, s, s, 0, 0, N, N);
+  if (bmp.close) bmp.close();
+  const as = type => new Promise(res => cv.toBlob(res, type, 0.85));
+  const webp = await as('image/webp');
+  const blob = webp && webp.type === 'image/webp' ? webp : await as('image/jpeg');
+  if (!blob) throw { code: 'avatar_bad' };
+  return blob;
+}
+async function acctSetAvatar(file) {
+  const c = acct.client, uid = acct.session && acct.session.user.id;
+  if (!c || !uid || !file) return;
+  acctMsg(t('acctPhotoSaving'));
+  try {
+    const blob = await acctMakeAvatar(file);
+    const up = await c.storage.from('avatars').upload(uid + '/avatar.webp', blob, { upsert: true, contentType: blob.type, cacheControl: '3600' });
+    if (up.error) return acctMsg(acctErr(up.error), 'bad');
+    const path = `${uid}/avatar.webp?v=${Date.now()}`;   // a new address each time, so no cache shows the old picture
+    const r = await c.from('profiles').update({ avatar_path: path }).eq('id', uid);
+    if (r.error) return acctMsg(acctErr(r.error), 'bad');
+    acct.profile = Object.assign({}, acct.profile, { avatar_path: path });
+    acctAvatar($('acctProfAvatar'), acct.profile); $('acctAvatarRemove').hidden = false;
+    acctMsg(t('acctPhotoSaved'), 'ok');
+  } catch (e) { acctMsg(acctErr(e), 'bad'); }
+}
+async function acctRemoveAvatar() {
+  const c = acct.client, uid = acct.session && acct.session.user.id;
+  if (!c || !uid) return;
+  try {
+    const r = await c.from('profiles').update({ avatar_path: null }).eq('id', uid);
+    if (r.error) return acctMsg(acctErr(r.error), 'bad');
+    await c.storage.from('avatars').remove([uid + '/avatar.webp']);
+    acct.profile = Object.assign({}, acct.profile, { avatar_path: null });
+    acctAvatar($('acctProfAvatar'), acct.profile); $('acctAvatarRemove').hidden = true;
+    acctMsg(t('acctPhotoRemoved'), 'ok');
+  } catch (e) { acctMsg(acctErr(e), 'bad'); }
+}
+function acctFillProfile(f) {
+  const p = acct.profile || {};
+  f.elements.display_name.value = p.display_name || '';
+  f.elements.bio.value = p.bio || '';
+  f.elements.username.value = p.username || '';
+  f.elements.findable.checked = p.visibility !== 'private';
+  f.querySelector('.acct-uname').textContent = '';
+  acctAvatar($('acctProfAvatar'), p);
+  $('acctAvatarRemove').hidden = !p.avatar_path;
+  acctLoadBlocks();
+}
+// People you've blocked, with a button to unblock each.
+async function acctLoadBlocks() {
+  const box = acctView('profile').querySelector('.acct-blocked'), list = $('acctBlockedList');
+  let names = [];
+  try { const r = await acct.client.rpc('my_blocks'); names = r.error ? [] : (r.data || []).map(b => b.username); } catch (e) { }
+  acct.blocks = names;
+  list.replaceChildren(...names.map(n => {
+    const li = document.createElement('li'), who = document.createElement('span'), b = document.createElement('button');
+    who.className = 'who'; who.textContent = '@' + n;
+    b.type = 'button'; b.className = 'btn ghost sm'; b.dataset.act = 'acct-unblock'; b.dataset.name = n; b.textContent = t('acctUnblock');
+    li.append(who, b);
+    return li;
+  }));
+  box.hidden = !names.length;
+}
+// Find people by the start of their username (the server needs at least 3 characters and returns at most 20).
+let acctPeopleTimer = null, acctPeopleSeq = 0;
+function acctPeopleSearch() {
+  const q = $('acctPeopleQ').value.trim().toLowerCase(), hint = $('acctPeopleHint'), list = $('acctPeopleList'), seq = ++acctPeopleSeq;
+  clearTimeout(acctPeopleTimer);
+  list.replaceChildren();
+  if (!q) { hint.textContent = ''; return; }
+  if (!ACCT_UNAME.test(q)) { hint.textContent = t('acctPeopleShort'); return; }
+  hint.textContent = t('acctPeopleSearching');
+  acctPeopleTimer = setTimeout(async () => {
+    let r;
+    try { r = await acct.client.rpc('find_profiles', { prefix: q }); } catch (e) { r = { error: e }; }
+    if (seq !== acctPeopleSeq) return;
+    if (r.error) { hint.textContent = acctErr(r.error); return; }
+    const people = r.data || [];
+    hint.textContent = people.length ? '' : t('acctPeopleNone');
+    list.replaceChildren(...people.map(p => {
+      const li = document.createElement('li'), b = document.createElement('button'), av = document.createElement('span'), who = document.createElement('span');
+      b.type = 'button'; b.className = 'acct-person'; b.dataset.act = 'acct-person'; b.dataset.name = p.username;
+      av.className = 'avatar sm'; av.setAttribute('aria-hidden', 'true'); acctAvatar(av, p);
+      const nm = document.createElement('b'); nm.textContent = p.display_name || '@' + p.username;
+      who.append(nm, p.display_name ? ' @' + p.username : '');
+      b.append(av, who); li.append(b);
+      return li;
+    }));
+  }, 300);
+}
+// Someone's public profile: picture, name, @username, about, member since. Never their email or anything they made.
+async function acctOpenPerson(name) {
+  let r;
+  try { r = await acct.client.rpc('get_profile', { name }); } catch (e) { r = { error: e }; }
+  if (r.error) return acctMsg(acctErr(r.error), 'bad');
+  const p = (r.data || [])[0];
+  if (!p) return acctMsg(t('acctPersonGone'), 'bad');
+  if (!acct.blocks) await acctLoadBlocks();
+  acct.person = p.username;
+  acctShow('person');
+  acctAvatar($('acctPersonAvatar'), p);
+  $('acctPersonName').textContent = p.display_name || '';
+  $('acctPersonUser').textContent = '@' + p.username;
+  const since = p.member_since ? new Date(p.member_since + 'T12:00:00').toLocaleDateString(LOCALE(), { year: 'numeric', month: 'long' }) : '';
+  $('acctPersonSince').textContent = since ? t('acctMemberSince', since) : '';
+  $('acctPersonBio').textContent = p.bio || '';
+  $('acctReportBox').hidden = true; $('acctReportReason').value = '';
+  const me = acct.profile && acct.profile.username === p.username;
+  $('acctPersonFoot').querySelectorAll('[data-act=acct-report],[data-act=acct-block]').forEach(b => { b.hidden = me; });
+  if (me) acctMsg(t('acctYou'));
+  acctBlockLabel();
+}
+function acctBlockLabel() { $('acctBlockBtn').textContent = t((acct.blocks || []).includes(acct.person) ? 'acctUnblock' : 'acctBlock'); }
+async function acctBlock(name, block) {
+  try {
+    const r = await acct.client.rpc(block ? 'block_user' : 'unblock_user', { name });
+    if (r.error) return acctMsg(acctErr(r.error), 'bad');
+    acct.blocks = (acct.blocks || []).filter(n => n !== name).concat(block ? [name] : []);
+    acctMsg(t(block ? 'acctBlocked' : 'acctUnblocked', '@' + name), 'ok');
+    if (acct.view === 'person') acctBlockLabel(); else acctLoadBlocks();
+  } catch (e) { acctMsg(acctErr(e), 'bad'); }
+}
+async function acctReport() {
+  const reason = $('acctReportReason').value.trim();
+  if (!reason) return acctMsg(t('acctReportEmpty'), 'bad');
+  try {
+    const r = await acct.client.rpc('report_user', { name: acct.person, reason });
+    if (r.error) return acctMsg(acctErr(r.error), 'bad');
+    $('acctReportBox').hidden = true; $('acctReportReason').value = '';
+    acctMsg(t('acctReported'), 'ok');
+  } catch (e) { acctMsg(acctErr(e), 'bad'); }
+}
+
 async function acctOAuth(provider) {
   try {
     const c = await acctClient();
@@ -8105,7 +8390,7 @@ async function acctSignOut(everywhere, keep = true) {
   }
   try { const c = await acctClient(); await c.auth.signOut({ scope: everywhere ? 'global' : 'local' }); } catch (e) { }
   if (!keep) { await cloudWipeHere(); return; }
-  acct.session = null; acct.profile = undefined; acct.priv = null; acct.pendingStep = null;
+  acct.session = null; acct.profile = undefined; acct.priv = null; acct.pendingStep = null; acct.blocks = null;
   clearTimeout(cloud.timer); cloud.state = 'idle';
   updateAcctChip(); $('acctDlg').hidden = true;
   toast(t('acctSignedOut'));
@@ -8117,6 +8402,8 @@ document.querySelectorAll('#acctDlg form.acct-view').forEach(f => {
     if (e.target.name === 'password') acctMeter(f);
   });
 });
+acctView('profile').elements.avatar.addEventListener('change', e => { const file = e.target.files[0]; e.target.value = ''; acctSetAvatar(file); });
+$('acctPeopleQ').addEventListener('input', acctPeopleSearch);
 
 // ---------------------------------------------------------------- sync with the account: reminders, notes, settings
 // The local copy stays the source of truth: the app never waits for the network. A sync pulls what changed on the

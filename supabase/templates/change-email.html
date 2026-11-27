@@ -1,0 +1,69 @@
+<!-- Supabase → Authentication → Emails → Templates → Change email address.
+     Subject: Bekräfta din nya e-postadress för Pinglapp
+     Paste everything below this comment into the "Message body" field, on staging and on prod.
+     With "Secure email change" on, Supabase sends this to both the old and the new address, so the text fits both. -->
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bekräfta byte av e-postadress</title>
+</head>
+<body style="margin:0; padding:0; background:#f4f6f6;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f6;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px; background:#ffffff; border-radius:12px; font-family:-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#1d2524;">
+          <tr>
+            <td style="padding:28px 32px 0; font-size:20px; font-weight:700; color:#0d7c72;">Pinglapp</td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 0; font-size:16px; line-height:24px;">
+              <h1 style="margin:0 0 12px; font-size:22px; line-height:28px; color:#1d2524;">Bekräfta byte av e-postadress</h1>
+              <p style="margin:0 0 20px;">Någon bad om att byta e-postadress för ett Pinglapp-konto:</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px; font-size:15px; line-height:22px;">
+                <tr><td style="padding:0 12px 4px 0; color:#4a5654;">Från</td><td style="padding:0 0 4px;"><strong>{{ .Email }}</strong></td></tr>
+                <tr><td style="padding:0 12px 0 0; color:#4a5654;">Till</td><td><strong>{{ .NewEmail }}</strong></td></tr>
+              </table>
+              <p style="margin:0 0 20px;">Var det du? Klicka på knappen för att bekräfta bytet.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-radius:8px; background:#0d7c72;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:12px 24px; font-size:16px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:8px;">Bekräfta bytet</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 0; font-size:14px; line-height:21px; color:#4a5654;">
+              <p style="margin:0 0 12px;">Länken fungerar en gång och slutar gälla efter en timme. Adressen byts inte förrän bytet är bekräftat.</p>
+              <p style="margin:0;">Bad du inte om det här? Klicka inte på länken. Logga in i Pinglapp och byt lösenord, så att ingen annan kommer åt ditt konto.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 0;"><hr style="border:0; border-top:1px solid #e3e8e7; margin:0;"></td>
+          </tr>
+          <tr>
+            <td lang="en" style="padding:20px 32px 0; font-size:14px; line-height:21px; color:#4a5654;">
+              <p style="margin:0 0 8px; font-weight:600; color:#1d2524;">Confirm your email change</p>
+              <p style="margin:0 0 8px;">Someone asked to change the email address of a Pinglapp account from <strong>{{ .Email }}</strong> to <strong>{{ .NewEmail }}</strong>. If it was you, <a href="{{ .ConfirmationURL }}" style="color:#0d7c72;">confirm the change</a>. The link works once and expires after one hour. Nothing changes until it's confirmed.</p>
+              <p style="margin:0;">If it wasn't you, don't click the link. Sign in to Pinglapp and change your password so nobody else can get into your account.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 28px; font-size:12px; line-height:18px; color:#7a8583;">
+              Du får det här mejlet för att någon bad om att byta e-postadress på ett Pinglapp-konto. Det går inte att svara på det.<br>
+              Pinglapp · <a href="https://pinglapp.com" style="color:#7a8583;">pinglapp.com</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

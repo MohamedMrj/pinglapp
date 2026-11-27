@@ -12,8 +12,9 @@ export const FAKE = () => {
       'c@example.com': { pw: 'correct-horse-3', id: 'u-c' } },
     profiles: { 'u-a': { username: 'alice', display_name: 'Alice' }, 'u-c': { username: 'carol', display_name: 'Carol' } },
     priv: { 'u-a': { terms_accepted_at: '2026-11-01' }, 'u-b': {}, 'u-c': { terms_accepted_at: '2026-11-01' } },
-    taken: ['alice', 'carol', 'admin'], calls: [], created: 0,
+    taken: ['alice', 'carol', 'admin'], calls: [], created: 0, blocks: [],
   };
+  db.blocks ||= [];
   const keep = () => sessionStorage.setItem('fakedb', JSON.stringify(db));
   let cbs = [], session = null;
   try { session = JSON.parse(localStorage.getItem('pinglapp.auth')); } catch { }
@@ -26,6 +27,15 @@ export const FAKE = () => {
   const server = async q => JSON.parse(await window.__pingServer(JSON.stringify(Object.assign({}, q, { uid: session && session.user.id }))));
   async function run(q) {
     const id = session && session.user.id;
+    if (q.table === 'profiles' && q.op === 'update') {
+      call('update', q.table, q.values);
+      if (!id || q.eq !== id || !db.profiles[id]) return { data: null, error: null };   // row-level security: no row changed
+      const av = q.values.avatar_path;
+      if (av != null && !new RegExp(`^${id}/avatar\\.webp\\?v=\\d{1,15}$`).test(av))
+        return { data: null, error: { code: '23514', message: 'new row for relation "profiles" violates check constraint "profiles_avatar_path_own"' } };
+      Object.assign(db.profiles[id], q.values); keep();
+      return { data: null, error: null };
+    }
     if (q.table === 'profiles' || q.table === 'account_private') {
       const src = q.table === 'profiles' ? db.profiles : db.priv;
       let row = (id && src[id]) || null;
@@ -44,6 +54,8 @@ export const FAKE = () => {
       gt(col, v) { q.gt = v; return b; },
       in(col, ids) { q.in = ids; return b; },
       upsert(rows, o) { q.op = 'upsert'; q.rows = Array.isArray(rows) ? rows : [rows]; q.onConflict = o && o.onConflict; return b; },
+      update(values) { q.op = 'update'; q.values = values; return b; },
+      eq(col, v) { q.eq = v; return b; },
       maybeSingle() { q.single = true; return b; },
       then(res, rej) { return run(q).then(res, rej); },
     };
@@ -73,6 +85,10 @@ export const FAKE = () => {
     storage: {
       from: bucket => ({
         async upload(path, blob, o) {
+          if (!window.__pingServer) {   // the sign-in tests have no shared server: just record the upload
+            call('upload', bucket, path, (o && o.contentType) || blob.type, blob.size, !!(o && o.upsert));
+            return session && path.startsWith(session.user.id + '/') ? { data: { path }, error: null } : { data: null, error: { message: 'new row violates row-level security policy' } };
+          }
           const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(blob); });
           return server({ op: 'storage', act: 'upload', bucket, path, b64, type: (o && o.contentType) || blob.type, size: blob.size, upsert: !!(o && o.upsert) });
         },
@@ -83,7 +99,7 @@ export const FAKE = () => {
           for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
           return { data: new Blob([bytes], { type: r.data.type }), error: null };
         },
-        async remove(paths) { return server({ op: 'storage', act: 'remove', bucket, paths }); },
+        async remove(paths) { if (!window.__pingServer) { call('remove', bucket, paths); return { data: [], error: null }; } return server({ op: 'storage', act: 'remove', bucket, paths }); },
       }),
     },
     async rpc(name, args) {
@@ -91,10 +107,35 @@ export const FAKE = () => {
       if (name === 'username_available') return { data: !db.taken.includes(args.name), error: null };
       if (name === 'set_username') {
         if (db.taken.includes(args.name)) return { data: null, error: { code: '23505', hint: 'username_taken', message: 'username taken' } };
-        db.profiles[session.user.id] = { username: args.name, display_name: null }; keep();
+        db.profiles[session.user.id] = Object.assign({ display_name: null }, db.profiles[session.user.id], { username: args.name }); keep();
         return { data: args.name, error: null };
       }
       if (name === 'accept_terms') { db.priv[session.user.id] = { terms_accepted_at: 'now' }; keep(); return { data: null, error: null }; }
+      // Profiles, following get_profile / find_profiles / block_user … in the core migration.
+      const me = session && session.user.id;
+      if (!me) return { data: null, error: { code: '42501', message: 'permission denied' } };
+      const idOf = n => Object.keys(db.profiles).find(k => db.profiles[k].username === String(n).toLowerCase());
+      const visible = k => k === me || (db.profiles[k].visibility !== 'private' && !db.blocks.some(([a, b]) => a === k && b === me));
+      const pub = k => { const p = db.profiles[k]; return { username: p.username, display_name: p.display_name || null, avatar_path: p.avatar_path || null, bio: p.bio || null, member_since: '2026-11-01' }; };
+      if (name === 'find_profiles') {
+        const pre = String(args.prefix).toLowerCase();
+        if (!/^[a-z0-9_]{3,20}$/.test(pre)) return { data: [], error: null };
+        const ks = Object.keys(db.profiles).filter(k => db.profiles[k].username.startsWith(pre) && visible(k)).sort((a, b) => db.profiles[a].username < db.profiles[b].username ? -1 : 1);
+        return { data: ks.slice(0, 20).map(k => { const { username, display_name, avatar_path } = pub(k); return { username, display_name, avatar_path }; }), error: null };
+      }
+      if (name === 'get_profile') { const k = idOf(args.name); return { data: k && visible(k) ? [pub(k)] : [], error: null }; }
+      if (name === 'block_user' || name === 'unblock_user') {
+        const k = idOf(args.name);
+        if (!k || k === me) return { data: false, error: null };
+        db.blocks = db.blocks.filter(([a, b]) => !(a === me && b === k));
+        if (name === 'block_user') db.blocks.push([me, k]);
+        keep(); return { data: true, error: null };
+      }
+      if (name === 'my_blocks') return { data: db.blocks.filter(([a]) => a === me).map(([, b]) => ({ username: db.profiles[b].username, blocked_at: '2026-11-27' })), error: null };
+      if (name === 'report_user') {
+        if (db.reportLimit) return { data: null, error: { code: 'P0001', hint: 'report_limit', message: 'too many reports' } };
+        return { data: !!idOf(args.name), error: null };
+      }
       return { data: null, error: { message: 'unknown rpc ' + name } };
     },
   };

@@ -11,6 +11,7 @@ database password stay in the Supabase dashboard, Edge Function secrets and GitH
 | `migrations/…_core.sql` | Tables, row-level security, grants, newest-wins triggers, sign-up trigger, username/profile/block/report functions |
 | `migrations/…_storage.sql` | Buckets (`avatars`, `note-images`, `boards`), own-folder policies, per-user quota |
 | `migrations/…_jobs.sql` | `pg_cron`: tombstone cleanup after 90 days, weekly storage recount |
+| `migrations/…_profiles.sql` | Phase 5: `avatar_path` may only name your own avatar file, `{id}/avatar.webp?v={n}` |
 
 Tests (in `../tests`, run with `npm test`):
 
@@ -37,7 +38,7 @@ Do these in order. Each step is free except the domain.
    npx supabase link --project-ref <staging-project-ref>
    npx supabase db push
    ```
-   (Or paste the three files, in order, into Dashboard → SQL Editor.)
+   (Or paste the files, in order, into Dashboard → SQL Editor. Each later migration is applied once, on its own.)
 4. **Email (SMTP).** Create a Brevo or Resend account, add the domain, and add the SPF, DKIM and DMARC records it gives
    you in Cloudflare (DNS only). In Supabase: Authentication → Emails → SMTP settings, sender `no-reply@pinglapp.com`. Raise the email rate limit
    (Authentication → Rate limits) from the default if needed.
@@ -88,6 +89,10 @@ Accounts are switched on only for a local copy (and on any address opened once w
   `get_profile(username)` and `find_profiles(prefix)` (min. 3 characters, max. 20 results), so nobody can list every
   user with one query. Blocks and reports also go through functions, because the app never learns other users' ids.
 - **Username changes:** the first change is free, after that one per 30 days.
+- **Avatars are public files.** The `avatars` bucket is public so pictures load without a signed link. So anyone
+  with a picture's address can see it, even if the profile is hidden (the app says so), and the address contains the
+  owner's user id. That's acceptable: no rule depends on ids being secret; everything checks `auth.uid()`.
+  `avatar_path` carries `?v={time}` so a new picture gets a new address and no cache shows the old one.
 - **Grants.** Since 30 Oct 2026 Supabase no longer grants new tables to the API automatically, so every table revokes
   everything and grants exactly what the app needs (e.g. users may update only `language` and `time_zone` in
   `account_private`, never `quota_bytes` or `used_bytes`).
@@ -101,5 +106,6 @@ PGlite stands in for Supabase's `auth`, `storage` and `cron` schemas, so these w
 - ✅ the storage meter showed real usage, so the `track_storage_use` trigger on `storage.objects` works;
 - ✅ email through Brevo SMTP (sender `no-reply@pinglapp.com`), 2026-11-25;
 - ✅ Turnstile site key in the app; log-in still works (Captcha not yet required in Supabase);
-- ⬜ Google and Microsoft sign-up (providers not set up yet);
+- ⬜ Google and Microsoft sign-up (providers enabled 2026-11-27, not tried yet);
+- ⬜ profiles (phase 5): apply `…_profiles.sql`, then edit profile, upload a picture, find, block, report;
 - ⬜ `pg_cron` jobs under Integrations → Cron.

@@ -1,0 +1,63 @@
+<!-- Supabase → Authentication → Emails → Templates → Confirm signup.
+     Subject: Bekräfta din e-postadress för Pinglapp
+     Paste everything below this comment into the "Message body" field, on staging and on prod. -->
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bekräfta din e-postadress</title>
+</head>
+<body style="margin:0; padding:0; background:#f4f6f6;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f6;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px; background:#ffffff; border-radius:12px; font-family:-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#1d2524;">
+          <tr>
+            <td style="padding:28px 32px 0; font-size:20px; font-weight:700; color:#0d7c72;">Pinglapp</td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 0; font-size:16px; line-height:24px;">
+              <h1 style="margin:0 0 12px; font-size:22px; line-height:28px; color:#1d2524;">Välkommen till Pinglapp!</h1>
+              <p style="margin:0 0 20px;">Du har skapat ett konto med adressen <strong>{{ .Email }}</strong>. Bekräfta att adressen är din, så kan du börja använda kontot.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-radius:8px; background:#0d7c72;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block; padding:12px 24px; font-size:16px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:8px;">Bekräfta e-postadressen</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 0; font-size:14px; line-height:21px; color:#4a5654;">
+              <p style="margin:0 0 12px;">Länken fungerar en gång och slutar gälla efter en timme. Har den hunnit gå ut? Logga in i Pinglapp, så kan du få en ny.</p>
+              <p style="margin:0;">Har du inte skapat något konto? Då kan du strunta i det här mejlet. Kontot går inte att använda utan bekräftelse.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 0;"><hr style="border:0; border-top:1px solid #e3e8e7; margin:0;"></td>
+          </tr>
+          <tr>
+            <td lang="en" style="padding:20px 32px 0; font-size:14px; line-height:21px; color:#4a5654;">
+              <p style="margin:0 0 8px; font-weight:600; color:#1d2524;">Welcome to Pinglapp!</p>
+              <p style="margin:0 0 8px;">You created an account with <strong>{{ .Email }}</strong>. <a href="{{ .ConfirmationURL }}" style="color:#0d7c72;">Confirm your email address</a> to start using it. The link works once and expires after one hour.</p>
+              <p style="margin:0;">If you didn't create an account, you can ignore this email. The account can't be used without confirmation.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 28px; font-size:12px; line-height:18px; color:#7a8583;">
+              Du får det här mejlet för att någon skapade ett Pinglapp-konto med den här adressen. Det går inte att svara på det.<br>
+              Pinglapp · <a href="https://pinglapp.com" style="color:#7a8583;">pinglapp.com</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
