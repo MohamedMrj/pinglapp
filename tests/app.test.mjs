@@ -436,17 +436,72 @@ test('notes: typing saves, delete goes to the trash with undo, and history keeps
 // ------------------------------------------------------------------ themes, dark whiteboard, fullscreen
 const THEMES = ['lagoon', 'fjord', 'solarized', 'sunset', 'forest', 'candy', 'neon', 'space', 'interstellar', 'nature', 'mountain', 'desert'];
 
-test('settings is a gear icon with a readable name, in Swedish and English', async () => {
+test('settings is a gear icon with its name written next to it, in Swedish and English', async () => {
   for (const [lang, name] of [['sv', 'Inställningar'], ['en', 'Settings']]) {
     const { ctx, page } = await open({ lang });
     const b = page.locator('.tabs [data-tab="settings"]');
-    assert.equal((await b.innerText()).trim(), '', 'no text, just the icon');
-    assert.equal(await b.getAttribute('aria-label'), name);
-    assert.equal(await b.getAttribute('title'), name);
+    assert.equal((await b.innerText()).trim(), name, 'a visible name, not just the icon');
+    assert.equal(await b.locator('svg').count(), 1);
     await b.click();
     assert.equal(await page.isVisible('#view-settings'), true);
     await ctx.close();
   }
+});
+
+// ---- UX update U1: header and navigation
+test('phones get a bottom bar with the sections; "Mer" holds settings and help; the header tabs are hidden', async () => {
+  const { ctx, page, errors } = await open();
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.isVisible('#bottomNav'), true);
+  assert.equal(await page.isVisible('header .tabs'), false);
+  assert.equal(await page.isVisible('.help-btn'), false);
+  const labels = await page.locator('#bottomNav button:visible').allInnerTexts();
+  assert.deepEqual(labels.map(s => s.trim()), ['Påminnelser', 'Anteckningar', 'Tavla', 'Vänner', 'Mer']);
+  await page.click('#bottomNav [data-tab="notes"]');
+  assert.equal(await page.isVisible('#view-notes'), true);
+  assert.equal(await page.getAttribute('#bottomNav [data-tab="notes"]', 'aria-selected'), 'true');
+  assert.equal(await page.getAttribute('.tabs [data-tab="notes"]', 'aria-selected'), 'true', 'the header tabs follow along');
+  await page.click('#bnavMore');
+  assert.deepEqual((await page.locator('#pop button').allInnerTexts()).slice(0, 2), ['Inställningar', 'Hjälp och kortkommandon']);
+  await page.click('#pop button:has-text("Inställningar")');
+  assert.equal(await page.isVisible('#view-settings'), true);
+  // Buttons in the bar are big enough to tap.
+  const box = await page.locator('#bottomNav [data-tab="reminders"]').boundingBox();
+  assert.ok(box.height >= 44, 'bottom bar buttons are at least 44 px high');
+  // A computer: tabs at the top, no bottom bar, a labelled help button.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  assert.equal(await page.isVisible('#bottomNav'), false);
+  assert.equal(await page.isVisible('header .tabs'), true);
+  assert.equal((await page.innerText('.help-btn')).replace(/\s+/g, ' ').trim(), '? Hjälp');
+  await page.click('.help-btn');
+  assert.equal(await page.isVisible('#keysDlg'), true);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('notifications are asked for once: no chip while the banner is up; after "Inte nu" the chip remains', async () => {
+  const { ctx, page, errors } = await open({ init: () => { Object.defineProperty(Notification, 'permission', { get: () => 'default' }); } });
+  assert.equal(await page.isVisible('#notifBanner'), true);
+  assert.equal(await page.isVisible('#notifChip'), false, 'not asked twice');
+  await page.click('#notifBanner [data-act="hide-banner"]');
+  assert.equal(await page.isVisible('#notifBanner'), false);
+  assert.equal(await page.isVisible('#notifChip'), true, 'still one click away');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('the UTC clock and the code font are switched off once for everyone; switching them back on sticks', async () => {
+  const { ctx, page, errors } = await open({ seed: { reminders: [], notes: [], settings: { lang: 'sv', onboarded: true, driveGuideSeen: true, utcClock: true, mono: true } } });
+  assert.equal(await page.textContent('#clock'), '');
+  assert.deepEqual(await page.evaluate(() => [S.settings.utcClock, S.settings.mono, S.settings.uxV, noteText.classList.contains('mono')]), [false, false, 1, false]);
+  await tab(page, 'settings');
+  await page.check('#setUtc');
+  await page.reload();
+  await page.waitForFunction(() => typeof isActiveWindow !== 'undefined' && isActiveWindow);
+  assert.equal(await page.evaluate(() => S.settings.utcClock), true, 'not switched off again');
+  await page.waitForFunction(() => /UTC/.test($('clock').textContent));
+  assert.deepEqual(errors, []);
+  await ctx.close();
 });
 
 test('every theme has its own light and dark colours, and the whiteboard paper follows them', async () => {

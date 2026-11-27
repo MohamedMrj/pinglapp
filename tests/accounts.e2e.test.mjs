@@ -547,16 +547,24 @@ test('inbox: a friend request lights up the bell; accept it there, and the frien
   await page.waitForFunction(() => $('inboxCount').textContent === '1' && !$('inboxCount').hidden);
   assert.equal(await page.getAttribute('#inboxBtn', 'aria-label'), 'Inkorg, 1 nya');
   await page.click('#inboxBtn');
-  assert.equal(await view(page), 'inbox');
-  await page.waitForSelector('#inboxList li');
-  assert.match(await page.textContent('#inboxList li .what'), /^<b>Carol<\/b> vill bli din vän$/, 'a name is shown as text, never as HTML');
-  assert.equal(await page.locator('#inboxList li .what b').count(), 0);
-  assert.equal(await page.locator('#inboxList li svg.av-svg').count(), 1, 'with their avatar');
-  await page.click('#inboxList [data-act="friend-accept"]');
+  assert.equal(await page.isVisible('#view-friends'), true, 'the bell opens the Vänner section');
+  await page.waitForSelector('#frInboxList li');
+  assert.match(await page.textContent('#frInboxList li .what'), /^<b>Carol<\/b> vill bli din vän$/, 'a name is shown as text, never as HTML');
+  assert.equal(await page.locator('#frInboxList li .what b').count(), 0);
+  assert.equal(await page.locator('#frInboxList li svg.av-svg').count(), 1, 'with their avatar');
+  await page.click('#frInboxList [data-act="friend-accept"]');
   await page.waitForFunction(() => /Du och @carol är vänner nu/.test($('acctMsg').textContent));
-  await page.waitForFunction(() => $('inboxCount').hidden && /Inget nytt/.test($('inboxHint').textContent));
-  // The friends list, and back from a friend's profile to the list.
-  await page.evaluate(() => acctShow('friends'));
+  await page.waitForFunction(() => $('inboxCount').hidden && /Inget nytt/.test($('frInboxHint').textContent));
+  // The new friend is listed in the Vänner section; their profile opens from there, and "Tillbaka" closes it again.
+  await page.waitForSelector('#frFriendsList .acct-person');
+  assert.match(await page.textContent('#frFriendsList'), /<b>Carol<\/b> @carol/);
+  await page.click('#frFriendsList .acct-person');
+  await page.waitForFunction(() => !$('acctDlg').hidden && acct.view === 'person' && !$('acctFriendBox').hidden);
+  await page.click(inView('person', '#acctPersonFoot [data-act=acct-view]'));
+  assert.equal(await page.isVisible('#acctDlg'), false, 'back in the Vänner section');
+  assert.equal(await page.isVisible('#view-friends'), true);
+  // The same list under Konto → Vänner, and back from a friend's profile to that list.
+  await page.evaluate(() => acctOpen('friends'));
   await page.waitForSelector('#acctFriendsList .acct-person');
   assert.match(await page.textContent('#acctFriendsList'), /<b>Carol<\/b> @carol/);
   await page.click('#acctFriendsList .acct-person');
@@ -573,13 +581,13 @@ test('inbox: declining removes the request; blocking a friend ends the friendshi
   await fakeDb(page, { friends: [{ a: 'u-a', b: 'u-c', by: 'u-c', status: 'pending' }] });
   await page.evaluate(() => inboxRefresh());
   await page.click('#inboxBtn');
-  await page.waitForSelector('#inboxList [data-act="friend-decline"]');
-  await page.click('#inboxList [data-act="friend-decline"]');
+  await page.waitForSelector('#frInboxList [data-act="friend-decline"]');
+  await page.click('#frInboxList [data-act="friend-decline"]');
   await page.waitForFunction(() => /Förfrågan avböjd/.test($('acctMsg').textContent));
   assert.deepEqual(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.friends), []);
   // Friends, then blocked: the friendship ends and the friend area disappears.
   await fakeDb(page, { friends: [{ a: 'u-a', b: 'u-c', by: 'u-c', status: 'accepted' }] });
-  await page.evaluate(() => acctOpenPerson('carol'));
+  await page.evaluate(() => { $('acctDlg').hidden = false; acctOpenPerson('carol'); });
   await page.waitForFunction(() => !$('acctFriendBox').hidden);
   assert.equal(await friendState(page), 'Vänner | Ta bort som vän | Skicka en påminnelse');
   await page.click('#acctBlockBtn');
@@ -601,6 +609,38 @@ test('friends: the server\'s refusals are explained (blocked, daily limit)', asy
   await page.waitForFunction(() => !$('acctFriendBox').hidden);
   await page.click('#acctFriendBox [data-act="friend-add"]');
   await page.waitForFunction(() => /många vänförfrågningar/.test($('acctMsg').textContent));
+  await ctx.close();
+});
+
+// ---- UX update U1: the Vänner section (a main tab)
+test('the Vänner tab: signed out it explains and offers to log in; signed in it has the inbox, friends and search', async () => {
+  const out = await open();
+  assert.equal(await out.page.isVisible('#tabFriends'), true, 'shown wherever accounts are on');
+  await out.page.click('#tabFriends');
+  assert.equal(await out.page.isVisible('#frSignedOut'), true);
+  assert.equal(await out.page.isVisible('#frSignedIn'), false);
+  await out.page.click('#frSignedOut [data-act="acct-open"]');
+  assert.equal(await out.page.isVisible('#acctDlg'), true);
+  await out.ctx.close();
+
+  const { ctx, page, errors } = await signedInAlice();
+  await fakeDb(page, { friends: [{ a: 'u-a', b: 'u-c', by: 'u-c', status: 'pending' }] });
+  await page.evaluate(() => inboxRefresh());
+  await page.waitForFunction(() => $('tabFriendsCount').textContent === '1' && !$('tabFriendsCount').hidden);
+  await page.click('#tabFriends');
+  assert.equal(await page.isVisible('#frSignedIn'), true);
+  await page.waitForSelector('#frInboxList [data-act="friend-accept"]');
+  assert.match(await page.textContent('#frFriendsHint'), /Inga vänner/);
+  // Finding someone, then their profile.
+  await page.fill('#frPeopleQ', 'car');
+  await page.waitForSelector('#frPeopleList .acct-person');
+  assert.match(await page.textContent('#frPeopleList'), /Carol @carol/);
+  // Answering in the section: a short message, the friend appears, the count goes.
+  await page.click('#frInboxList [data-act="friend-accept"]');
+  await page.waitForFunction(() => /vänner nu/.test($('toastMsg').textContent));
+  await page.waitForSelector('#frFriendsList .acct-person');
+  await page.waitForFunction(() => $('tabFriendsCount').hidden && $('bnavFriendsCount').hidden);
+  assert.deepEqual(errors, []);
   await ctx.close();
 });
 
@@ -654,16 +694,16 @@ test('inbox: a reminder from a friend is shown as text; "Lägg till" adds it as 
   await page.evaluate(() => inboxRefresh());
   await page.waitForFunction(() => $('inboxCount').textContent === '1');
   await page.click('#inboxBtn');
-  await page.waitForSelector('#inboxList [data-act="inbox-add"]');
-  assert.equal(await page.textContent('#inboxList li .what'), 'Carol vill påminna dig:');
-  assert.equal(await page.textContent('#inboxList li .said'), '<b>Ring</b> mamma imorgon 18:00', 'their words as text, never HTML');
-  assert.equal(await page.locator('#inboxList li .said b').count(), 0);
-  await page.click('#inboxList [data-act="inbox-add"]');
+  await page.waitForSelector('#frInboxList [data-act="inbox-add"]');
+  assert.equal(await page.textContent('#frInboxList li .what'), 'Carol vill påminna dig:');
+  assert.equal(await page.textContent('#frInboxList li .said'), '<b>Ring</b> mamma imorgon 18:00', 'their words as text, never HTML');
+  assert.equal(await page.locator('#frInboxList li .said b').count(), 0);
+  await page.click('#frInboxList [data-act="inbox-add"]');
   await page.waitForFunction(() => /Tillagd/.test($('acctMsg').textContent));
   const want = new Date(sent); want.setDate(want.getDate() + 1); want.setHours(18, 0, 0, 0);
   assert.deepEqual(await fromCarol(page), [{ title: '<b>Ring</b> mamma', due: want.getTime(), repeat: 'none' }]);
   assert.deepEqual(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.items.map(i => i.answered)), [true]);
-  await page.waitForFunction(() => $('inboxCount').hidden && /Inget nytt/.test($('inboxHint').textContent));
+  await page.waitForFunction(() => $('inboxCount').hidden && /Inget nytt/.test($('frInboxHint').textContent));
   // The reminder list shows it as text too.
   await page.waitForFunction(() => $('groups').textContent.includes('<b>Ring</b> mamma'));
   assert.equal(await page.locator('#groups .title b').count(), 0);
@@ -677,14 +717,14 @@ test('inbox: "Nej tack" adds nothing; with no time, or a time that has passed, t
   await fakeDb(page, { friends: FRIENDS_AC, items: [itemFromCarol(1, 'Nej tack-test'), itemFromCarol(2, 'Köp mjölk'), itemFromCarol(3, 'Vattna blommorna om 5 min', dayAgo)] });
   await page.evaluate(() => inboxRefresh());
   await page.click('#inboxBtn');
-  await page.waitForSelector('#inboxList [data-id="1"][data-act="inbox-decline"]');
-  await page.click('#inboxList [data-id="1"][data-act="inbox-decline"]');
+  await page.waitForSelector('#frInboxList [data-id="1"][data-act="inbox-decline"]');
+  await page.click('#frInboxList [data-id="1"][data-act="inbox-decline"]');
   await page.waitForFunction(() => /inte tillagd/.test($('acctMsg').textContent));
   const answered = () => page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.items.filter(i => i.answered).map(i => i.id));
   assert.deepEqual(await answered(), [1]);
   assert.deepEqual(await fromCarol(page), []);
   // No time: the editor opens with the text; cancelling leaves it waiting, saving adds it and answers it.
-  await page.click('#inboxList [data-id="2"][data-act="inbox-add"]');
+  await page.click('#frInboxList [data-id="2"][data-act="inbox-add"]');
   await page.waitForFunction(() => !$('editor').hidden);
   assert.equal(await page.inputValue('#edTitle'), 'Köp mjölk');
   assert.equal(await page.inputValue('#edNotes'), 'Från @carol');
@@ -695,8 +735,8 @@ test('inbox: "Nej tack" adds nothing; with no time, or a time that has passed, t
   assert.deepEqual((await fromCarol(page)).map(r => r.title), ['Köp mjölk']);
   // "om 5 min", sent a day ago: that time is gone, so the editor asks.
   await page.click('#inboxBtn');
-  await page.waitForSelector('#inboxList [data-id="3"][data-act="inbox-add"]');
-  await page.click('#inboxList [data-id="3"][data-act="inbox-add"]');
+  await page.waitForSelector('#frInboxList [data-id="3"][data-act="inbox-add"]');
+  await page.click('#frInboxList [data-id="3"][data-act="inbox-add"]');
   await page.waitForFunction(() => !$('editor').hidden);
   assert.equal(await page.inputValue('#edTitle'), 'Vattna blommorna');
   assert.deepEqual(await answered(), [1, 2], 'not answered until saved');
@@ -782,16 +822,16 @@ test('inbox: a board invite shows the title as text; "Gå med" answers it and op
     { id: 8, from: 'u-c', to: 'u-a', kind: 'board_invite', payload: { room: 'https://evil.example', title: 'Bad' }, at: new Date().toISOString(), answered: false }] });
   await page.evaluate(() => inboxRefresh());
   await page.click('#inboxBtn');
-  await page.waitForSelector('#inboxList [data-id="5"][data-act="inbox-join"]');
-  assert.equal(await page.locator('#inboxList li').count(), 2, 'a day-old invite is not shown');
-  assert.match(await page.textContent('#inboxList'), /Carol bjuder in dig till tavlan ”<i>Plan<\/i>”/);
-  assert.equal(await page.locator('#inboxList i').count(), 0);
-  assert.equal(await page.locator('#inboxList a').count(), 0, 'no links from other people');
+  await page.waitForSelector('#frInboxList [data-id="5"][data-act="inbox-join"]');
+  assert.equal(await page.locator('#frInboxList li').count(), 2, 'a day-old invite is not shown');
+  assert.match(await page.textContent('#frInboxList'), /Carol bjuder in dig till tavlan ”<i>Plan<\/i>”/);
+  assert.equal(await page.locator('#frInboxList i').count(), 0);
+  assert.equal(await page.locator('#frInboxList a').count(), 0, 'no links from other people');
   // A room id that isn't one the app makes is refused by the app too (the database already refuses it).
-  await page.click('#inboxList [data-id="8"][data-act="inbox-join"]');
+  await page.click('#frInboxList [data-id="8"][data-act="inbox-join"]');
   await page.waitForFunction(() => /fungerar inte/.test($('acctMsg').textContent));
   assert.equal(await page.evaluate(() => location.hash), '');
-  await Promise.all([page.waitForEvent('load'), page.click('#inboxList [data-id="5"][data-act="inbox-join"]')]);
+  await Promise.all([page.waitForEvent('load'), page.click('#frInboxList [data-id="5"][data-act="inbox-join"]')]);
   await page.waitForFunction(() => typeof wbGuestRoom !== 'undefined');
   assert.equal(await page.evaluate(() => wbGuestRoom), ROOM);
   assert.deepEqual(await page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.items.filter(i => i.answered).map(i => i.id).sort()), [5, 8]);

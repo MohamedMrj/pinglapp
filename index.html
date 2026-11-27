@@ -240,15 +240,48 @@ code, kbd, .mono { font-family: var(--mono); }
 .app { max-width: 1080px; margin: 0 auto; padding-block: 18px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }   /* minmax(0,1fr): a long label never makes the page wider than a phone */
 
 /* header */
-header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+/* The header: the name on the left, status + account + help on the right; the sections as tabs on their own row. */
+header { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px 14px; }
+header .tabs { grid-column: 1 / -1; justify-self: start; }
+.head-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.help-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 4px 12px 4px 5px; font: 600 13px/1 inherit; cursor: pointer; min-height: 30px; }
+.help-btn .q { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); font-weight: 700; }
+.help-btn:hover { border-color: var(--accent); }
+.acct-chip { font-weight: 600; color: var(--ink); }
+.acct-chip.signin { border-color: var(--accent); color: var(--accent); }      /* signed out: "Logga in" reads as a button */
+.acct-chip.signin .dot { display: none; }
+.tabs .badge, .bnav .badge { min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--danger); color: #fff; font: 700 11px/17px inherit; text-align: center; margin-left: 6px; }
+.tabs button[hidden], .bnav button[hidden], .badge[hidden] { display: none; }
+.brand { display: flex; align-items: center; gap: 10px; }
+/* Phones: a bar at the bottom with the main sections. */
+.bnav { display: none; }
+@media (max-width: 720px) {
+  header .tabs, .help-btn, #pipBtn, #notifChip, #saveChip:not(.bad) { display: none; }
+  .bnav { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+    background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -2px 10px rgba(0,0,0,.06);
+    padding: 2px max(4px, env(safe-area-inset-left, 0px)) calc(2px + env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-right, 0px)); }
+  .bnav button { position: relative; display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 56px; padding: 6px 2px;
+    border: 0; background: none; color: var(--muted); font: 600 11.5px/1.15 inherit; cursor: pointer; border-radius: 10px; }
+  .bnav button[aria-selected="true"] { color: var(--accent); }
+  .bnav button[aria-selected="true"] svg { background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 12px; }
+  .bnav svg { width: 40px; height: 26px; padding: 2px 9px; box-sizing: border-box; }
+  .bnav .badge { position: absolute; top: 4px; left: calc(50% + 6px); margin: 0; }
+  .bnav span:not(.badge) { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  body.wb-full .bnav { display: none; }
+}
+/* The Vänner section: inbox, friends and finding people side by side on a wide screen, stacked on a phone. */
+.friends-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.friends-view .hint:empty { display: none; }
 .brand svg { width: 30px; height: 30px; }
 .brand b { font: 700 21px/1 var(--font-display); letter-spacing: -.02em; }
 .brand small { font: 12px/1 var(--mono); color: var(--muted); }
 .tabs { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 9px; }
 .tabs button { border: 0; background: transparent; padding: 6px 14px; border-radius: 7px; cursor: pointer; color: var(--muted); font-weight: 600; }
 .tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-.tabs .tab-icon { padding: 6px 9px; display: grid; place-items: center; }
+.tabs button { display: inline-flex; align-items: center; }
+.tabs .tab-icon { gap: 7px; flex-direction: row-reverse; }
 .tabs .tab-icon svg { display: block; transition: transform .3s; }
 .tabs .tab-icon:hover svg, .tabs .tab-icon[aria-selected="true"] svg { transform: rotate(45deg); }
 @media (prefers-reduced-motion: reduce) { .tabs .tab-icon svg { transition: none; } }
@@ -789,19 +822,30 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="2" y="2" width="60" height="60" rx="15" fill="var(--accent)"/><path d="M32 13a3 3 0 0 1 3 3v1.5c6 1.4 9.5 6.4 9.5 12.5v8l4 5.5H15.5l4-5.5v-8c0-6.1 3.5-11.1 9.5-12.5V16a3 3 0 0 1 3-3z" fill="var(--accent-ink)"/><ellipse cx="32" cy="49" rx="5" ry="3.6" fill="var(--accent-ink)"/></svg>
       <b>Pinglapp</b><small id="clock"></small>
     </div>
+    <div class="head-right">
     <button class="chip" id="saveChip" type="button"><span class="dot"></span><span id="saveChipText">Sparat</span></button>
     <button class="chip" id="notifChip" type="button"><span class="dot"></span><span id="notifChipText">Aviseringar</span></button>
-    <button class="chip" id="acctChip" type="button" data-act="acct-open" hidden><span class="dot"></span><span id="acctChipText">Logga in</span></button>
     <button class="chip inbox-chip" id="inboxBtn" type="button" data-act="inbox-open" hidden aria-label="Inkorg" title="Inkorg"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge" id="inboxCount" hidden></span></button>
+    <button class="chip acct-chip" id="acctChip" type="button" data-act="acct-open" hidden><span class="dot"></span><span id="acctChipText">Logga in</span></button>
+    <button class="icon-btn" type="button" data-act="pip-toggle" id="pipBtn" hidden aria-pressed="false" title="Håll Pinglapp ovanpå andra fönster" aria-label="Håll Pinglapp ovanpå andra fönster" data-i18n-title="alSecPip" data-i18n-aria="alSecPip"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="vertical-align:-3px"><rect x="2.5" y="4.5" width="19" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg></button>
+    <button class="help-btn" type="button" data-act="keys" title="Hjälp och kortkommandon (?)" data-i18n-title="helpBtnTitle"><span class="q" aria-hidden="true">?</span><span data-i18n="navHelp">Hjälp</span></button>
+    </div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="reminders" aria-selected="true" type="button" data-i18n="tabReminders">Påminnelser</button>
       <button role="tab" data-tab="notes" aria-selected="false" type="button" data-i18n="tabNotes">Anteckningar</button>
       <button role="tab" data-tab="board" aria-selected="false" type="button" data-i18n="tabBoard">Tavla</button>
-      <button role="tab" data-tab="settings" aria-selected="false" type="button" class="tab-icon" title="Inställningar" aria-label="Inställningar" data-i18n-title="tabSettings" data-i18n-aria="tabSettings"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <button role="tab" data-tab="friends" aria-selected="false" type="button" id="tabFriends" hidden><span data-i18n="tabFriends">Vänner</span><span class="badge" id="tabFriendsCount" hidden></span></button>
+      <button role="tab" data-tab="settings" aria-selected="false" type="button" class="tab-icon"><span data-i18n="tabSettings">Inställningar</span><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </nav>
-    <button class="icon-btn" type="button" data-act="pip-toggle" id="pipBtn" hidden aria-pressed="false" title="Håll Pinglapp ovanpå andra fönster" aria-label="Håll Pinglapp ovanpå andra fönster" data-i18n-title="alSecPip" data-i18n-aria="alSecPip"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="vertical-align:-3px"><rect x="2.5" y="4.5" width="19" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg></button>
-    <button class="icon-btn" type="button" data-act="keys" title="Kortkommandon (?)" aria-label="Kortkommandon" data-i18n-title="keysBtnTitle" data-i18n-aria="keysH">?</button>
   </header>
+  <!-- Phones: the main sections as a bar at the bottom of the screen (big, labelled buttons). -->
+  <nav class="bnav" id="bottomNav" aria-label="Huvudmeny" data-i18n-aria="navMain">
+    <button type="button" data-tab="reminders" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span data-i18n="tabReminders">Påminnelser</span></button>
+    <button type="button" data-tab="notes" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg><span data-i18n="tabNotes">Anteckningar</span></button>
+    <button type="button" data-tab="board" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21l4-4 4 4"/><path d="M7 13l3-3 2 2 4-4"/></svg><span data-i18n="tabBoard">Tavla</span></button>
+    <button type="button" data-tab="friends" aria-selected="false" id="bnavFriends" hidden><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.7.8 2.7 2.5 3 5.2"/></svg><span data-i18n="tabFriends">Vänner</span><span class="badge" id="bnavFriendsCount" hidden></span></button>
+    <button type="button" data-act="nav-more" id="bnavMore"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span data-i18n="navMore">Mer</span></button>
+  </nav>
 
   <div class="banner" id="notifBanner" hidden>
     <p data-i18n="bannerNotif"><strong>Slå på aviseringar</strong> så att dina påminnelser syns i hörnet av skärmen, även när Pinglapp ligger bakom andra fönster. Pinglapp använder dem bara för påminnelser som du själv skapat, och inget skickas via internet.</p>
@@ -987,6 +1031,34 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
   </section>
 
   <!-- SETTINGS -->
+  <section id="view-friends" hidden>
+    <div class="friends-view">
+      <div class="card" id="frSignedOut" hidden>
+        <h3 data-i18n="frOutH">Vänner i Pinglapp</h3>
+        <p data-i18n="frOutP">Med ett gratis konto kan du lägga till vänner, skicka påminnelser till varandra, dela anteckningar och listor och bjuda in till en tavla.</p>
+        <div class="row"><button class="btn primary" type="button" data-act="acct-open" data-i18n="frOutBtn">Logga in eller skapa ett konto</button></div>
+      </div>
+      <div class="friends-grid" id="frSignedIn" hidden>
+        <div class="card">
+          <h3 data-i18n="acctT_inbox">Inkorg</h3>
+          <p class="hint" id="frInboxHint" aria-live="polite"></p>
+          <ul class="inbox-list" id="frInboxList"></ul>
+        </div>
+        <div class="card">
+          <h3 data-i18n="frFriendsH">Dina vänner</h3>
+          <p class="hint" id="frFriendsHint" aria-live="polite"></p>
+          <ul class="acct-people" id="frFriendsList"></ul>
+        </div>
+        <div class="card">
+          <h3 data-i18n="acctFindPeople">Hitta personer</h3>
+          <label class="field"><span data-i18n="acctSearchPeople">Sök på användarnamn</span><input type="search" id="frPeopleQ" maxlength="20" spellcheck="false" autocapitalize="none" autocomplete="off"></label>
+          <p class="hint" id="frPeopleHint" aria-live="polite"></p>
+          <ul class="acct-people" id="frPeopleList"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="view-settings" hidden>
     <div class="settings">
       <div class="card">
@@ -3436,7 +3508,7 @@ function normalize(j) {
     r.priority = r.priority || 0;
   });
   j.notes.forEach(n => { n.id = String(n.id); n.text = str(n.text); n.pinned = !!n.pinned; if (n.history != null && !Array.isArray(n.history)) n.history = []; });
-  j.settings = Object.assign({ sound: true, icsOnSave: false, bannerHidden: false, theme: 'system', palette: 'lagoon', mono: true, utcClock: true, lang: 'sv' }, j.settings || {});
+  j.settings = Object.assign({ sound: true, icsOnSave: false, bannerHidden: false, theme: 'system', palette: 'lagoon', mono: false, utcClock: false, lang: 'sv' }, j.settings || {});
   j.settings.alert = Object.assign({}, ALERT_DEFAULTS, j.settings.alert || {});
   return j;
 }
@@ -3482,6 +3554,8 @@ function save() {
 function updateSaveChip() {
   const chip = $('saveChip'), txt = $('saveChipText');
   if (!chip) return;
+  // Signed in, the account button shows how syncing goes; this one only speaks up when saving here fails.
+  chip.hidden = !lastSaveError && typeof acct !== 'undefined' && !!acct && !!acct.session;
   const tm = lastSavedAt ? ' ' + new Date(lastSavedAt).toLocaleTimeString(LOCALE(), { hour: '2-digit', minute: '2-digit' }) : '';
   chip.classList.remove('on', 'off', 'bad');
   if (lastSaveError) { chip.classList.add('bad'); txt.textContent = t('chipNotSaved'); chip.title = t('chipNotSavedTitle', lastSaveError); }
@@ -4338,6 +4412,8 @@ function updateNotifUi() {
   txt.textContent = t(perm === 'granted' ? 'notifOn' : perm === 'denied' ? 'notifBlocked' : perm === 'unsupported' ? 'notifInWindow' : 'notifTurnOn');
   st.textContent = perm === 'granted' ? t('stGranted') : perm === 'denied' ? t('stDenied', browserName()) : perm === 'unsupported' ? t('stUnsupported') : t('stDefault');
   $('notifBanner').hidden = !(perm === 'default' && !S.settings.bannerHidden);
+  // Asked once, by the banner. The chip shows only when there is something to do and the banner isn't up.
+  chip.hidden = perm === 'granted' || perm === 'unsupported' || !$('notifBanner').hidden;
   if (notifError) st.textContent = t('stFailed', notifError);
   st.textContent += t('stRunning', browserName(), isLocalFile);
 }
@@ -7576,9 +7652,11 @@ const wbGuestRoom = (location.hash.match(/^#wb=([a-z0-9]{12,40})$/) || [])[1] ||
 
 // ---------------------------------------------------------------- tabs, settings & global buttons
 function showTab(name) {
-  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  if (name === 'friends' && $('tabFriends').hidden) name = 'reminders';      // accounts are off here
+  document.querySelectorAll('.tabs button[data-tab], .bnav button[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   if (name !== 'board') { wbFinishEdit(); if (wbFull()) wbSetFull(false); }
-  ['reminders', 'notes', 'board', 'settings'].forEach(v => $('view-' + v).hidden = v !== name);
+  ['reminders', 'notes', 'board', 'friends', 'settings'].forEach(v => $('view-' + v).hidden = v !== name);
+  if (name === 'friends') frRender();
   if (name !== 'notes') flushNote();
   if (name === 'notes') { renderNotes(); if (!curNote && liveNotes().length) loadNote(sortedNotes()[0]); else paintPreview(); }
   if (name === 'reminders') quickInput.focus();
@@ -7588,6 +7666,14 @@ function showTab(name) {
 }
 const currentTab = () => document.querySelector('.tabs [aria-selected="true"]').dataset.tab;
 document.querySelector('.tabs').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) showTab(b.dataset.tab); });
+$('bottomNav').addEventListener('click', e => { const b = e.target.closest('button[data-tab]'); if (b) { showTab(b.dataset.tab); scrollTo({ top: 0 }); } });
+// Phones: "Mer" in the bottom bar holds what the header shows on a computer.
+function navMore(anchor) {
+  const items = [[t('tabSettings'), () => showTab('settings')], [t('navHelpLong'), () => { $('keysDlg').hidden = false; }]];
+  if (acct && acct.project) items.push([acct.session ? t('acctT_account') : t('acctSignIn'), () => acctOpen(acctHomeView())]);
+  if (!$('pipBtn').hidden) items.push([t('alSecPip'), () => $('pipBtn').click()]);
+  openPop(anchor, items);
+}
 
 function applyTheme() {
   const t = S.settings.theme;
@@ -7686,6 +7772,7 @@ document.addEventListener('click', e => {
     case 'test-alert': fire(newReminder({ id: 'test-' + uid(), title: t('testTitle'), notes: t('testNotes'), tags: ['test'] }), Date.now()); break;
     case 'close-editor': closeEditor(); break;
     case 'keys': $('keysDlg').hidden = false; break;
+    case 'nav-more': navMore(b); break;
     case 'close-keys': $('keysDlg').hidden = true; break;
     case 'new-note': newNote(); break;
     case 'daily-log': dailyLog(); break;
@@ -7742,14 +7829,17 @@ document.addEventListener('click', e => {
     case 'acct-open': acctOpen(acctHomeView()); break;
     case 'acct-merge': cloudMergeHere(); break;
     case 'acct-replace': cloudReplaceHere(); break;
-    case 'acct-view': acctShow(b.dataset.to); break;
+    case 'acct-view': if (b.dataset.to === 'close') $('acctDlg').hidden = true; else acctShow(b.dataset.to); break;
     case 'acct-close': $('acctDlg').hidden = true; break;
     case 'acct-oauth': acctOAuth(b.dataset.provider); break;
     case 'acct-signout': acctSignOut(acct.view === 'signout' && !!acct.signoutAll, true); break;
     case 'acct-signout-remove': acctSignOut(!!acct.signoutAll, false); break;
     case 'acct-signout-ask': acct.signoutAll = b.dataset.all === '1'; acctShow('signout'); break;
     case 'acct-avatar-remove': acctRemoveAvatar(); break;
-    case 'acct-person': acctOpenPerson(b.dataset.name); break;
+    case 'acct-person':      // from the Vänner section the profile opens in the account dialog; "Tillbaka" closes it again
+      acct.fromSection = $('acctDlg').hidden;
+      if (acct.fromSection) $('acctDlg').hidden = false;
+      acctOpenPerson(b.dataset.name); break;
     case 'acct-block': acctBlock(acct.person, !(acct.blocks || []).includes(acct.person)); break;
     case 'acct-unblock': acctBlock(b.dataset.name, false); break;
     case 'acct-report': $('acctReportBox').hidden = false; $('acctReportReason').focus(); break;
@@ -7757,7 +7847,7 @@ document.addEventListener('click', e => {
     case 'acct-report-send': acctReport(); break;
     case 'acct-export': acctExport(); break;
     case 'friend-add': case 'friend-accept': case 'friend-decline': case 'friend-remove': acctFriendDo(b.dataset.act, b.dataset.name || acct.person); break;
-    case 'inbox-open': acctOpen('inbox'); break;
+    case 'inbox-open': showTab('friends'); break;
     case 'send-open': acctSendOpen(); break;
     case 'send-cancel': $('acctSendBox').hidden = true; break;
     case 'send-go': acctSendGo(); break;
@@ -7917,7 +8007,7 @@ function setActiveWindow(on) {
   if (!on && was && noteTimer) saveNow();
   isActiveWindow = on;
   $('lockDlg').hidden = on;
-  if (on && !was) { S = load(); keepUnreadable(); rebase(); curNote = null; renderAll(); check(); syncFile().then(maybeOnboard); cloudSync(); }
+  if (on && !was) { S = load(); keepUnreadable(); rebase(); if (uxMigrate()) save(); curNote = null; renderAll(); check(); syncFile().then(maybeOnboard); cloudSync(); }
   if (!on) [...openAlerts.keys()].forEach(closeAlert);
 }
 let fileInitDone = false;
@@ -8228,6 +8318,9 @@ const ACCT_T = {
     errShareNotFriend: 'You can only share with friends.', errShareBad: 'That couldn’t be shared. Try again.',
     errShareTooMany: 'A note can be shared with at most 20 people.', errShareLimit: 'You’ve shared a lot of notes today. Try again tomorrow.',
     errShareGone: 'The note is no longer shared with you.', errShareReadOnly: 'You can read this note but not change it.',
+    tabFriends: 'Friends', navMore: 'More', navHelp: 'Help', navHelpLong: 'Help and keyboard shortcuts', helpBtnTitle: 'Help and keyboard shortcuts (?)',
+    navMain: 'Main menu', frOutH: 'Friends in Pinglapp', frFriendsH: 'Your friends', frOutBtn: 'Log in or create an account',
+    frOutP: 'With a free account you can add friends, send each other reminders, share notes and lists, and invite friends to a whiteboard.',
   },
   sv: {
     acctSignIn: 'Logga in', acctAccount: 'Konto', acctChipTitle: 'Logga in eller skapa ett konto',
@@ -8322,6 +8415,10 @@ const ACCT_T = {
     errShareNotFriend: 'Du kan bara dela med vänner.', errShareBad: 'Det gick inte att dela. Försök igen.',
     errShareTooMany: 'En anteckning kan delas med högst 20 personer.', errShareLimit: 'Du har delat många anteckningar i dag. Försök igen i morgon.',
     errShareGone: 'Anteckningen delas inte längre med dig.', errShareReadOnly: 'Du kan läsa anteckningen men inte ändra den.',
+    tabSettings: 'Inställningar', alSecPip: 'Håll Pinglapp ovanpå andra fönster',
+    tabFriends: 'Vänner', navMore: 'Mer', navHelp: 'Hjälp', navHelpLong: 'Hjälp och kortkommandon', helpBtnTitle: 'Hjälp och kortkommandon (?)',
+    navMain: 'Huvudmeny', frOutH: 'Vänner i Pinglapp', frFriendsH: 'Dina vänner', frOutBtn: 'Logga in eller skapa ett konto',
+    frOutP: 'Med ett gratis konto kan du lägga till vänner, skicka påminnelser till varandra, dela anteckningar och listor och bjuda in till en tavla.',
   },
 };
 Object.assign(T.en, ACCT_T.en);
@@ -8447,9 +8544,13 @@ async function acctLoadProfile() {
 function updateAcctChip() {
   const c = $('acctChip'); if (!c || !acct) return;
   c.hidden = !acct.project;
-  if (c.hidden) return;
+  $('tabFriends').hidden = $('bnavFriends').hidden = !acct.project;      // the Vänner section needs accounts
+  updateSaveChip();
+  if (!$('view-friends').hidden) frRender();
+  if (c.hidden) { if (!$('view-friends').hidden) showTab('reminders'); return; }
   const signed = !!acct.session, st = signed && cloud ? cloud.state : '';
   c.classList.remove('on', 'off', 'bad');
+  c.classList.toggle('signin', !signed);
   if (st === 'ok') c.classList.add('on');
   else if (st === 'offline' || st === 'toobig' || st === 'waiting' || st === 'full') c.classList.add('off');
   else if (st === 'error') c.classList.add('bad');
@@ -8503,6 +8604,7 @@ function acctShow(view, msg, kind) {
 function acctMsg(msg, kind) {
   const m = $('acctMsg');
   m.hidden = !msg; m.textContent = msg || ''; m.className = 'acct-msg' + (kind ? ' ' + kind : '');
+  if (msg && $('acctDlg').hidden) toast(msg);       // e.g. answering a friend request in the Vänner section
 }
 // Google / Microsoft buttons appear only when they're switched on for the project.
 async function acctProviders() {
@@ -8935,8 +9037,9 @@ async function acctLoadBlocks() {
 }
 // Find people by the start of their username (the server needs at least 3 characters and returns at most 20).
 let acctPeopleTimer = null, acctPeopleSeq = 0;
-function acctPeopleSearch() {
-  const q = $('acctPeopleQ').value.trim().toLowerCase(), hint = $('acctPeopleHint'), list = $('acctPeopleList'), seq = ++acctPeopleSeq;
+function acctPeopleSearch() { peopleSearch($('acctPeopleQ'), $('acctPeopleHint'), $('acctPeopleList')); }
+function peopleSearch(input, hint, list) {
+  const q = input.value.trim().toLowerCase(), seq = ++acctPeopleSeq;
   clearTimeout(acctPeopleTimer);
   list.replaceChildren();
   if (!q) { hint.textContent = ''; return; }
@@ -8973,7 +9076,7 @@ async function acctOpenPerson(name) {
   acct.person = p.username;
   const from = ['friends', 'inbox'].includes(acct.view) ? acct.view : 'people';   // "Tillbaka" returns where you came from
   acctShow('person');
-  $('acctPersonFoot').querySelector('[data-act=acct-view]').dataset.to = from;
+  $('acctPersonFoot').querySelector('[data-act=acct-view]').dataset.to = acct.fromSection ? 'close' : from;
   acctAvatar($('acctPersonAvatar'), p);
   $('acctPersonName').textContent = p.display_name || '';
   $('acctPersonUser').textContent = '@' + p.username;
@@ -9026,8 +9129,29 @@ async function acctFriendDo(act, name) {
     : state === 'friends' ? t('friendNowMsg', who) : t('friendSentMsg', who), 'ok');
   if (acct.view === 'person' && acct.person === name) acctFriendBox(typeof state === 'string' ? state : null);
   if (acct.view === 'friends') acctLoadFriends();
+  if (!$('view-friends').hidden) frLoadFriends();
   inboxRefresh();
 }
+// ---- the Vänner section (a main tab): inbox, your friends and finding people, without opening the account dialog.
+// A person opens in the account dialog (their profile), and closing it brings you back here.
+function frRender() {
+  const ready = !!(acct && acct.session && acct.profile && acct.client);
+  $('frSignedOut').hidden = ready; $('frSignedIn').hidden = !ready;
+  if (!ready) return;
+  inboxRender(); inboxRefresh(); frLoadFriends();
+}
+async function frLoadFriends() {
+  const hint = $('frFriendsHint'), list = $('frFriendsList');
+  if (!list.children.length) hint.textContent = t('friendsLoading');
+  let r;
+  try { r = await acct.client.rpc('my_friends'); } catch (e) { r = { error: e }; }
+  if ($('view-friends').hidden) return;
+  if (r.error) { hint.textContent = acctErr(r.error); return; }
+  const friends = r.data || [];
+  hint.textContent = friends.length ? '' : t('friendsEmpty');
+  list.replaceChildren(...friends.map(acctPersonLi));
+}
+$('frPeopleQ').addEventListener('input', () => peopleSearch($('frPeopleQ'), $('frPeopleHint'), $('frPeopleList')));
 async function acctLoadFriends() {
   const hint = $('acctFriendsHint'), list = $('acctFriendsList');
   hint.textContent = t('friendsLoading');
@@ -9131,20 +9255,29 @@ async function inboxDecline(id) {
 // Refreshed when signed in, on focus, every 2 minutes, and after each answer. The bell shows how many.
 async function inboxRefresh() {
   const btn = $('inboxBtn');
-  if (!acct || !acct.session || !acct.profile || !acct.client) { btn.hidden = true; acct.inbox = []; return; }
+  if (!acct || !acct.session || !acct.profile || !acct.client) { btn.hidden = true; acct.inbox = []; inboxBadges(0); return; }
   let r;
   try { r = await acct.client.rpc('my_inbox'); } catch (e) { return; }
   if (r.error || !acct.session) return;
   acct.inbox = r.data || [];
-  const n = acct.inbox.length, c = $('inboxCount');
-  btn.hidden = !n;                                // the bell appears only when something is waiting (Konto → Inkorg always works)
-  c.hidden = !n; c.textContent = n > 99 ? '99+' : String(n);
+  const n = acct.inbox.length;
+  btn.hidden = !n;                                // the bell appears only when something is waiting (Vänner → Inkorg always works)
+  inboxBadges(n);
   btn.setAttribute('aria-label', n ? t('inboxLabelN', n) : t('inboxLabel')); btn.title = btn.getAttribute('aria-label');
-  if (!$('acctDlg').hidden && acct.view === 'inbox') inboxRender();
+  if ((!$('acctDlg').hidden && acct.view === 'inbox') || !$('view-friends').hidden) inboxRender();
 }
+// How many things wait: on the bell, the Vänner tab and the phone's bottom bar.
+function inboxBadges(n) {
+  for (const id of ['inboxCount', 'tabFriendsCount', 'bnavFriendsCount']) { const c = $(id); c.hidden = !n; c.textContent = n > 99 ? '99+' : String(n); }
+}
+// The inbox is shown in the account dialog (Konto → Inkorg) and in the Vänner section; both lists are drawn the same.
 function inboxRender() {
-  const list = $('inboxList'), items = acct.inbox || [];
-  $('inboxHint').textContent = items.length ? '' : t('inboxEmpty');
+  inboxFill($('inboxList'), $('inboxHint'));
+  inboxFill($('frInboxList'), $('frInboxHint'));
+}
+function inboxFill(list, hintEl) {
+  const items = acct.inbox || [];
+  hintEl.textContent = items.length ? '' : t('inboxEmpty');
   list.replaceChildren(...items.map(it => {
     const li = document.createElement('li'), av = document.createElement('span'), body = document.createElement('div');
     av.className = 'avatar'; av.setAttribute('aria-hidden', 'true'); acctAvatar(av, it);
@@ -9994,6 +10127,15 @@ $('saveChip').addEventListener('click', () => {
   else if (!fileHandle && fileApi) openSetup(0, true);
   else showTab('settings');
 });
+// Once per device (UX update, 2026-11): the UTC clock and the code font in notes are off for everyone; both can be
+// switched back on in Settings. Done after the baseline was taken, so the save stamps it and it syncs. Also run when
+// this window becomes the editing window (setActiveWindow reloads the data from storage).
+function uxMigrate() {
+  if (S.settings.uxV) return false;
+  S.settings.utcClock = false; S.settings.mono = false; S.settings.uxV = 1;
+  return true;
+}
+if (uxMigrate() && isActiveWindow) save();
 renderAll();
 purgeTrash();
 updateNoteStatus();
