@@ -1,7 +1,8 @@
 // Pinglapp service worker: makes the app installable and usable offline.
 // Pages load from the network first (so everyone gets updates), falling back to the cached copy offline.
-const CACHE = 'ping-v2';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'ping-v3';
+const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png',
+  './icon-maskable-192.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

@@ -36,8 +36,8 @@ before(async () => {
 after(async () => { await browser?.close(); server?.close(); });
 
 // A fresh profile with Pinglapp open. `seed` is put in localStorage before Pinglapp starts.
-async function open({ seed, lang = 'sv', tz = 'Europe/Stockholm', onboarded = true, init } = {}) {
-  const ctx = await browser.newContext({ timezoneId: tz, serviceWorkers: 'block' });
+async function open({ seed, lang = 'sv', tz = 'Europe/Stockholm', onboarded = true, init, ctxOpts } = {}) {
+  const ctx = await browser.newContext(Object.assign({ timezoneId: tz, serviceWorkers: 'block' }, ctxOpts));
   const errors = [];
   if (seed !== undefined || onboarded || lang) {
     await ctx.addInitScript(([seed, lang, onboarded]) => {
@@ -1194,6 +1194,108 @@ test('hunt: whiteboard: a long unbroken word wraps fast; dragging a tied arrow m
   await page.keyboard.press('Control+z');
   l = await page.evaluate(() => wb.board.items.l);
   assert.equal(l.from, 'a'); assert.equal(l.to, 'b');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+// ---- Phase 7a: install as an app
+const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
+// Safari on an iPhone has no Notification API unless Pinglapp is on the home screen.
+const noNotification = () => { delete window.Notification; };
+const iphone = { viewport: { width: 390, height: 844 }, userAgent: IPHONE_UA, hasTouch: true, isMobile: true };
+
+test('install: the manifest has an id, maskable icons and an Apple icon, and the service worker caches them all', async () => {
+  const m = JSON.parse(await readFile(join(ROOT, 'manifest.webmanifest'), 'utf8'));
+  assert.equal(m.id, '/', 'the id matches what older installs computed from start_url, so they stay the same app');
+  assert.equal(m.display, 'standalone');
+  assert.doesNotMatch(m.description, /utvecklare|cron|Markdown/, 'plain language');
+  const size = async f => { const b = await readFile(join(ROOT, f)); assert.equal(b.toString('latin1', 1, 4), 'PNG', f); return [b.readUInt32BE(16), b.readUInt32BE(20)]; };
+  for (const purpose of ['any', 'maskable']) for (const px of [192, 512]) {
+    const icon = m.icons.find(i => i.purpose === purpose && i.sizes === `${px}x${px}`);
+    assert.ok(icon, `${purpose} ${px}`);
+    assert.deepEqual(await size(icon.src), [px, px], icon.src);
+  }
+  const html = await readFile(join(ROOT, 'index.html'), 'utf8');
+  const apple = html.match(/<link rel="apple-touch-icon" href="([^"]+)">/)[1];
+  assert.deepEqual(await size(apple), [180, 180]);
+  assert.match(html, /viewport-fit=cover/);
+  const sw = await readFile(join(ROOT, 'sw.js'), 'utf8');
+  for (const f of [...m.icons.map(i => i.src), apple]) assert.ok(sw.includes(`'./${f}'`), `sw.js caches ${f}`);
+});
+
+test('install: on an iPhone, a banner, the Mer menu and Settings show how to add Pinglapp to the home screen', async () => {
+  const { ctx, page, errors } = await open({ ctxOpts: iphone, init: noNotification });
+  assert.equal(await page.evaluate(() => installKind()), 'ios');
+  assert.equal(await page.isVisible('#installBanner'), true);
+  assert.match(await page.textContent('#installBannerText'), /hemskärmen/);
+  await page.click('#installBannerBtn');
+  assert.equal(await page.isVisible('#installDlg'), true);
+  assert.match(await page.textContent('#installDlg'), /Lägg till på hemskärmen/);
+  assert.match(await page.textContent('#installDlg'), /egen lagring/, 'warns that the home-screen app starts with its own storage');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.isHidden('#installDlg'), true);
+  // Mer menu
+  await page.click('#bnavMore');
+  assert.ok((await page.locator('#pop button').allInnerTexts()).includes('Installera som app'));
+  await page.click('#pop button:has-text("Installera som app")');
+  assert.equal(await page.isVisible('#installDlg'), true);
+  await page.click('#installDlg [data-act="close-install"]');
+  // Settings: the card, and the notification status says why there are no notifications yet
+  await page.evaluate(() => showTab('settings'));
+  assert.equal(await page.isVisible('#installCard'), true);
+  assert.equal((await page.textContent('#installBtn')).trim(), 'Visa hur');
+  assert.match(await page.textContent('#notifStatus'), /hemskärmen/);
+  // "Inte nu" hides the banner for good on this device
+  await page.click('#installBanner [data-act="hide-install"]');
+  assert.equal(await page.isHidden('#installBanner'), true);
+  assert.equal((await stored(page)).settings.installHidden, true);
+  await page.reload(); await page.waitForFunction(() => typeof isActiveWindow !== 'undefined' && isActiveWindow && fileInitDone);
+  assert.equal(await page.isHidden('#installBanner'), true);
+  assert.equal(await page.isVisible('#installCard'), false, 'the card is in Settings, not on the start screen');
+  // English
+  await page.evaluate(() => { S.settings.lang = 'en'; renderAll(); showTab('settings'); });
+  assert.equal((await page.textContent('#installBtn')).trim(), 'Show me how');
+  assert.match(await page.textContent('#installDlg'), /Add to Home Screen/);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('install: no banner during the welcome, and nothing at all once Pinglapp runs from the home screen', async () => {
+  let { ctx, page, errors } = await open({ ctxOpts: iphone, init: noNotification, onboarded: false });
+  assert.equal(await page.isVisible('#setupDlg'), true);
+  assert.equal(await page.isHidden('#installBanner'), true, 'not on top of the welcome');
+  await page.evaluate(() => finishSetup());
+  assert.equal(await page.isVisible('#installBanner'), true, 'shown once the welcome is done');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+  ({ ctx, page, errors } = await open({ ctxOpts: iphone, init: () => { Object.defineProperty(navigator, 'standalone', { value: true }); } }));
+  assert.equal(await page.evaluate(() => installKind()), '');
+  assert.equal(await page.isHidden('#installBanner'), true);
+  await page.click('#bnavMore');
+  assert.equal((await page.locator('#pop button').allInnerTexts()).includes('Installera som app'), false);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('install: where the browser offers an install prompt, the button opens it; a computer gets no banner', async () => {
+  const { ctx, page, errors } = await open();
+  assert.equal(await page.isHidden('#installCard'), true, 'nothing to offer before the browser says it can install');
+  await page.evaluate(() => {
+    const e = new Event('beforeinstallprompt', { cancelable: true });
+    e.prompt = async () => { window.prompted = (window.prompted || 0) + 1; };
+    e.userChoice = Promise.resolve({ outcome: 'accepted' });
+    dispatchEvent(e);
+  });
+  assert.equal(await page.evaluate(() => installKind()), 'prompt');
+  assert.equal(await page.isHidden('#installBanner'), true, 'no banner on a computer');
+  await tab(page, 'settings');
+  assert.equal(await page.isVisible('#installCard'), true);
+  assert.equal((await page.textContent('#installBtn')).trim(), 'Installera');
+  await page.click('#installBtn');
+  await page.waitForFunction(() => window.prompted === 1);
+  assert.equal(await page.isHidden('#installCard'), true, 'a prompt can be used once');
+  await page.evaluate(() => dispatchEvent(new Event('appinstalled')));
+  assert.match(await page.textContent('#toast'), /installerad/);
   assert.deepEqual(errors, []);
   await ctx.close();
 });

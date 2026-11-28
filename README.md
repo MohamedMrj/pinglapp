@@ -64,7 +64,7 @@ Pinglapp shows the same guide the first time you open it, and you can open it ag
 
 ## Get started
 1. Open the link above in Chrome, Edge, Brave, Firefox or Safari.
-2. Install it as an app (optional but handy): in Chrome or Edge, click the **Install** icon at the right of the address bar. Pinglapp then gets its own window and taskbar icon.
+2. Install it as an app (optional but handy): in Chrome or Edge, click the **Install** icon at the right of the address bar (or **Settings → Install Pinglapp as an app**). Pinglapp then gets its own window and taskbar icon. On an Android phone, tap **Install** when Pinglapp offers it. On an **iPhone or iPad**, tap Share → **Add to Home Screen** (Pinglapp shows you how); notifications on iPhone only work from the home screen. The home-screen app has its own storage, so sign in there (or restore a backup) to bring your things along.
 3. Click **Allow notifications**. You'll get a test notification straight away.
 4. Want Pinglapp running all the time? **Settings → Open Pinglapp when the browser starts → Show me how.**
 
