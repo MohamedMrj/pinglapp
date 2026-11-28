@@ -610,6 +610,75 @@ test('notes on a phone: the list and the open note are two screens, with a way b
   await ctx.close();
 });
 
+// ---- UX update U4: settings and readability
+test('settings are grouped with a section menu; power features live under Avancerat and nothing is gone', async () => {
+  const { ctx, page, errors } = await open();
+  await tab(page, 'settings');
+  assert.deepEqual((await page.locator('#setNav button').allInnerTexts()).map(s => s.trim()), ['Allmänt', 'Påminnelser och ljud', 'Utseende', 'Dina data', 'Avancerat']);
+  const inGroup = (id, sel) => page.locator(`#${id} ${sel}`).count();
+  assert.equal(await inGroup('setGeneral', '#langSeg'), 1);
+  assert.equal(await inGroup('setGeneral', '[data-act="startup-guide"]'), 1);
+  assert.equal(await inGroup('setAlerts', '#alertCard'), 1);
+  assert.equal(await inGroup('setLook', '#textSizeSeg'), 1);
+  assert.equal(await inGroup('setData', '[data-act="export"]'), 1);
+  assert.equal(await inGroup('setData', '[data-act="import"]'), 1);
+  for (const sel of ['#setMono', '#setUtc', '#setIcs', '#fileCard', '#snapSelect', '[data-act="export-csv"]']) assert.equal(await inGroup('setAdvanced', sel), 1, sel + ' is under Avancerat');
+  await page.click('#setNav [data-set-jump="setAdvanced"]');
+  await page.waitForFunction(() => Math.abs(document.getElementById('setAdvanced').getBoundingClientRect().top) < 120);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('text size: Stor and Extra stor make the text bigger, are kept per device, and survive a reload', async () => {
+  const { ctx, page, errors } = await open({ seed: { reminders: [{ id: 'r', title: 'Ring Anna', due: Date.now() + 3600e3, repeat: 'none', tags: [], fired: false, done: false, snoozeUntil: null }], notes: [] } });
+  const size = () => page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('.rem .title')).fontSize));
+  const normal = await size();
+  await tab(page, 'settings');
+  await page.click('[data-textsize-set="large"]');
+  await tab(page, 'reminders');
+  assert.ok(Math.abs(await size() - normal * 1.15) < 0.2, 'Stor is 15 % bigger');
+  await page.reload(); await page.waitForFunction(() => isActiveWindow);
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.textsize), 'large');
+  await page.evaluate(() => { S.settings.textSize = 'xlarge'; applyTheme(); });
+  assert.ok(Math.abs(await size() - normal * 1.3) < 0.2, 'Extra stor is 30 % bigger');
+  assert.equal(await page.evaluate(() => 'textSize' in sharedSettings(S.settings)), false, 'not synced to other devices');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('readability: hint text has strong contrast in every theme, and no text is smaller than 12 px', async () => {
+  const { ctx, page, errors } = await open();
+  const r = await page.evaluate(() => {
+    const lum = c => { const v = c.match(/[\d.]+/g).slice(0, 3).map(Number).map(x => x / 255).map(x => x <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+    const out = [], probe = document.createElement('span'); probe.className = 'count'; probe.textContent = 'x'; document.querySelector('.card, #view-reminders').appendChild(probe);
+    for (const theme of ['light', 'dark']) for (const pal of [...document.querySelectorAll('[data-palette-set]')].map(b => b.dataset.paletteSet)) {
+      S.settings.theme = theme; S.settings.palette = pal; applyTheme();
+      const fg = getComputedStyle(probe).color, bg = getComputedStyle(document.body).backgroundColor;
+      if (/^rgba?\(/.test(fg) && /^rgba?\(/.test(bg)) { const k = ratio(fg, bg); if (k < 4.5) out.push(`${pal}/${theme}: ${k.toFixed(2)}`); }
+    }
+    probe.remove();
+    const small = [...document.querySelectorAll('body *')].filter(el => el.offsetParent && el.childNodes.length && [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()) && parseFloat(getComputedStyle(el).fontSize) < 11.9).map(el => el.tagName + '.' + el.className);
+    return { low: out, small };
+  });
+  assert.deepEqual(r.low, [], 'hint text below WCAG AA (4.5:1)');
+  assert.deepEqual(r.small, [], 'text smaller than 12 px');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('phones: bottom-bar labels fit, and buttons are at least 44 px high on touch screens', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, timezoneId: 'Europe/Stockholm', serviceWorkers: 'block' });
+  await ctx.addInitScript(() => { if (!localStorage.getItem('reminder-by-me.v1')) localStorage.setItem('reminder-by-me.v1', JSON.stringify({ reminders: [{ id: 'r', title: 'Ring Anna', due: Date.now() + 3600e3, repeat: 'none', tags: [], fired: false, done: false, snoozeUntil: null }], notes: [], settings: { lang: 'sv', onboarded: true, driveGuideSeen: true } })); });
+  const page = await ctx.newPage();
+  await page.goto(base); await page.waitForFunction(() => typeof isActiveWindow !== 'undefined' && isActiveWindow);
+  const cut = await page.evaluate(() => [...document.querySelectorAll('#bottomNav button:not([hidden]) span:not(.badge)')].filter(s => s.scrollWidth > s.clientWidth + 1).map(s => s.textContent));
+  assert.deepEqual(cut, [], 'labels cut off');
+  const low = await page.evaluate(() => [...document.querySelectorAll('.rem .acts button, .filters button, .quick .btn')].filter(b => b.offsetParent && b.getBoundingClientRect().height < 43.5).map(b => b.textContent.trim()));
+  assert.deepEqual(low, [], 'buttons lower than 44 px');
+  await ctx.close();
+});
+
 // ---- UX update U1: header and navigation
 test('phones get a bottom bar with the sections; "Mer" holds settings and help; the header tabs are hidden', async () => {
   const { ctx, page, errors } = await open();
