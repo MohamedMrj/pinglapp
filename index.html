@@ -814,11 +814,13 @@ body.wb-guest .wb-side { display: none; }
 /* Fullscreen: the board covers the whole window (and the whole screen where the browser allows it). The list of
    boards is hidden until asked for. Dialogs, menus, reminders and toasts have a higher z-index, so they still show. */
 body.wb-full { overflow: hidden; }
-/* Drawing with a pen on a tablet: a resting hand or a double tap must never select words in the board's toolbar or
-   list, nor (in full screen) anywhere on the page behind it. Places where you type stay selectable. */
-.wb, body.wb-full { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.wb button, .wb .wb-side, .wb [role="toolbar"] { touch-action: manipulation; }
-.wb input, .wb textarea, .wb [contenteditable="true"], body.wb-full input, body.wb-full textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+/* Drawing with a pen on a tablet: a resting hand or a double tap must never select words anywhere on the page while
+   the board is open (the hand often rests beside the board, on the header, tabs or footer). Places where you type
+   stay selectable. body.wb-open is set by showTab(); body.wb-full covers a full-screen board. */
+.wb, body.wb-open, body.wb-full { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.wb-open, body.wb-full { touch-action: manipulation; }
+.wb input, .wb textarea, .wb [contenteditable="true"], body.wb-open input, body.wb-open textarea, body.wb-open [contenteditable="true"],
+body.wb-full input, body.wb-full textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 body.wb-full .wb { position: fixed; inset: 0; z-index: 40; height: auto !important; min-height: 0; background: var(--bg);
   padding: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
   grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
@@ -7802,6 +7804,7 @@ function showTab(name) {
   document.querySelectorAll('.tabs button[data-tab], .bnav button[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   if (name !== 'board') { wbFinishEdit(); if (wbFull()) wbSetFull(false); }
   ['reminders', 'notes', 'board', 'friends', 'settings'].forEach(v => $('view-' + v).hidden = v !== name);
+  document.body.classList.toggle('wb-open', name === 'board');   // no text selection while drawing (see .wb-open)
   if (name === 'friends') frRender();
   if (name !== 'notes') flushNote();
   if (name === 'notes') { renderNotes(); if (!curNote && liveNotes().length) loadNote(sortedNotes()[0]); else paintPreview(); }

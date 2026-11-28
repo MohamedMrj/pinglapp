@@ -148,6 +148,11 @@ test('palm rejection: with a pen, a hand resting on the screen draws nothing and
   assert.equal(await h.evaluate(() => getComputedStyle(document.body).userSelect), 'none', 'full screen: no text selection');
   assert.equal(await h.evaluate(() => getComputedStyle(document.querySelector('.wb-side')).userSelect), 'none');
   await h.evaluate(() => wbSetFull(false));
+  // Not in full screen either: the hand resting on the header or tabs beside the board selects nothing.
+  assert.equal(await h.evaluate(() => getComputedStyle(document.body).userSelect), 'none', 'board open: no text selection on the page');
+  assert.equal(await h.evaluate(() => getComputedStyle(document.querySelector('header .brand b')).userSelect), 'none');
+  await h.click('.tabs [data-tab="reminders"]');
+  assert.notEqual(await h.evaluate(() => getComputedStyle(document.body).userSelect), 'none', 'other tabs: text can be selected again');
   assert.deepEqual(s.errors, []);
   await s.ctx.close();
 });
