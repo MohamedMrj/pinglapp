@@ -19,8 +19,9 @@ database password stay in the Supabase dashboard, Edge Function secrets and GitH
 | `migrations/…_shared_notes.sql` | Social S5: `shared_notes` (data + `rev`) and `shared_note_members` (edit/read), only through `shared_note_create / set_members / save / leave / stop` and `shared_notes_sync`; saving needs the current revision (else the current version comes back for the app to merge); friends only, ≤ 20 people, ≤ 30 new shares/day; unfriending or blocking unlinks; storage policies for `note-images/shared/{note}/…` (members read, owner + editors add, owner removes), counted on the owner's quota (`storage_owner`). **Redeploy `delete-account` after applying this** (it now also removes pictures of notes the user shared) |
 | `migrations/…_retention.sql` | Phase 6: `pg_cron` removes reports older than 12 months (as `privacy.html` says) |
 | `migrations/…_push.sql` | Phase 7b: `push_subscriptions` (one per device, only push-service addresses, ≤ 10 per account) and `push_schedule` (per reminder, the next ≤ 30 due times, worked out by the app), through `push_subscribe / push_unsubscribe / push_schedule_set`; `push_take_due` / `push_report` for the Edge Function only; `pg_cron` job `ping-push` calls `push_tick()` every minute, which asks the Edge Function to send (URL + secret from Vault) |
+| `migrations/…_friend_push.sql` | E1: accessories 0–11 in `valid_avatar_style` (December pack); push for friend events: triggers on `friendships` / `inbox_items` queue ids in `push_events` (only for devices that want the kind, ≤ 5/hour per pair, ≤ 30/hour per sender), `push_subscriptions.muted` set through `push_subscribe(…, muted_kinds)`, `push_take_events` (service role; re-checks pending/friends/blocks), `push_tick` also runs when events wait |
 | `functions/delete-account/` | Phase 6 Edge Function: deletes the signed-in user's files in every bucket, then the user (all rows cascade) |
-| `functions/send-due-pushes/` | Phase 7b Edge Function: takes what is due, sends encrypted Web Push (RFC 8291 + VAPID, plain WebCrypto, no library), reports delivered / gone / failed |
+| `functions/send-due-pushes/` | Phase 7b Edge Function: takes what is due, sends encrypted Web Push (RFC 8291 + VAPID, plain WebCrypto, no library), reports delivered / gone / failed. Since E1 also friend events (texts in sv/en made here) |
 | `templates/` | The auth email templates pasted into Authentication → Emails (copies, for the record) |
 
 Tests (in `../tests`, run with `npm test`):
@@ -81,6 +82,22 @@ Do it on **staging first**, hand-test, then the same on **prod** (with its own k
 
 Costs on the free plan: the job only calls the function in a minute when something is due (at most ~43 000
 invocations a month, the free tier has 500 000).
+
+## E1 setup (December avatar items + push for friend events)
+
+Needs Phase 7b on the project. No new keys or secrets. Staging first, hand test, then prod; **both steps before the
+app code reaches `main`** (the old app keeps working with the new database and function).
+
+1. **Migration:** run `migrations/20261202000012_friend_push.sql` in the SQL Editor. It widens the avatar check
+   (accessories 0–11), adds `push_subscriptions.muted`, the `push_events` queue with its two triggers,
+   `push_take_events()`, and replaces `push_subscribe` (one optional argument more) and `push_tick`.
+2. **Edge Function:** redeploy `send-due-pushes` with the new `functions/send-due-pushes/index.ts` (Verify JWT stays
+   off; same secrets). Deployed before the migration it still sends reminders and logs
+   `send-due-pushes events … does not exist` once a minute at most; after the migration that stops.
+3. **Check:** from outside, `rpc/push_take_events` with `{"max_rows":1}` answers `42501` (exists, not for the API).
+   With two accounts on staging (one with push on): send a friend request; within a minute
+   `select kind, taken_at from public.push_events order by id desc limit 3;` shows it taken, and the notification
+   arrives ("<name> vill bli din vän"). Clicking it opens Pinglapp on Vänner.
 
 ## Backups (prod)
 

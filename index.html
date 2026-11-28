@@ -548,6 +548,8 @@ html { scroll-padding-top: var(--note-head-h, 0px); }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 label.check { display: flex; gap: 9px; align-items: flex-start; cursor: pointer; }
 label.check input { margin-top: 3px; accent-color: var(--accent); }
+.push-kinds { border: 0; margin: 10px 0 0; padding: 0 0 0 28px; display: grid; gap: 6px; }
+.push-kinds legend { padding: 0; margin-bottom: 4px; color: var(--muted); font-size: calc(14px * var(--ts, 1)); }
 .input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); min-width: 0; }
 .input.wide { flex: 1 1 340px; font-family: var(--mono); font-size: calc(13px * var(--ts, 1)); }
 .card h4 { margin: 8px 0 -2px; font: 600 calc(14px * var(--ts, 1)) var(--font-display); border-top: 1px solid var(--line); padding-top: 14px; }
@@ -1153,6 +1155,12 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
           <div id="pushRow">
             <label class="check"><input type="checkbox" id="setPush"> <span data-i18n="pushLabel">Påminn mig även när Pinglapp är stängd</span></label>
             <p class="hint" data-i18n="pushHint">Gäller den här enheten. Påminnelsen skickas från ditt konto via webbläsarens aviseringstjänst (till exempel Google eller Apple), krypterad så att bara din enhet kan läsa den.</p>
+            <fieldset class="push-kinds" id="pushKinds" hidden>
+              <legend data-i18n="pushKindsH">Säg också till när en vän …</legend>
+              <label class="check"><input type="checkbox" data-push-kind="friend"> <span data-i18n="pushKindFriend">vill bli min vän</span></label>
+              <label class="check"><input type="checkbox" data-push-kind="reminder"> <span data-i18n="pushKindReminder">skickar en påminnelse till mig</span></label>
+              <label class="check"><input type="checkbox" data-push-kind="board"> <span data-i18n="pushKindBoard">bjuder in mig till en tavla</span></label>
+            </fieldset>
           </div>
           <p class="banner" id="pushErr" hidden></p>
           <p class="hint" id="pushSignedOut" data-i18n="pushSignedOut">Med ett konto kan påminnelserna komma även när Pinglapp är stängd.</p>
@@ -1772,6 +1780,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
           <div class="av-row"><span data-i18n="avPart_a">Tillbehör</span><button class="btn ghost sm" type="button" data-act="av-step" data-part="a" data-d="-1" aria-label="Föregående" data-i18n-aria="avPrev">‹</button><span class="av-n" data-n="a"></span><button class="btn ghost sm" type="button" data-act="av-step" data-part="a" data-d="1" aria-label="Nästa" data-i18n-aria="avNext">›</button></div>
           <div class="av-row"><span data-i18n="avPart_b">Bakgrund</span><button class="btn ghost sm" type="button" data-act="av-step" data-part="b" data-d="-1" aria-label="Föregående" data-i18n-aria="avPrev">‹</button><span class="av-n" data-n="b"></span><button class="btn ghost sm" type="button" data-act="av-step" data-part="b" data-d="1" aria-label="Nästa" data-i18n-aria="avNext">›</button></div>
         </div>
+        <p class="hint" id="avSeasonHint" hidden data-i18n="avSeasonHint">🎄 Nytt till jul: tomteluva, luciakrona, pepparkaka och halsduk under Tillbehör.</p>
         <p class="hint" id="acctAvPhotoNote" hidden data-i18n="avPhotoNote">Just nu visas din bild. Ta bort bilden för att visa avataren i stället.</p>
       </div>
       <label class="field"><span data-i18n="acctShownName">Namn som andra ser</span><input type="text" name="display_name" autocomplete="name" maxlength="50"></label>
@@ -3180,6 +3189,8 @@ const T = {
     pushAutoOn: 'Your reminders will now arrive on this device even when Pinglapp is closed. You can change this in Settings.',
     pushOnToast: 'Reminders will arrive even when Pinglapp is closed', pushOffToast: 'Reminders only arrive while Pinglapp is open',
     pushNeedsNotif: 'notifications are not allowed', pushFailed: m => `Couldn’t switch it on (${m}).`,
+    pushKindsH: 'Also tell me when a friend …', pushKindFriend: 'wants to be my friend', pushKindReminder: 'sends me a reminder', pushKindBoard: 'invites me to a whiteboard',
+    pushKindsSaved: 'Saved for this device',
     pushErrService: m => `This browser couldn’t reach its notification service, so reminders can’t arrive here while Pinglapp is closed (${m}). A work or school network may block it: try another network or another browser. In Brave, turn on “Use Google services for push messaging” in its settings.`,
     installH: 'Install Pinglapp as an app', installP: 'Pinglapp gets its own icon and window, opens like any other app and keeps working without internet.',
     installPIos: 'Add Pinglapp to your home screen. It then opens like any other app and can show notifications when a reminder is due.',
@@ -3308,6 +3319,7 @@ const T = {
     pushAutoOn: 'Nu kommer dina påminnelser till den här enheten även när Pinglapp är stängd. Du kan ändra det under Inställningar.',
     pushOnToast: 'Påminnelserna kommer även när Pinglapp är stängd', pushOffToast: 'Påminnelserna kommer bara när Pinglapp är öppen',
     pushNeedsNotif: 'aviseringar är inte tillåtna', pushFailed: m => `Det gick inte att slå på (${m}).`,
+    pushKindsSaved: 'Sparat för den här enheten',
     pushErrService: m => `Webbläsaren kunde inte nå sin aviseringstjänst, så påminnelser kan inte komma hit när Pinglapp är stängd (${m}). Ett jobb- eller skolnätverk kan blockera den: prova ett annat nätverk eller en annan webbläsare. I Brave slår du på ”Use Google services for push messaging” i inställningarna.`,
     installP: 'Pinglapp får en egen ikon och ett eget fönster, öppnas som vilken app som helst och fungerar även utan internet.',
     installPIos: 'Lägg Pinglapp på hemskärmen. Då öppnas den som vilken app som helst och kan visa aviseringar när det är dags för en påminnelse.',
@@ -8586,6 +8598,7 @@ Object.assign(T.en, {
   avTitle: 'Your avatar', avHint: 'Shown instead of a photo. Pick the parts yourself or shuffle one up.', avRandom: 'Shuffle',
   avPart_s: 'Shape', avPart_c: 'Colour', avPart_e: 'Eyes', avPart_m: 'Mouth', avPart_a: 'Accessory', avPart_b: 'Background',
   avPrev: 'Previous', avNext: 'Next', avPhotoNote: 'Your photo is shown right now. Remove the photo to show the avatar instead.',
+  avSeasonHint: '🎄 New for Christmas: a Santa hat, a Lucia crown, a gingerbread friend and a scarf under Accessory.',
   setupP1Acct: 'Without an account, everything you write is saved only here on your computer, in the browser. It can disappear if the browser’s data is cleared or you change computers.',
 });
 const ACCT_T = {
@@ -8833,6 +8846,8 @@ function acctBoot() {
   acct.project = acctProjectName();
   const q = new URLSearchParams(location.search);
   if (q.has('accounts')) { q.delete('accounts'); acctSetQuery(q); }
+  const openFriends = location.hash === '#open=friends';   // a click on a friend notification (sw.js) opened this window
+  if (openFriends) history.replaceState(history.state, '', location.pathname + location.search);
   if (!acct.project) return;
   // Back from an email link or Google/Microsoft. A change of email address comes back with ?email=1 (with secure email
   // change, the first of its two links brings no ?code, only a #message).
@@ -8841,6 +8856,7 @@ function acctBoot() {
   let signedIn = false;
   try { signedIn = !!localStorage.getItem(ACCT_STORE); } catch (e) { }
   updateAcctChip();
+  if (openFriends) showTab('friends');
   if (signedIn || acct.back) acctClient().catch(() => { if (acct.back) acctOpen('signin', t('acctOffline'), 'bad'); });
 }
 function acctSetQuery(q) { history.replaceState(history.state, '', location.pathname + (String(q) ? '?' + q : '') + location.hash); }
@@ -9214,8 +9230,23 @@ async function acctSubmit(view, f) {
 // Creative avatars: a round character drawn by Pinglapp's own code from a small spec (the database accepts exactly
 // this shape, see migration …_avatars.sql): body s, colour c, eyes e, mouth m, accessory a, background b.
 // Without a saved spec, everyone gets a stable default made from their username, so nobody is just a grey letter.
-const AV_N = { s: 6, c: 12, e: 8, m: 8, a: 8, b: 12 };
+const AV_N = { s: 6, c: 12, e: 8, m: 8, a: 12, b: 12 };
 const AV_KEYS = ['s', 'c', 'e', 'm', 'a', 'b'];
+// The first set (S1). Defaults are made from these only, so nobody's default avatar changes when parts are added.
+const AV_BASE = { s: 6, c: 12, e: 8, m: 8, a: 8, b: 12 };
+// Seasonal parts (E1, December pack: 8 Santa hat, 9 Lucia crown, 10 gingerbread, 11 scarf). The maker offers them
+// from 20 November to the end of January; a saved avatar keeps showing them all year.
+const AV_SEASONAL = { a: [8, 9, 10, 11] };
+function avatarSeason(date = new Date()) {
+  const m = date.getMonth();
+  return m === 11 || m === 0 || (m === 10 && date.getDate() >= 20);
+}
+// The choices the maker steps through for one part: all of them in season, the rest of the year all but the
+// seasonal ones (plus the one already chosen, so it isn't jumped over before you move on).
+function avatarChoices(part, date = new Date(), current) {
+  const off = avatarSeason(date) ? [] : (AV_SEASONAL[part] || []);
+  return Array.from({ length: AV_N[part] }, (_, i) => i).filter(i => !off.includes(i) || i === current);
+}
 function avatarSpec(x) {                          // a valid spec, or null
   if (!x || typeof x !== 'object' || Array.isArray(x) || x.v !== 1 || Object.keys(x).length !== 7) return null;
   const o = { v: 1 };
@@ -9226,18 +9257,19 @@ function avatarDefault(seed) {                    // the same seed always gives 
   let h = 2166136261;
   for (const ch of String(seed || '?')) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }
   const o = { v: 1 };
-  for (const k of AV_KEYS) { h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0; o[k] = h % AV_N[k]; }
+  for (const k of AV_KEYS) { h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0; o[k] = h % AV_BASE[k]; }
   if (h % 3) o.a = 0;                             // two in three defaults wear nothing; the rest pick something
   return o;
 }
-function avatarRandom(rnd = Math.random) {
+function avatarRandom(rnd = Math.random, date = new Date()) {
   const o = { v: 1 };
-  for (const k of AV_KEYS) o[k] = Math.floor(rnd() * AV_N[k]) % AV_N[k];
+  for (const k of AV_KEYS) { const c = avatarChoices(k, date); o[k] = c[Math.floor(rnd() * c.length) % c.length]; }
   return o;
 }
-function avatarStep(spec, part, d) {             // the next/previous choice for one part, wrapping around
+function avatarStep(spec, part, d, date = new Date()) {   // the next/previous choice for one part, wrapping around
   const o = Object.assign({}, avatarSpec(spec) || avatarDefault(''));
-  o[part] = (o[part] + d + AV_N[part]) % AV_N[part];
+  const c = avatarChoices(part, date, o[part]), i = c.indexOf(o[part]);
+  o[part] = c[(i + d + c.length) % c.length];
   return o;
 }
 /*AVATAR-END*/
@@ -9284,6 +9316,50 @@ const AV_PARTS = {
     () => [['path', { d: 'M19 58a31 34 0 0 1 62 0', fill: 'none', stroke: '#37474f', 'stroke-width': 5 }], ['rect', { x: 11, y: 50, width: 13, height: 21, rx: 6, fill: '#37474f' }], ['rect', { x: 76, y: 50, width: 13, height: 21, rx: 6, fill: '#37474f' }]],
     () => [['path', { d: 'M65 25l-11-8v16zM65 25l11-8v16z', fill: '#f06292', 'stroke-linejoin': 'round' }], ['circle', { cx: 65, cy: 25, r: 3.6, fill: '#d81b60' }]],
     () => [['path', { d: 'M50 29V13', stroke: AV_INK, 'stroke-width': 3, 'stroke-linecap': 'round' }], ['circle', { cx: 50, cy: 10, r: 5, fill: '#ffd54f', stroke: AV_INK, 'stroke-width': 2 }]],
+    // December pack (E1): tomteluva, Luciakrona, pepparkaka, halsduk.
+    () => [
+      ['path', { d: 'M20 39C21 17 40 5 60 7C76 9 86 22 88 40C84 31 77 25 69 24C74 28 77 33 79 39Z', fill: '#d62839' }],
+      ['path', { d: 'M60 7C76 9 86 22 88 40C84 31 77 25 69 24C63 18 61 12 60 7Z', fill: '#b51f30' }],
+      ['rect', { x: 16, y: 34, width: 68, height: 11, rx: 5.5, fill: '#fff' }],
+      ['circle', { cx: 88, cy: 42, r: 6.5, fill: '#fff' }],
+    ],
+    () => {
+      const base = x => 31 + Math.pow((x - 50) / 30, 2) * 5;
+      return [
+        ...[27, 38.5, 50, 61.5, 73].flatMap(x => {
+          const y = base(x), h = x === 50 ? 17 : 14;
+          return [
+            ['rect', { x: x - 2.6, y: y - h, width: 5.2, height: h, rx: 1.2, fill: '#fffdf5', stroke: '#d7ccc8', 'stroke-width': 1 }],
+            ['path', { d: `M${x} ${y - h - 9}q4 5 0 8q-4-3 0-8z`, fill: '#ffc928' }],
+            ['ellipse', { cx: x, cy: y - h - 2.6, rx: 1.3, ry: 2.2, fill: '#ff8f00' }],
+          ];
+        }),
+        ['path', { d: 'M19 37Q50 25 81 37', fill: 'none', stroke: '#2e7d32', 'stroke-width': 7, 'stroke-linecap': 'round' }],
+        ['path', { d: 'M24 35l4-3M34 31l4-2M45 29l4-1M56 29l4 1M67 31l4 2', stroke: '#66bb6a', 'stroke-width': 2, 'stroke-linecap': 'round' }],
+        ...[[30, 35.5], [42, 31.5], [58, 31.5], [70, 35.5]].map(([cx, cy]) => ['circle', { cx, cy, r: 2.2, fill: '#e53935' }]),
+      ];
+    },
+    () => {
+      const G = '#b8732f', W = '#fff', at = 'translate(72 71) scale(1.12) translate(-80 -80)';   // inside the round crop
+      return [
+        ['path', { d: 'M71 81h18M76 88l-3 8M84 88l3 8', stroke: G, 'stroke-width': 6.5, 'stroke-linecap': 'round' }],
+        ['rect', { x: 74, y: 75, width: 12, height: 15, rx: 5, fill: G }],
+        ['circle', { cx: 80, cy: 70, r: 7, fill: G }],
+        ['circle', { cx: 77.6, cy: 69, r: 1.1, fill: AV_INK }], ['circle', { cx: 82.4, cy: 69, r: 1.1, fill: AV_INK }],
+        ['path', { d: 'M77.5 72.3q2.5 2 5 0', fill: 'none', stroke: W, 'stroke-width': 1.2, 'stroke-linecap': 'round' }],
+        ['path', { d: 'M70 79.5l1.5 3 1.5-3M87 79.5l1.5 3 1.5-3', fill: 'none', stroke: W, 'stroke-width': 1.1, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }],
+        ['circle', { cx: 80, cy: 79, r: 1.3, fill: '#e53956' }], ['circle', { cx: 80, cy: 84, r: 1.3, fill: '#43a047' }],
+      ].map(([tag, attrs]) => [tag, Object.assign({ transform: at }, attrs)]);
+    },
+    () => {
+      const R = '#c62842', S = '#fff';
+      return [
+        ['path', { d: 'M62 84l2 15h11l-3-16z', fill: R }],
+        ['path', { d: 'M63.3 89.5l10-1M64 95l10.5-.8', stroke: S, 'stroke-width': 2.2 }],
+        ['path', { d: 'M22 79Q50 93 78 79L80 87Q50 102 20 87Z', fill: R }],
+        ['path', { d: 'M21 83Q50 97 79 83', fill: 'none', stroke: S, 'stroke-width': 2.4, 'stroke-dasharray': '6 5' }],
+      ];
+    },
   ],
 };
 // An <svg> for a spec. Built with DOM calls from Pinglapp's own shapes only: nothing from the spec becomes markup.
@@ -9380,7 +9456,11 @@ function acctAvRender() {
   const p = Object.assign({}, acct.profile, { avatar_style: acct.avDraft });
   acctAvatar($('acctAvPreview'), { avatar_style: acct.avDraft });
   acctAvatar($('acctProfAvatar'), p);
-  document.querySelectorAll('#acctDlg .av-n').forEach(n => { const k = n.dataset.n; n.textContent = `${acct.avDraft[k] + 1} / ${AV_N[k]}`; });
+  document.querySelectorAll('#acctDlg .av-n').forEach(n => {
+    const k = n.dataset.n, c = avatarChoices(k, new Date(), acct.avDraft[k]);
+    n.textContent = `${c.indexOf(acct.avDraft[k]) + 1} / ${c.length}`;
+  });
+  $('avSeasonHint').hidden = !avatarSeason();
   $('acctAvatarRemove').hidden = !p.avatar_path;
   $('acctAvPhotoNote').hidden = !p.avatar_path;
 }
@@ -10378,6 +10458,9 @@ setInterval(() => { if (!document.hidden) cloudSync(); }, 120000);
 var push = { sent: null, hasDevices: null, ensured: false, busy: false, error: '' };
 const pushKey = () => (acct && acct.project && ACCT_PROJECTS[acct.project] && ACCT_PROJECTS[acct.project].vapid) || '';
 const pushSupported = () => location.protocol.startsWith('http') && 'serviceWorker' in navigator && 'PushManager' in window && canNotify();
+// Friend events (E1) each device can turn off: settings.pushMute (device-local), sent along with push_subscribe.
+const PUSH_KINDS = ['friend', 'reminder', 'board'];
+const pushMuted = () => PUSH_KINDS.filter(k => Array.isArray(S.settings.pushMute) && S.settings.pushMute.includes(k));
 const pushTitle = r => ((r.priority === 3 ? '‼ ' : '') + (r.title || '')).slice(0, 200);
 // The next times reminder `r` goes off, as check() will fire them: the snooze, then the due time and its repeats.
 // At most `max` within `days` days, all after `now`. A one-off whose time has passed fires in the app, not here.
@@ -10438,11 +10521,27 @@ async function pushSubscribe() {
   const old = sub && sub.options && sub.options.applicationServerKey && new Uint8Array(sub.options.applicationServerKey);
   if (sub && old && (old.length !== key.length || old.some((b, i) => b !== key[i]))) { await sub.unsubscribe(); sub = null; }   // another project's key
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-  const j = sub.toJSON();
-  const r = await acct.client.rpc('push_subscribe', { endpoint_url: j.endpoint, key_p256dh: j.keys.p256dh, key_auth: j.keys.auth, lang_code: lang() });
-  if (r.error) throw r.error;
+  await pushRegister(sub);
   push.hasDevices = true; push.error = '';
   await pushScheduleSync(true);
+}
+// Tell the server about this device: its address, keys, language and the friend events it doesn't want.
+async function pushRegister(sub) {
+  const j = sub.toJSON();
+  const r = await acct.client.rpc('push_subscribe', { endpoint_url: j.endpoint, key_p256dh: j.keys.p256dh, key_auth: j.keys.auth, lang_code: lang(), muted_kinds: pushMuted() });
+  if (r.error) throw r.error;
+}
+// A friend-event switch changed: saved on the device at once, and on the server when push is on here.
+async function pushKindSwitch(kind, on) {
+  const m = new Set(pushMuted());
+  if (on) m.delete(kind); else m.add(kind);
+  S.settings.pushMute = PUSH_KINDS.filter(k => m.has(k)); save();
+  try {
+    const reg = pushSupported() && acct.session && acct.client ? await pushReg() : null;
+    const sub = reg && reg.pushManager && await reg.pushManager.getSubscription();
+    if (sub) { await pushRegister(sub); toast(t('pushKindsSaved')); }
+  } catch (e) { console.warn('push', e); toast(t('pushFailed', e.message || String(e))); }
+  updatePushUi();
 }
 // Forget this device: on the server (while still signed in) and in the browser.
 async function pushUnsubscribe() {
@@ -10505,10 +10604,14 @@ function updatePushUi() {
   $('pushRow').hidden = !signedIn;
   $('pushSignedOut').hidden = signedIn;
   $('setPush').checked = signedIn && !!S.settings.pushOn && Notification.permission === 'granted' && !push.error;
+  $('pushKinds').hidden = !$('setPush').checked;   // the friend events, under the switch while it is on
+  const muted = pushMuted();
+  $('pushKinds').querySelectorAll('[data-push-kind]').forEach(c => { c.checked = !muted.includes(c.dataset.pushKind); });
   $('pushErr').hidden = !(signedIn && push.error);
   $('pushErr').textContent = push.error || '';
 }
 $('setPush').addEventListener('change', e => pushSwitch(e.target.checked));
+$('pushKinds').addEventListener('change', e => { const c = e.target.closest('[data-push-kind]'); if (c) pushKindSwitch(c.dataset.pushKind, c.checked); });
 // A push the service worker just showed for this reminder: the in-app alert still comes, but not a second notification.
 async function pushShownRecently(tag) {
   if (!S.settings.pushOn || !acct || !acct.session) return false;   // no push on this device: nothing to wait for
@@ -10639,6 +10742,12 @@ addEventListener('message', e => {
 // ---------------------------------------------------------------- service worker (offline + system notifications)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker not registered', e));
+  // From sw.js: a friend event just arrived (refresh the inbox now), or its notification was clicked (open Vänner).
+  navigator.serviceWorker.addEventListener('message', e => {
+    const m = e.data || {};
+    if (m.ping === 'inbox' && typeof inboxRefresh === 'function') inboxRefresh();
+    if (m.ping === 'open' && m.tab === 'friends' && !wbGuestRoom) { showTab('friends'); inboxRefresh(); }
+  });
 }
 
 // ---------------------------------------------------------------- start

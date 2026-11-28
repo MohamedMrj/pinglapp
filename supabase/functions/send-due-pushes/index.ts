@@ -1,5 +1,6 @@
 // @ts-nocheck  (the marked block below is plain JavaScript, so tests/push.test.mjs can run it in Node)
-// Pinglapp: send the reminders that are due now as Web Push notifications (phase 7b, see PLAN-mobile.md).
+// Pinglapp: send the reminders that are due now as Web Push notifications (phase 7b, see PLAN-mobile.md), and since
+// E1 (PLAN-engage.md) friend events: friend requests, reminders from friends and board invites (push_take_events).
 //
 // Called every minute by pg_cron through public.push_tick() (migration 20261201000011_push.sql) with the header
 // x-cron-secret. It takes what is due with push_take_due() (which marks it sent), sends one encrypted message per
@@ -81,12 +82,30 @@ async function encryptPush(plain, p256dhB64u, authB64u, opts = {}) {
 // language for formatting the time.
 const pushPayload = row => JSON.stringify({ t: String(row.title || '').slice(0, 300), at: Date.parse(row.at), id: row.reminder_id, l: row.lang === 'en' ? 'en' : 'sv' });
 
+// A friend event (plan E1, push_take_events): k = kind, t = title, b = body, id = the notification tag, l = language.
+// The texts are made here, in the device's language, so even a service worker from before E1 shows them (it reads t).
+// The name and text come from another user: notifications show plain text only; control and direction characters go.
+const EV_TEXT = {
+  sv: { friend: n => `${n} vill bli din vän`, reminder: n => `Påminnelse från ${n}`, board: n => `${n} bjuder in dig till en tavla`,
+        friendBody: 'Öppna Pinglapp för att svara.', boardBody: 'Gå med medan den delas.' },
+  en: { friend: n => `${n} wants to be your friend`, reminder: n => `Reminder from ${n}`, board: n => `${n} invites you to a whiteboard`,
+        friendBody: 'Open Pinglapp to answer.', boardBody: 'Join while it is being shared.' },
+};
+const plainText = (s, max) => String(s || '').replace(/[\u0000-\u001f\u007f-\u009f‪-‮⁦-⁩]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+function eventPayload(row) {
+  const l = row.lang === 'en' ? 'en' : 'sv', T = EV_TEXT[l], k = ['friend', 'reminder', 'board'].includes(row.kind) ? row.kind : 'friend';
+  const name = plainText(row.display_name, 40) || '@' + plainText(row.username, 20);
+  const text = plainText(row.body, 200);
+  const b = k === 'friend' ? T.friendBody : k === 'reminder' ? text : (text ? `“${text}” · ` : '') + T.boardBody;
+  return JSON.stringify({ k, t: T[k](name), b, id: 'ev-' + row.event_id, l });
+}
+
 // Sends one message. Returns 'ok', 'gone' (the device unsubscribed: forget it) or 'failed'.
-async function sendOne(fetchFn, vapid, row, nowMs) {
+async function sendOne(fetchFn, vapid, row, nowMs, payload = pushPayload) {
   try {
     const host = new URL(row.endpoint).hostname;
     if (!/^(fcm\.googleapis\.com|[a-z0-9.-]+\.push\.apple\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)$/.test(host)) return 'gone';
-    const body = await encryptPush(enc.encode(pushPayload(row)), row.p256dh, row.auth);
+    const body = await encryptPush(enc.encode(payload(row)), row.p256dh, row.auth);
     const res = await fetchFn(row.endpoint, { method: 'POST', body, headers: {
       'Authorization': await vapidAuth(vapid, row.endpoint, nowMs), 'Content-Encoding': 'aes128gcm',
       'Content-Type': 'application/octet-stream', 'TTL': String(PUSH_TTL), 'Urgency': 'high' } });
@@ -97,25 +116,31 @@ async function sendOne(fetchFn, vapid, row, nowMs) {
   }
 }
 
-// One run: take what's due (in batches), send (20 at a time), report. Returns counts.
+// One run: take what's due (in batches), send (20 at a time), report; then the same for friend events. Returns counts.
+// A failing push_take_events (e.g. the E1 migration not run yet) is logged and leaves the reminders' result alone.
 async function runTick(admin, fetchFn, vapid, opts = {}) {
   const now = opts.now || (() => Date.now()), started = now(), batch = opts.batch || 500;
   const out = { ok: 0, gone: 0, failed: 0 };
-  for (let round = 0; round < 20 && now() - started < 45000; round++) {
-    const { data: rows, error } = await admin.rpc('push_take_due', { max_rows: batch });
-    if (error) throw new Error('push_take_due: ' + error.message);
-    if (!rows || !rows.length) break;
-    const res = { ok: [], gone: [], failed: [] };
-    for (let i = 0; i < rows.length; i += 20) {
-      const part = rows.slice(i, i + 20);
-      const got = await Promise.all(part.map(r => sendOne(fetchFn, vapid, r, now())));
-      got.forEach((g, k) => res[g].push(part[k].sub_id));
+  const drain = async (take, payload) => {
+    for (let round = 0; round < 20 && now() - started < 45000; round++) {
+      const { data: rows, error } = await admin.rpc(take, { max_rows: batch });
+      if (error) throw new Error(take + ': ' + error.message);
+      if (!rows || !rows.length) break;
+      const res = { ok: [], gone: [], failed: [] };
+      for (let i = 0; i < rows.length; i += 20) {
+        const part = rows.slice(i, i + 20);
+        const got = await Promise.all(part.map(r => sendOne(fetchFn, vapid, r, now(), payload)));
+        got.forEach((g, k) => res[g].push(part[k].sub_id));
+      }
+      const { error: repErr } = await admin.rpc('push_report', res);
+      if (repErr) throw new Error('push_report: ' + repErr.message);
+      for (const k in res) out[k] += res[k].length;
+      if (rows.length < batch) break;   // fewer than a batch: nothing more waits (the batch counts reminders/events; rows are per device)
     }
-    const { error: repErr } = await admin.rpc('push_report', res);
-    if (repErr) throw new Error('push_report: ' + repErr.message);
-    for (const k in res) out[k] += res[k].length;
-    if (rows.length < batch) break;   // fewer reminders than a batch: nothing more is due (the batch counts reminders, rows are per device)
-  }
+  };
+  await drain('push_take_due', pushPayload);
+  try { await drain('push_take_events', eventPayload); }
+  catch (e) { (opts.log || console.error)('send-due-pushes events', e && e.message); out.eventsError = String(e && e.message); }
   return out;
 }
 /*PUSH-END*/

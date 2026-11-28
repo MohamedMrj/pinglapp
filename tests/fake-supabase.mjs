@@ -33,7 +33,7 @@ export const FAKE = () => {
       const av = q.values.avatar_path;
       if (av != null && !new RegExp(`^${id}/avatar\\.webp\\?v=\\d{1,15}$`).test(av))
         return { data: null, error: { code: '23514', message: 'new row for relation "profiles" violates check constraint "profiles_avatar_path_own"' } };
-      const st = q.values.avatar_style, N = { s: 6, c: 12, e: 8, m: 8, a: 8, b: 12 };   // as valid_avatar_style()
+      const st = q.values.avatar_style, N = { s: 6, c: 12, e: 8, m: 8, a: 12, b: 12 };   // as valid_avatar_style() (E1: accessories 0-11)
       if (st != null && !(st && typeof st === 'object' && st.v === 1 && Object.keys(st).length === 7
         && Object.entries(N).every(([k, n]) => Number.isInteger(st[k]) && st[k] >= 0 && st[k] < n)))
         return { data: null, error: { code: '23514', message: 'new row for relation "profiles" violates check constraint "profiles_avatar_style_valid"' } };
@@ -309,7 +309,10 @@ export const FAKE = () => {
           if (!/^https:\/\/(fcm\.googleapis\.com|[a-z0-9.-]+\.push\.apple\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)\//.test(args.endpoint_url)
             || !/^[A-Za-z0-9_-]{80,100}$/.test(args.key_p256dh) || !/^[A-Za-z0-9_-]{16,30}$/.test(args.key_auth))
             return { data: null, error: { code: '23514', message: 'violates check constraint' } };
-          P.subs[args.endpoint_url] = { user: me, lang: args.lang_code === 'en' ? 'en' : 'sv' }; keep();
+          // E1: muted_kinds = friend events this device doesn't want; null keeps what it had (same account).
+          const old = P.subs[args.endpoint_url], kinds = ['friend', 'reminder', 'board'];
+          const muted = Array.isArray(args.muted_kinds) ? kinds.filter(k => args.muted_kinds.includes(k)) : old && old.user === me ? old.muted || [] : [];
+          P.subs[args.endpoint_url] = { user: me, lang: args.lang_code === 'en' ? 'en' : 'sv', muted }; keep();
           return { data: true, error: null };
         }
         if (name === 'push_unsubscribe') {

@@ -14,7 +14,7 @@ function load() {
   const src = readFileSync(FILE, 'utf8'), a = src.indexOf('/*PUSH-START*/'), b = src.indexOf('/*PUSH-END*/');
   assert.ok(a >= 0 && b > a, 'marked block found');
   const ctx = vm.createContext({ crypto, TextEncoder, URL, btoa, atob, Promise, JSON, Date });
-  vm.runInContext(src.slice(a, b) + '\n;globalThis.__out = { b64u, unb64u, sameSecret, vapidKey, vapidAuth, encryptPush, pushPayload, sendOne, runTick };', ctx);
+  vm.runInContext(src.slice(a, b) + '\n;globalThis.__out = { b64u, unb64u, sameSecret, vapidKey, vapidAuth, encryptPush, pushPayload, eventPayload, sendOne, runTick };', ctx);
   return ctx.__out;
 }
 const P = load();
@@ -86,7 +86,7 @@ test('push: a run sends one message per device, reports delivered / gone / faile
   };
   const out = await P.runTick(admin, fetchFn, vapid, { batch: 3 });
   assert.deepEqual({ ...out }, { ok: 1, gone: 2, failed: 1 });
-  assert.deepEqual(calls.map(c => c[0]), ['push_take_due', 'push_report', 'push_take_due'], 'a full batch: asks again');
+  assert.deepEqual(calls.map(c => c[0]), ['push_take_due', 'push_report', 'push_take_due', 'push_take_events'], 'a full batch: asks again; then friend events');
   assert.deepEqual(calls[1][1], { ok: [1], gone: [2, 4], failed: [3] });
   assert.equal(sent.length, 3, 'never sends to an address that is not a push service');
   const first = sent.find(s => s.url.endsWith('/one'));
@@ -100,16 +100,17 @@ test('push: a run sends one message per device, reports delivered / gone / faile
 });
 
 // sw.js in Node: a fake `self` collects the event handlers and the notifications shown.
-function loadSw(existing = []) {
-  const handlers = {}, shown = [];
+function loadSw(existing = [], windows = []) {
+  const handlers = {}, shown = [], opened = [];
   const self = {
     addEventListener: (t, f) => { handlers[t] = f; },
     registration: { async getNotifications({ tag }) { return existing.filter(n => n.tag === tag); }, async showNotification(t, o) { shown.push({ title: t, ...o }); } },
-    clients: {}, skipWaiting() { },
+    clients: { async matchAll() { return windows; }, async openWindow(u) { opened.push(u); } }, skipWaiting() { },
   };
   vm.runInContext(readFileSync(fileURLToPath(new URL('../sw.js', import.meta.url)), 'utf8'), vm.createContext({ self, caches: {}, fetch, location: { origin: 'https://pinglapp.com' }, URL, Intl, Date, Promise, JSON }));
   const push = async data => { let p; handlers.push({ data: data === undefined ? null : { json: () => (typeof data === 'string' ? JSON.parse(data) : data) }, waitUntil: x => { p = x; } }); await p; return shown; };
-  return { handlers, shown, push };
+  const click = async data => { let p; let closed = false; handlers.notificationclick({ notification: { data, close() { closed = true; } }, waitUntil: x => { p = x; } }); await p; return closed; };
+  return { handlers, shown, push, click, opened };
 }
 
 test('push: the service worker shows the reminder, in the chosen language, once', async () => {
@@ -138,4 +139,71 @@ test('push: the service worker shows the reminder, in the chosen language, once'
   [n] = await sw.push(undefined);
   assert.equal(n.title, 'Påminnelse');
   assert.ok(sw.handlers.notificationclick, 'a click still opens Pinglapp');
+});
+
+test('push (E1): friend events say who and what, in the device language, as plain text', () => {
+  const ev = (o) => JSON.parse(P.eventPayload({ event_id: 7, lang: 'sv', username: 'anna', display_name: 'Anna', body: null, ...o }));
+  assert.deepEqual(ev({ kind: 'friend' }), { k: 'friend', t: 'Anna vill bli din vän', b: 'Öppna Pinglapp för att svara.', id: 'ev-7', l: 'sv' });
+  assert.deepEqual(ev({ kind: 'friend', lang: 'en', display_name: null }), { k: 'friend', t: '@anna wants to be your friend', b: 'Open Pinglapp to answer.', id: 'ev-7', l: 'en' });
+  assert.deepEqual(ev({ kind: 'reminder', body: 'Ring mamma 18' }), { k: 'reminder', t: 'Påminnelse från Anna', b: 'Ring mamma 18', id: 'ev-7', l: 'sv' });
+  assert.equal(ev({ kind: 'board', body: 'Julplanering' }).b, '“Julplanering” · Gå med medan den delas.');
+  assert.equal(ev({ kind: 'board', body: '', lang: 'en' }).b, 'Join while it is being shared.');
+  assert.equal(ev({ kind: 'board', lang: 'en' }).t, 'Anna invites you to a whiteboard');
+  // Someone else's words: control and direction characters go, length is capped, an unknown kind becomes 'friend'.
+  const odd = ev({ kind: 'reminder', display_name: 'An\u202Ena\n\u0007' + 'x'.repeat(80), body: 'rad1\nrad2\t' + 'y'.repeat(400) });
+  assert.ok(!/[\u0000-\u001f\u202e]/.test(odd.t + odd.b), JSON.stringify(odd));
+  assert.ok(odd.t.length <= 'Påminnelse från '.length + 40);
+  assert.equal(odd.b.length, 200);
+  assert.ok(odd.b.startsWith('rad1 rad2 '));
+  assert.equal(ev({ kind: 'nope' }).k, 'friend');
+});
+
+test('push (E1): a run sends friend events after reminders; a missing events function does not fail the reminders', async () => {
+  const { vapid } = await vapidPair();
+  const d = device();
+  const evRow = { sub_id: 5, endpoint: 'https://fcm.googleapis.com/fcm/send/ev', p256dh: d.p256dh, auth: d.authB64, lang: 'sv', kind: 'reminder', event_id: 42, username: 'anna', display_name: 'Anna', body: 'Köp glögg' };
+  const calls = [], sent = [];
+  let evGiven = false;
+  const admin = { async rpc(name, args) {
+    calls.push([name, JSON.parse(JSON.stringify(args))]);
+    if (name === 'push_take_events' && !evGiven) { evGiven = true; return { data: [evRow], error: null }; }
+    return { data: name === 'push_report' ? null : [], error: null };
+  } };
+  const out = await P.runTick(admin, async (url, init) => { sent.push({ url, init }); return { status: 201 }; }, vapid);
+  assert.deepEqual({ ...out }, { ok: 1, gone: 0, failed: 0 });
+  assert.deepEqual(calls.map(c => c[0]), ['push_take_due', 'push_take_events', 'push_report']);
+  assert.deepEqual(calls[2][1], { ok: [5], gone: [], failed: [] });
+  assert.deepEqual(JSON.parse(decrypt(d, sent[0].init.body).toString()), { k: 'reminder', t: 'Påminnelse från Anna', b: 'Köp glögg', id: 'ev-42', l: 'sv' });
+  // The E1 migration not run yet: push_take_events fails; reminders are still sent and the run succeeds.
+  const logged = [];
+  const old = { async rpc(name) { return name === 'push_take_events' ? { data: null, error: { message: 'function does not exist' } } : { data: [], error: null }; } };
+  const r = await P.runTick(old, async () => ({ status: 201 }), vapid, { log: (...a) => logged.push(a.join(' ')) });
+  assert.equal(r.eventsError, 'push_take_events: function does not exist');
+  assert.equal(logged.length, 1);
+});
+
+test('push (E1): the service worker shows a friend event with its text, tells open windows, and a click opens Vänner', async () => {
+  const posted = [];
+  const win = { postMessage: m => posted.push(m), focus: async () => { posted.push('focus'); } };
+  let sw = loadSw([], [win]);
+  let [n] = await sw.push({ k: 'friend', t: 'Anna vill bli din vän', b: 'Öppna Pinglapp för att svara.', id: 'ev-1', l: 'sv' });
+  assert.equal(n.title, 'Anna vill bli din vän');
+  assert.equal(n.body, 'Öppna Pinglapp för att svara.');
+  assert.equal(n.tag, 'ev-1');
+  assert.equal(n.data.k, 'friend');
+  assert.deepEqual(JSON.parse(JSON.stringify(posted)), [{ ping: 'inbox' }], 'open windows refresh their inbox');
+  // A click with Pinglapp open: that window comes forward on the Vänner tab.
+  posted.length = 0;
+  assert.equal(await sw.click(n.data), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(posted)), [{ ping: 'open', tab: 'friends' }, 'focus']);
+  // A click with Pinglapp closed: a new window opens on Vänner. A reminder's click opens the start page as before.
+  sw = loadSw([], []);
+  await sw.click({ k: 'board' });
+  assert.deepEqual([...sw.opened], ['./#open=friends']);
+  await sw.click({ push: true, id: 'r1' });
+  assert.deepEqual([...sw.opened], ['./#open=friends', './']);
+  // A reminder push is unchanged (no k): the time as body.
+  [n] = await loadSw().push({ t: 'Ring mamma', at: Date.UTC(2026, 11, 1, 17), id: 'r1', l: 'sv' });
+  assert.equal(n.data.k, undefined);
+  assert.ok(n.body.length > 3);
 });

@@ -38,6 +38,9 @@ function pushWhen(at, lang) {
     return new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : 'sv-SE', { weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(at));
   } catch (e) { return ''; }
 }
+// A friend event (plan E1) has k = 'friend' | 'reminder' | 'board' and its own body text b (made by the server in the
+// device's language); a click on it opens the Vänner tab, and open Pinglapp windows refresh their inbox at once.
+const PUSH_KINDS = ['friend', 'reminder', 'board'];
 self.addEventListener('push', e => {
   let m = {};
   try { m = e.data ? e.data.json() : {}; } catch (err) { m = {}; }
@@ -45,6 +48,16 @@ self.addEventListener('push', e => {
   const title = typeof m.t === 'string' && m.t ? m.t : (lang === 'en' ? 'Reminder' : 'Påminnelse');
   const tag = typeof m.id === 'string' && m.id ? m.id : 'ping-push';
   const at = typeof m.at === 'number' ? m.at : Date.now();
+  if (PUSH_KINDS.includes(m.k)) {
+    e.waitUntil((async () => {
+      await self.registration.showNotification(title, {
+        body: typeof m.b === 'string' ? m.b : '', tag, icon: 'icon-192.png', badge: 'icon-192.png',
+        data: { push: true, k: m.k, shownAt: Date.now(), id: tag }
+      });
+      try { (await self.clients.matchAll({ type: 'window', includeUncontrolled: true })).forEach(c => c.postMessage({ ping: 'inbox' })); } catch (err) { }
+    })());
+    return;
+  }
   e.waitUntil((async () => {
     let recent = false;
     try {
@@ -58,11 +71,15 @@ self.addEventListener('push', e => {
   })());
 });
 
-// Clicking a notification brings the Pinglapp window to the front.
+// Clicking a notification brings the Pinglapp window to the front; for a friend event, on the Vänner tab.
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  const friends = !!(e.notification.data && PUSH_KINDS.includes(e.notification.data.k));
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    if (list.length) return list[0].focus();
-    return self.clients.openWindow('./');
+    if (list.length) {
+      if (friends) list[0].postMessage({ ping: 'open', tab: 'friends' });
+      return list[0].focus();
+    }
+    return self.clients.openWindow(friends ? './#open=friends' : './');
   }));
 });

@@ -717,6 +717,106 @@ test('push: the minute job calls the Edge Function only when something is due an
   assert.equal((await db.query('select count(*)::int as n from net.calls')).rows[0].n, 0, 'nothing due: no call');
 });
 
+// ---- E1: December avatar items, push for friend events
+test('avatars (E1): the December accessories 8-11 can be saved; 12 cannot', async () => {
+  const ok = { v: 1, s: 0, c: 0, e: 0, m: 0, a: 11, b: 0 };
+  await rows(A, 'update public.profiles set avatar_style = $1 where id = $2', [ok, A]);
+  assert.deepEqual((await rows(B, `select avatar_style from public.get_profile('alice')`))[0].avatar_style, ok);
+  await fails(A, 'update public.profiles set avatar_style = $1 where id = $2', [JSON.stringify({ ...ok, a: 12 }), A], /avatar_style_valid/);
+  await rows(A, 'update public.profiles set avatar_style = null where id = $1', [A]);
+});
+
+test('friend push: requests, reminders and invites queue a notification for devices that want it, checked again when sent', async () => {
+  const J = '00000000-0000-4000-8000-000000000e11', K = '00000000-0000-4000-8000-000000000e12', L = '00000000-0000-4000-8000-000000000e13';
+  await signUp(J, 'j@example.com', { username: 'jonna', display_name: 'Jonna' });
+  await signUp(K, 'k@example.com', { username: 'kalle' });
+  await signUp(L, 'l@example.com', { username: 'lisen' });
+  const call = (uid, sql, p) => rows(uid, sql, p).then(r => Object.values(r[0])[0]);
+  const events = () => db.query('select kind, recipient, sender, item_id, taken_at from public.push_events where recipient in ($1, $2, $3) or sender in ($1, $2, $3) order by id', [J, K, L]).then(r => r.rows);
+  const take = async () => (await rows('service', 'select * from public.push_take_events()')).filter(r => [EP('k1'), EP('k2'), EP('j1')].includes(r.endpoint));
+  const ROOM = 'zyxwvutsrq9876543210';
+  // Nobody can see or touch the queue except the sender function.
+  await fails(K, 'select * from public.push_events', [], /permission denied/);
+  await fails(K, 'select * from public.push_take_events()', [], /permission denied/);
+  await fails(K, 'select public.push_event_add($1, $2, $3, null)', [K, J, 'friend'], /permission denied/);
+  // No device: nothing is queued.
+  await call(J, `select public.friend_request('kalle')`);
+  assert.deepEqual(await events(), []);
+  await call(K, `select public.friend_respond('jonna', false)`);
+  // Kalle switches push on: Jonna's request queues one event, and the sender gets it once, with her shown name.
+  await sub(K, EP('k1'));
+  await call(J, `select public.friend_request('kalle')`);
+  assert.deepEqual((await events()).map(e => [e.kind, e.recipient, e.sender, e.item_id]), [['friend', K, J, null]]);
+  let got = await take();
+  assert.deepEqual(got.map(r => [r.kind, r.endpoint, r.username, r.display_name, r.body, r.lang]), [['friend', EP('k1'), 'jonna', 'Jonna', null, 'sv']]);
+  assert.deepEqual(await take(), [], 'taken once');
+  // Accepting sends nothing to Jonna (she has no device anyway); a reminder and an invite each queue one for Kalle.
+  await call(K, `select public.friend_respond('jonna', true)`);
+  const rid = Number(await call(J, `select public.send_reminder('kalle', 'Ring mamma 18')`));
+  await call(J, `select public.send_board_invite('kalle', $1, 'Julplanering')`, [ROOM]);
+  await call(J, `select public.send_board_invite('kalle', $1, 'Julplanering')`, [ROOM]);   // the same invite again: no new item, no new push
+  got = await take();
+  assert.deepEqual(got.map(r => [r.kind, r.body]), [['reminder', 'Ring mamma 18'], ['board', 'Julplanering']]);
+  assert.equal((await events()).filter(e => e.kind === 'reminder')[0].item_id, rid);
+  // A second device that turned reminders off gets the invite but not the reminder; a re-subscribe without the list
+  // (the app before E1) keeps the choice.
+  await rows(K, 'select public.push_subscribe($1, $2, $3, $4, $5)', [EP('k2'), P256, AUTH, 'en', ['reminder', 'nonsense']]);
+  assert.deepEqual((await db.query('select muted from public.push_subscriptions where endpoint = $1', [EP('k2')])).rows[0].muted, ['reminder']);
+  await sub(K, EP('k2'), 'en');
+  assert.deepEqual((await db.query('select muted from public.push_subscriptions where endpoint = $1', [EP('k2')])).rows[0].muted, ['reminder']);
+  await call(J, `select public.send_reminder('kalle', 'Köp glögg')`);
+  await call(J, `select public.send_board_invite('kalle', $1, '')`, ['zyxwvutsrq9876543211']);
+  got = await take();
+  assert.deepEqual(got.map(r => [r.kind, r.endpoint, r.lang]).sort(), [['board', EP('k1'), 'sv'], ['board', EP('k2'), 'en'], ['reminder', EP('k1'), 'sv']]);
+  // Both devices turn reminders off: nothing is even queued.
+  await rows(K, 'select public.push_subscribe($1, $2, $3, $4, $5)', [EP('k1'), P256, AUTH, 'sv', ['reminder']]);
+  const before = (await events()).length;
+  await call(J, `select public.send_reminder('kalle', 'tyst')`);
+  assert.equal((await events()).length, before);
+  await rows(K, 'select public.push_subscribe($1, $2, $3, $4, $5)', [EP('k1'), P256, AUTH, 'sv', []]);
+  await rows(K, 'select public.push_subscribe($1, $2, $3, $4, $5)', [EP('k2'), P256, AUTH, 'en', []]);
+  // Answered before it was sent, or older than an hour: skipped (and not left waiting).
+  const id2 = Number(await call(J, `select public.send_reminder('kalle', 'redan sett')`));
+  await call(K, 'select public.answer_item($1)', [id2]);
+  assert.deepEqual(await take(), []);
+  await call(J, `select public.send_reminder('kalle', 'gammal')`);
+  await db.query(`update public.push_events set created_at = now() - interval '2 hours' where taken_at is null`);
+  assert.deepEqual(await take(), []);
+  assert.equal((await db.query('select count(*)::int as n from public.push_events where taken_at is null')).rows[0].n, 0);
+  // At most 5 an hour from one person to another (the inbox still gets them all).
+  await db.query('delete from public.push_events where sender = $1', [J]);
+  for (let i = 0; i < 7; i++) await call(J, `select public.send_reminder('kalle', $1)`, ['nr ' + i]);
+  assert.equal((await events()).filter(e => !e.taken_at).length, 5);
+  assert.equal((await rows(K, 'select * from public.my_inbox()')).filter(i => i.kind === 'reminder' && /^nr /.test(i.payload.text)).length, 7);
+  // A block (either way) before sending: nothing goes out. Blocking also ends the friendship.
+  await call(K, `select public.block_user('jonna')`);
+  assert.deepEqual(await take(), []);
+  // Lisen asks Kalle, then Kalle blocks her before the push went out.
+  await call(L, `select public.friend_request('kalle')`);
+  await call(K, `select public.block_user('lisen')`);
+  assert.deepEqual(await take(), []);
+  // Rows older than a day are removed by the sender function.
+  await db.query(`update public.push_events set created_at = now() - interval '2 days' where recipient = $1`, [K]);
+  await take();
+  assert.equal((await db.query('select count(*)::int as n from public.push_events where recipient = $1', [K])).rows[0].n, 0);
+});
+
+test('friend push: the minute job also runs when friend events wait', async () => {
+  await db.query(`insert into vault.decrypted_secrets values ('push_function_url', 'https://x.supabase.co/functions/v1/send-due-pushes'), ('push_cron_secret', 's3cret') on conflict do nothing`);
+  await db.query('update public.push_schedule set next_at = null');
+  await db.query('update public.push_events set taken_at = now() where taken_at is null');
+  await db.query('delete from net.calls');
+  await db.query('select public.push_tick()');
+  assert.equal((await db.query('select count(*)::int as n from net.calls')).rows[0].n, 0, 'nothing waiting: no call');
+  const M = '00000000-0000-4000-8000-000000000e21', N = '00000000-0000-4000-8000-000000000e22';
+  await signUp(M, 'm@example.com', { username: 'maja' });
+  await signUp(N, 'n@example.com', { username: 'nils' });
+  await sub(N, EP('n1'));
+  await rows(M, `select public.friend_request('nils')`);
+  await db.query('select public.push_tick()');
+  assert.equal((await db.query('select count(*)::int as n from net.calls')).rows[0].n, 1, 'a friend request waits: the function is called');
+});
+
 test('deleting an account removes all its rows', async () => {
   const E2 = '00000000-0000-4000-8000-0000000000e2';
   await signUp(E2, 'e2@example.com', { username: 'eve2' });

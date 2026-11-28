@@ -471,8 +471,16 @@ test('creative avatars: a default for everyone; the maker steps, shuffles and sa
   assert.equal(await counter('s'), `${def.s + 1} / 6`, 'starts from the default for the username');
   await page.click('[data-act="av-step"][data-part="s"][data-d="1"]');
   assert.equal(await counter('s'), `${(def.s + 1) % 6 + 1} / 6`);
+  // Accessories: 12 in the Christmas season (20 Nov – Jan, E1 December pack), else the first 8.
+  const nA = await page.evaluate(() => avatarChoices('a').length);
+  assert.equal(nA, (await page.evaluate(() => avatarSeason())) ? 12 : 8);
   await page.click('[data-act="av-step"][data-part="a"][data-d="-1"]');
-  assert.equal(await counter('a'), `${(def.a + 7) % 8 + 1} / 8`);
+  assert.equal(await counter('a'), `${(def.a + nA - 1) % nA + 1} / ${nA}`);
+  assert.equal(await page.isVisible('#avSeasonHint'), await page.evaluate(() => avatarSeason()));
+  // Every accessory draws something of its own (and nothing for 0).
+  const drawn = await page.evaluate(() => Array.from({ length: AV_N.a }, (_, a) => avatarSvg({ v: 1, s: 0, c: 0, e: 0, m: 0, a, b: 0 }).childElementCount));
+  assert.ok(drawn.slice(1).every(n => n > drawn[0]), JSON.stringify(drawn));
+  assert.equal(new Set(await page.evaluate(() => Array.from({ length: AV_N.a }, (_, a) => avatarSvg({ v: 1, s: 0, c: 0, e: 0, m: 0, a, b: 0 }).outerHTML))).size, 12);
   await page.click('[data-act="av-random"]');
   const draft = await page.evaluate(() => acct.avDraft);
   assert.ok(await page.evaluate(d => !!avatarSpec(d), draft));

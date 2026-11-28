@@ -230,7 +230,8 @@ const FAKE_PUSH = () => {
     async getNotifications() { return []; }, async showNotification(t, o) { P.shown.push([t, o && o.tag]); },
   };
   window.PushManager = function PushManager() { };
-  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve(reg), register: async () => reg, controller: null } });
+  // An EventTarget, so sw.js messages can be played in with dispatchEvent(new MessageEvent('message', …)).
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: Object.assign(new EventTarget(), { ready: Promise.resolve(reg), register: async () => reg, controller: null }) });
 };
 const VAPID = 'B' + 'A'.repeat(85) + 'E';    // 65 bytes, base64url
 const pushCalls = page => page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.calls.filter(c => c[0] === 'rpc' && c[1].startsWith('push_')).map(c => [c[1], c[2]]));
@@ -262,7 +263,7 @@ test('push: signed in with notifications allowed, the device subscribes by itsel
   assert.equal(await A.page.evaluate(() => window.__push.subscribed), 1);
   assert.equal(await A.page.evaluate(() => window.__push.key.length), 65, 'subscribed with the project public key');
   let db = await pushDb(A.page);
-  assert.deepEqual(Object.values(db.subs), [{ user: 'u-a', lang: 'sv' }]);
+  assert.deepEqual(Object.values(db.subs), [{ user: 'u-a', lang: 'sv', muted: [] }], 'friend events: all on by default');
   assert.deepEqual(Object.keys(db.sched['u-a']).sort(), ['daily', 'one'], 'nothing for a finished reminder');
   assert.deepEqual(db.sched['u-a'].one.times, [now + H]);
   assert.equal(db.sched['u-a'].daily.title, '‼ Träning');
@@ -288,9 +289,24 @@ test('push: signed in with notifications allowed, the device subscribes by itsel
   await A.page.waitForFunction(() => window.__push.unsubscribed === 1);
   assert.equal(await A.page.evaluate(() => S.settings.pushOn), false);
   assert.deepEqual((await pushDb(A.page)).subs, {});
+  assert.equal(await A.page.isHidden('#pushKinds'), true, 'push off: no friend-event switches');
   await A.page.click('#setPush');
   await A.page.waitForFunction(() => window.__push.subscribed === 2 && !push.busy);
   assert.equal(Object.keys((await pushDb(A.page)).subs).length, 1);
+  // Friend events (E1): the switches show under it, all on; turning one off is sent along with this device.
+  assert.equal(await A.page.isVisible('#pushKinds'), true);
+  assert.deepEqual(await A.page.$$eval('#pushKinds [data-push-kind]', l => l.map(c => [c.dataset.pushKind, c.checked])), [['friend', true], ['reminder', true], ['board', true]]);
+  await A.page.click('#pushKinds [data-push-kind=reminder]');
+  await A.page.waitForFunction(() => Object.values(window.PING_ACCOUNTS_FAKE.db.push.subs).some(s => s.muted.length));
+  assert.deepEqual(Object.values((await pushDb(A.page)).subs).map(s => s.muted), [['reminder']]);
+  assert.deepEqual(await A.page.evaluate(() => S.settings.pushMute), ['reminder']);
+  assert.equal(await A.page.isChecked('#pushKinds [data-push-kind=reminder]'), false);
+  await A.page.click('#pushKinds [data-push-kind=reminder]');
+  await A.page.waitForFunction(() => Object.values(window.PING_ACCOUNTS_FAKE.db.push.subs).every(s => !s.muted.length));
+  // A friend notification clicked while Pinglapp is open: sw.js asks this window to show Vänner.
+  await A.page.evaluate(() => navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { ping: 'open', tab: 'friends' } })));
+  assert.equal(await A.page.evaluate(() => currentTab()), 'friends');
+  await A.page.evaluate(() => showTab('settings'));
   // Logging out forgets the device on the server.
   await A.page.click('#acctChip');
   await A.page.click('#acctDlg [data-acct-view=account] [data-act=acct-signout-ask]:not([data-all])');
@@ -319,6 +335,12 @@ test('push: without a public key for the project, or without notifications, noth
   assert.equal(await A.page.evaluate(() => S.settings.pushOn), undefined);
   assert.deepEqual((await pushCalls(A.page)).map(c => c[0]), ['push_schedule_set']);
   assert.equal(await A.page.evaluate(() => push.hasDevices), false, 'the account has no device yet');
+  // A friend notification clicked with Pinglapp closed opens #open=friends: Vänner shows and the address is cleaned.
+  await A.page.evaluate(() => { location.hash = 'open=friends'; });
+  await A.page.reload();
+  await A.page.waitForFunction(() => typeof isActiveWindow !== 'undefined' && isActiveWindow && fileInitDone);
+  assert.equal(await A.page.evaluate(() => currentTab()), 'friends');
+  assert.equal(await A.page.evaluate(() => location.hash), '');
   assert.deepEqual(A.errors, []);
   await A.ctx.close();
 });

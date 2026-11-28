@@ -22,11 +22,12 @@ Click **Log in** at the top of Pinglapp, then **Create an account**, or use **Co
 
 ## Friends and sharing (with an account)
 
-- **Avatar:** everyone gets a drawn avatar made from their username. Change it under **Edit profile** (pick each part, or **Shuffle**), or upload a photo instead.
+- **Avatar:** everyone gets a drawn avatar made from their username. Change it under **Edit profile** (pick each part, or **Shuffle**), or upload a photo instead. From 20 November to January there are Christmas extras under Accessory (Santa hat, Lucia crown, gingerbread, scarf); once chosen they stay all year.
 - **Friends:** open someone's profile (**Find people**) and click **Add as friend**. They answer in their **inbox**: the bell in the header shows when something is waiting. Your friends are listed under **Account → Friends**. Friends can see each other's profile even if it's hidden from search.
 - **Send a reminder:** on a friend's profile, **Send a reminder** and write it like a quick add (`Call mum tomorrow 18:00`); the preview shows how it reads. Your friend chooses **Add** (it becomes their own reminder) or **No thanks**. You aren't told which.
 - **Invite to a whiteboard:** while you share a board live, **Share → Invite a friend**. They get it in their inbox and join with one click. An invitation works for a day.
 - **Shared notes and lists:** in a note, **Share ▾ → Share with friends…**, pick friends and whether each **can edit** or **can read**. The note appears in their notes with 👥. Everyone's changes come together line by line, and the open note refreshes every few seconds. If two people change the same line at the same time, the version saved first is kept and the other is saved in the note's history, so nothing is lost. Earlier versions from before you shared stay private to you. Pictures in a shared note count towards the owner's storage. The owner can change who is in it or **stop sharing** (the others get a copy in their trash); anyone else can **leave**, optionally keeping a copy.
+- **Notifications:** with reminders on when Pinglapp is closed (Settings → Notifications), a device also gets a notification when a friend asks to be friends, sends you a reminder or invites you to a board. Each kind can be switched off per device.
 - Only friends can send or share anything. Removing a friend or blocking someone ends everything you share with each other.
 
 ## Without an account: make sure your data is never lost
