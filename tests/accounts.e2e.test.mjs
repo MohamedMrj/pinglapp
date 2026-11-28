@@ -1266,3 +1266,123 @@ test('the terms and privacy pages: linked from sign-up and the account page, Swe
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+// ---------------------------------------------------------------- report a problem (Settings → Hjälp och feedback)
+const supCalls = page => fakeCalls(page, 'invoke').then(cs => cs.filter(c => c[1] === 'send-feedback').map(c => c[2]));
+const supOpen = async page => {
+  await page.evaluate(() => showTab('settings'));
+  await page.click('#setHelp [data-act=support-open]');
+  await page.waitForSelector('#supportDlg:not([hidden])');
+  await page.waitForFunction(() => $('supDiagPre').textContent.includes('browser:'));
+};
+
+test('report a problem as a guest: robot check, screenshots made into small JPEGs, technical details without content', async () => {
+  const { ctx, page, errors } = await open({ captcha: true });
+  await page.evaluate(() => { S.reminders.push(newReminder({ title: 'Hemlig tandläkartid' })); save(); });
+  await supOpen(page);
+  const diag = await page.textContent('#supDiagPre');
+  assert.match(diag, /account: not signed in/);
+  assert.match(diag, /1 reminders/);
+  assert.ok(!diag.includes('Hemlig'), 'what is in a reminder is never sent');
+  assert.equal(await page.inputValue('#supEmail'), '', 'a guest has no address filled in');
+  assert.equal(await page.textContent('#supCancel'), 'Avbryt');
+  assert.match(await page.getAttribute('#supText', 'placeholder'), /Vad hände/);
+  await page.selectOption('#supKind', 'idea');
+  assert.match(await page.getAttribute('#supText', 'placeholder'), /bättre för dig/);
+  // Nothing written: not sent.
+  await page.click('#supSend');
+  assert.match(await page.textContent('#supMsg'), /Skriv några ord/);
+  assert.deepEqual(await supCalls(page), []);
+  // Screenshots: at most 3, removable.
+  const shot = n => ({ name: `s${n}.png`, mimeType: 'image/png', buffer: PNG_1PX });
+  await page.setInputFiles('#supShotFile', [shot(1), shot(2)]);
+  await page.waitForFunction(() => document.querySelectorAll('#supShots .sup-shot').length === 2);
+  await page.setInputFiles('#supShotFile', [shot(3), shot(4)]);
+  await page.waitForFunction(() => document.querySelectorAll('#supShots .sup-shot').length === 3);
+  assert.equal(await page.isVisible('#supShotBtn'), false, 'no more than 3');
+  await page.click('#supShots .sup-shot button');
+  assert.equal(await page.locator('#supShots .sup-shot').count(), 2);
+  assert.equal(await page.isVisible('#supShotBtn'), true);
+  await page.setInputFiles('#supShotFile', [{ name: 'x.txt', mimeType: 'text/plain', buffer: Buffer.from('hej') }]);
+  await page.waitForFunction(() => document.getElementById('toastMsg').textContent.includes('gick inte att lägga till'));
+  await page.fill('#supText', 'Kan ni lägga till mörkt läge för tavlan?');
+  await page.fill('#supEmail', 'gast@example.com');
+  await page.click('#supSend');
+  await page.waitForSelector('#supDone:not([hidden])');
+  assert.match(await page.textContent('#supDoneP'), /svarar till gast@example\.com/);
+  assert.equal(await page.isVisible('#supSend'), false);
+  assert.equal(await page.textContent('#supCancel'), 'Stäng');
+  const [body] = await supCalls(page);
+  assert.equal(body.kind, 'idea');
+  assert.equal(body.text, 'Kan ni lägga till mörkt läge för tavlan?');
+  assert.equal(body.email, 'gast@example.com');
+  assert.match(body.captcha, /^tok-\d+$/, 'the robot check answer goes along');
+  assert.equal(body.shots.length, 2);
+  for (const s of body.shots) assert.ok(s.data.startsWith('/9j/'), 'redrawn as a JPEG (no hidden data from the file)');
+  assert.ok(body.diag && /not signed in/.test(body.diag.account) && Array.isArray(body.diag.errors));
+  assert.ok(await page.evaluate(() => window.turnstile.calls.some(c => c[0] === 'render' && c[2] === 'support')));
+  await page.keyboard.press('Escape');
+  assert.equal(await page.isVisible('#supportDlg'), false);
+  // Opened again after sending: an empty form.
+  await supOpen(page);
+  assert.equal(await page.inputValue('#supText'), '');
+  assert.equal(await page.locator('#supShots .sup-shot').count(), 0);
+  assert.equal(await page.isVisible('#supSend'), true);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('report a problem signed in: address filled in, no robot check; a refusal offers the email app and keeps the text', async () => {
+  const { ctx, page, errors } = await signedIn();
+  // From the footer too.
+  await page.evaluate(() => showTab('reminders'));
+  await page.click('.site-foot [data-act=support-open]');
+  await page.waitForSelector('#supportDlg:not([hidden])');
+  await page.keyboard.press('Escape');
+  await supOpen(page);
+  assert.equal(await page.inputValue('#supEmail'), 'a@example.com');
+  assert.match(await page.textContent('#supDiagPre'), /account: signed in/);
+  await page.fill('#supText', 'Påminnelsen kom inte i morse.\nJag använder Android.');
+  await page.uncheck('#supDiag');
+  await fakeDb(page, { feedbackFail: [429, 'user_limit'] });
+  await page.click('#supSend');
+  await page.waitForSelector('#supMailRow:not([hidden])');
+  assert.match(await page.textContent('#supMsg'), /flera meddelanden i dag/);
+  const href = await page.getAttribute('#supMailLink', 'href');
+  assert.ok(href.startsWith('mailto:support@pinglapp.com?subject='));
+  assert.match(decodeURIComponent(href), /\[Pinglapp\] Fel: Påminnelsen kom inte i morse\./);
+  assert.ok(!decodeURIComponent(href).includes('browser:'), 'technical details left out when unticked');
+  const [body] = await supCalls(page);
+  assert.equal(body.diag, null);
+  assert.equal(body.captcha, undefined, 'signed in: no robot check');
+  assert.equal(await page.locator('script[src*="challenges.cloudflare.com"]').count(), 0);
+  // Closed and opened again: the draft is still there.
+  await page.click('#supCancel');
+  await supOpen(page);
+  assert.equal(await page.inputValue('#supText'), 'Påminnelsen kom inte i morse.\nJag använder Android.');
+  // Then it goes through.
+  await fakeDb(page, { feedbackFail: null });
+  await page.click('#supSend');
+  await page.waitForSelector('#supDone:not([hidden])');
+  assert.equal((await supCalls(page)).length, 2);
+  // English.
+  await page.click('#supCancel');
+  await page.evaluate(() => { S.settings.lang = 'en'; save(); applyLang(); });
+  assert.equal(await page.textContent('.site-foot [data-act=support-open]'), 'Report a problem');
+  assert.equal(await page.textContent('#setHelpH'), 'Help and feedback');
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});
+
+test('report a problem where accounts are off: the email app, with the details in the message', async () => {
+  const { ctx, page, errors } = await open({ url: base + '?accounts=off' });
+  await supOpen(page);
+  await page.fill('#supText', 'Ljudet spelas inte.');
+  await page.click('#supSend');
+  await page.waitForSelector('#supMailRow:not([hidden])');
+  assert.match(await page.textContent('#supMsg'), /e-postapp/);
+  assert.match(decodeURIComponent(await page.getAttribute('#supMailLink', 'href')), /Ljudet spelas inte\.[\s\S]*browser:/);
+  assert.deepEqual(await supCalls(page), []);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});

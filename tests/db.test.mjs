@@ -817,6 +817,32 @@ test('friend push: the minute job also runs when friend events wait', async () =
   assert.equal((await db.query('select count(*)::int as n from net.calls')).rows[0].n, 1, 'a friend request waits: the function is called');
 });
 
+test('support form: only the Edge Function counts sends; 5 a day per account, 20 for guests, 40 in all; old rows go', async () => {
+  const slot = who => rows('service', 'select public.support_slot($1) as r', [who]).then(r => r[0].r);
+  await fails(A, 'select public.support_slot($1)', [A], /permission denied/);
+  await fails(null, 'select public.support_slot(null)', [], /permission denied/);
+  await fails(A, 'select * from public.support_sends', [], /permission denied/);
+  for (let i = 0; i < 5; i++) assert.equal(await slot(A), 'ok');
+  assert.equal(await slot(A), 'user_limit');
+  assert.equal(await slot(B), 'ok', 'another account has its own 5');
+  for (let i = 0; i < 20; i++) assert.equal(await slot(null), 'ok');
+  assert.equal(await slot(null), 'day_limit', 'guests together: 20 a day');
+  const C2 = '00000000-0000-4000-8000-00000000f0c2';
+  await signUp(C2, 'sup-c2@example.com', { username: 'supcecil' });
+  for (let i = 0; i < 4; i++) assert.equal(await slot(C2), 'ok');
+  // 5 + 1 + 20 + 4 = 30 so far; 10 more from new accounts, then everyone is full.
+  const more = Array.from({ length: 3 }, (_, i) => `00000000-0000-4000-8000-00000000f1${String(i).padStart(2, '0')}`);
+  for (const [i, id] of more.entries()) await signUp(id, `sup-m${i}@example.com`, { username: `supmore${i}` });
+  for (let i = 0; i < 10; i++) assert.equal(await slot(more[i % 3]), 'ok');
+  assert.equal(await slot(more[2]), 'day_limit', '40 a day in all');
+  // A day later there's room again; rows older than 2 days are removed.
+  await db.query(`update public.support_sends set created_at = now() - interval '3 days'`);
+  assert.equal(await slot(A), 'ok');
+  assert.equal((await db.query('select count(*)::int as n from public.support_sends')).rows[0].n, 1);
+  for (const id of more) await db.query('delete from auth.users where id = $1', [id]);
+  await db.query('delete from auth.users where id = $1', [C2]);
+});
+
 test('deleting an account removes all its rows', async () => {
   const E2 = '00000000-0000-4000-8000-0000000000e2';
   await signUp(E2, 'e2@example.com', { username: 'eve2' });
@@ -837,7 +863,7 @@ test('deleting an account removes all its rows', async () => {
   assert.equal((await db.query('select 1 from public.reports where target = $1', [A])).rows.length, 0);
   assert.deepEqual((await db.query(`select reporter from public.reports where reason = 'sent by alice'`)).rows.map(r => r.reporter), [null]);
   for (const t of ['profiles', 'account_private']) assert.equal((await db.query(`select 1 from public.${t} where id = $1`, [A])).rows.length, 0, t);
-  for (const t of ['reminders', 'notes', 'boards', 'user_settings', 'push_subscriptions', 'push_schedule']) assert.equal((await db.query(`select 1 from public.${t} where user_id = $1`, [A])).rows.length, 0, t);
+  for (const t of ['reminders', 'notes', 'boards', 'user_settings', 'push_subscriptions', 'push_schedule', 'support_sends']) assert.equal((await db.query(`select 1 from public.${t} where user_id = $1`, [A])).rows.length, 0, t);
   assert.equal((await db.query('select 1 from public.blocks where blocker = $1 or blocked = $1', [A])).rows.length, 0);
   assert.equal((await db.query('select 1 from public.friendships where a = $1 or b = $1 or requested_by = $1', [A])).rows.length, 0);
   assert.equal((await db.query('select 1 from public.inbox_items where sender = $1 or recipient = $1', [A])).rows.length, 0);

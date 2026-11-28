@@ -102,6 +102,13 @@ export const FAKE = () => {
         call('invoke', name, o && o.body);
         const fail = (status, code) => ({ data: null, error: { name: 'FunctionsHttpError', message: 'Edge Function returned a non-2xx status code',
           context: new Response(JSON.stringify({ error: code }), { status, headers: { 'content-type': 'application/json' } }) } });
+        // send-feedback ("Rapportera ett problem"): someone signed in, or a robot-check answer; db.feedbackFail = [status, code].
+        if (name === 'send-feedback') {
+          const b = (o && o.body) || {};
+          if (db.feedbackFail) return fail(...db.feedbackFail);
+          if (!session && !b.captcha) return fail(400, 'captcha_failed');
+          return { data: { ok: true }, error: null };
+        }
         if (name !== 'delete-account') return fail(404, 'not_found');
         if (!session) return fail(401, 'not_signed_in');
         const me = session.user.id, p = db.profiles[me];

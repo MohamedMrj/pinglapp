@@ -614,7 +614,8 @@ test('notes on a phone: the list and the open note are two screens, with a way b
 test('settings are grouped with a section menu; power features live under Avancerat and nothing is gone', async () => {
   const { ctx, page, errors } = await open();
   await tab(page, 'settings');
-  assert.deepEqual((await page.locator('#setNav button').allInnerTexts()).map(s => s.trim()), ['Allmänt', 'Påminnelser och ljud', 'Utseende', 'Dina data', 'Avancerat']);
+  assert.deepEqual((await page.locator('#setNav button').allInnerTexts()).map(s => s.trim()), ['Allmänt', 'Påminnelser och ljud', 'Utseende', 'Dina data', 'Hjälp och feedback', 'Avancerat']);
+  assert.equal(await page.locator('#setHelp [data-act="support-open"]').count(), 1);
   const inGroup = (id, sel) => page.locator(`#${id} ${sel}`).count();
   assert.equal(await inGroup('setGeneral', '#langSeg'), 1);
   assert.equal(await inGroup('setGeneral', '[data-act="startup-guide"]'), 1);

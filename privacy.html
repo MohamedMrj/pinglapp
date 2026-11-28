@@ -72,6 +72,10 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 </table></div>
 <p>Andra inloggade ser bara din profil (aldrig din e-post eller ditt innehåll), och bara om du har valt att gå att hitta eller är vän med dem. Vilka dina vänner är visas bara för dig. En påminnelse du skickar ser bara mottagaren; du får inte veta om den lades till eller inte. En anteckning du delar ser de du delar den med, och de som är med i samma anteckning ser varandras profiler. Profilbilden ligger på en öppen adress: den som har adressen kan se bilden.</p>
 
+<h2>När du rapporterar ett problem eller kontaktar oss</h2>
+<p>Med formuläret ”Rapportera ett problem” (Inställningar → Hjälp och feedback) skickar du det du skriver, de skärmbilder du lägger till, din e-postadress om du anger den, och, om du låter rutan vara ikryssad, tekniska uppgifter om enheten och appen: till exempel webbläsare, skärmstorlek, språk, om aviseringar är på, hur många påminnelser och anteckningar du har (aldrig vad som står i dem) och de senaste felmeddelandena. Under ”Visa vad som skickas” ser du exakt vad det är. Är du inloggad följer ditt användarnamn, din e-postadress och ditt konto-id med, så att vi kan hjälpa dig med kontot. Utan konto gör Cloudflare en robotkontroll först. Skärmbilder görs mindre i din webbläsare innan de skickas, och dold information i bildfilen (till exempel plats) tas bort.</p>
+<p>Det skickas som e-post via Brevo till vår supportadress och används bara för att svara dig och rätta felet (berättigat intresse). Samma sak gäller e-post du skickar direkt till support@pinglapp.com. För att stoppa missbruk sparar databasen när ett meddelande skickades och från vilket konto (inget innehåll); det tas bort efter två dygn.</p>
+
 <h2>Om du loggar in med Google eller Microsoft</h2>
 <p>Det är frivilligt; du kan alltid använda e-post och lösenord i stället. Väljer du ”Fortsätt med Google” eller ”Fortsätt med Microsoft” ber Pinglapp bara om din grundläggande profil:</p>
 <ul>
@@ -86,8 +90,8 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <h2>Tjänster vi använder</h2>
 <ul>
   <li><b>Supabase</b>: databas, inloggning och fillagring. Servrarna finns i EU (Irland).</li>
-  <li><b>Brevo</b>: skickar e-post om ditt konto (bekräftelse, nytt lösenord, byte av e-post). EU (Frankrike).</li>
-  <li><b>Cloudflare</b>: robotkontrollen (Turnstile) när du loggar in, skapar ett konto eller begär nytt lösenord, och adressen pinglapp.com. Läser tekniska uppgifter om webbläsaren för att skilja människor från robotar.</li>
+  <li><b>Brevo</b>: skickar e-post om ditt konto (bekräftelse, nytt lösenord, byte av e-post), och det du skickar med formuläret ”Rapportera ett problem” till vår supportadress. EU (Frankrike).</li>
+  <li><b>Cloudflare</b>: robotkontrollen (Turnstile) när du loggar in, skapar ett konto, begär nytt lösenord eller skickar ”Rapportera ett problem” utan konto, och adressen pinglapp.com. Läser tekniska uppgifter om webbläsaren för att skilja människor från robotar. Tar också emot e-post till support@pinglapp.com och skickar den vidare till vår inkorg.</li>
   <li><b>Google</b> och <b>Microsoft</b>: bara om du väljer att logga in med dem. Då får vi ditt namn och din e-postadress därifrån.</li>
   <li><b>GitHub</b>: lagrar och visar själva appen, och förvarar våra veckovisa säkerhetskopior, krypterade (se nedan).</li>
   <li><b>jsDelivr</b>: levererar två kodbibliotek (för konton och för att dela tavlor live), bara när de används.</li>
@@ -107,6 +111,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
   <li>En delad anteckning finns kvar tills den som delade den slutar dela den eller raderar sitt konto. Då tas den och dess bilder bort från servern; den som delade den behåller den som sin egen, och de andra får en kopia i sin papperskorg. Den som lämnar en anteckning kan behålla en kopia.</li>
   <li>Anmälningar sparas i högst 12 månader. Raderar du ditt konto finns anmälningar du skickat kvar till dess, men utan koppling till dig.</li>
   <li>Påminnelser när Pinglapp är stängd: enhetens aviseringsadress tas bort när du stänger av det, loggar ut på enheten eller när webbläsaren säger att adressen inte längre gäller. Tiderna för en påminnelse tas bort när den är klar eller raderad; passerade tider försvinner allt eftersom. Uppgiften om att en vän har skickat dig något tas bort efter ett dygn (den sparas så länge för att begränsa hur många aviseringar en person kan skicka till dig).</li>
+  <li>Meddelanden till supporten (från formuläret eller med e-post) sparas så länge vi behöver dem för att hjälpa dig, högst 12 månader.</li>
   <li>Serverloggar sparas några dagar.</li>
 </ul>
 
@@ -167,6 +172,10 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 </table></div>
 <p>Other signed-in people only see your profile (never your email or your content), and only if you’ve chosen to be findable or are friends with them. Who your friends are is shown only to you. A reminder you send is seen only by the person you send it to; you aren’t told whether they added it. A note you share is seen by the people you share it with, and people in the same note see each other’s profiles. The profile picture is at an open address: anyone with the address can see the picture.</p>
 
+<h2>When you report a problem or contact us</h2>
+<p>With the “Report a problem” form (Settings → Help and feedback) you send what you write, the screenshots you add, your email address if you give it, and, if you leave the box ticked, technical details about the device and the app: for example the browser, screen size, language, whether notifications are on, how many reminders and notes you have (never what is in them) and the latest error messages. “Show what is sent” shows you exactly what that is. If you are signed in, your username, email address and account id go along, so we can help you with your account. Without an account, Cloudflare does a robot check first. Screenshots are made smaller in your browser before they are sent, and hidden information in the picture file (such as location) is removed.</p>
+<p>It is sent by email through Brevo to our support address and used only to answer you and fix the problem (legitimate interest). The same goes for email you send straight to support@pinglapp.com. To stop abuse, the database keeps when a message was sent and from which account (no content); that is removed after two days.</p>
+
 <h2>If you log in with Google or Microsoft</h2>
 <p>This is optional; you can always use email and a password instead. If you choose “Continue with Google” or “Continue with Microsoft”, Pinglapp asks only for your basic profile:</p>
 <ul>
@@ -181,8 +190,8 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <h2>Services we use</h2>
 <ul>
   <li><b>Supabase</b>: database, sign-in and file storage. The servers are in the EU (Ireland).</li>
-  <li><b>Brevo</b>: sends email about your account (confirmation, new password, change of email). EU (France).</li>
-  <li><b>Cloudflare</b>: the robot check (Turnstile) when you log in, create an account or ask for a new password, and the pinglapp.com address. It reads technical details about the browser to tell people from robots.</li>
+  <li><b>Brevo</b>: sends email about your account (confirmation, new password, change of email), and what you send with the “Report a problem” form to our support address. EU (France).</li>
+  <li><b>Cloudflare</b>: the robot check (Turnstile) when you log in, create an account, ask for a new password or send “Report a problem” without an account, and the pinglapp.com address. It reads technical details about the browser to tell people from robots. It also receives email to support@pinglapp.com and passes it on to our inbox.</li>
   <li><b>Google</b> and <b>Microsoft</b>: only if you choose to log in with them. We then get your name and email address from them.</li>
   <li><b>GitHub</b>: stores and serves the app itself, and keeps our weekly backups, encrypted (see below).</li>
   <li><b>jsDelivr</b>: delivers two code libraries (for accounts and for sharing boards live), only when they’re used.</li>
@@ -202,6 +211,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
   <li>A shared note stays until the person who shared it stops sharing it or deletes their account. It and its pictures are then removed from the server; the person who shared it keeps it as their own, and the others get a copy in their trash. Someone who leaves a note can keep a copy.</li>
   <li>Reports are kept for at most 12 months. If you delete your account, reports you sent stay until then, but with no link to you.</li>
   <li>Reminders when Pinglapp is closed: the device’s notification address is removed when you switch it off, log out on the device, or the browser says the address no longer works. A reminder’s times are removed when it is done or deleted; past times drop off as they pass. The note that a friend sent you something is removed after a day (it is kept that long to limit how many notifications one person can send you).</li>
+  <li>Messages to support (from the form or by email) are kept as long as we need them to help you, at most 12 months.</li>
   <li>Server logs are kept for a few days.</li>
 </ul>
 

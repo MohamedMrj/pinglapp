@@ -616,6 +616,18 @@ details.adv[open] { display: grid; gap: 8px; }
 .site-foot a { color: var(--muted); text-decoration: none; }
 body:has(#view-board:not([hidden])) .site-foot, body:has(#view-notes:not([hidden])) .site-foot { display: none; }   /* these fill the window */
 .site-foot a:hover, .site-foot a:focus-visible { color: var(--ink); text-decoration: underline; }
+.site-foot .foot-btn { border: 0; background: none; padding: 0; font: inherit; color: var(--muted); cursor: pointer; }
+.site-foot .foot-btn:hover, .site-foot .foot-btn:focus-visible { color: var(--ink); text-decoration: underline; }
+.sup-body { display: grid; gap: 12px; }
+.sup-body textarea { resize: vertical; min-height: 120px; font: inherit; }
+.sup-shots { display: flex; flex-wrap: wrap; gap: 8px; }
+.sup-shots:empty { display: none; }
+.sup-shot { position: relative; width: 96px; height: 72px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.sup-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sup-shot button { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; cursor: pointer; line-height: 24px; padding: 0; }
+.sup-diag summary { cursor: pointer; color: var(--muted); font-size: calc(14px * var(--ts, 1)); }
+.sup-diag pre { margin: 8px 0 0; padding: 10px; max-height: 220px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+.sup-done { font-size: calc(18px * var(--ts, 1)); font-weight: 600; margin: 0 0 6px; }
 .setup-acct h3 { margin: 0; font-size: calc(15px * var(--ts, 1)); }
 .setup-acct p { margin: 0; }
 .setup-or { margin: 10px 0 0; font-size: calc(15px * var(--ts, 1)); }
@@ -1131,6 +1143,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         <button type="button" data-set-jump="setAlerts" data-i18n="setAlerts">Påminnelser och ljud</button>
         <button type="button" data-set-jump="setLook" data-i18n="setLook">Utseende</button>
         <button type="button" data-set-jump="setData" data-i18n="setData">Dina data</button>
+        <button type="button" data-set-jump="setHelp" data-i18n="setHelp">Hjälp och feedback</button>
         <button type="button" data-set-jump="setAdvanced" data-i18n="setAdvanced">Avancerat</button>
       </nav>
       <section class="set-group" id="setGeneral" aria-labelledby="setGeneralH">
@@ -1272,6 +1285,15 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         </div>
       </div>
       </section>
+      <section class="set-group" id="setHelp" aria-labelledby="setHelpH">
+        <h2 id="setHelpH" data-i18n="setHelp">Hjälp och feedback</h2>
+      <div class="card">
+        <h3 data-i18n="supCardH">Hittat ett fel eller har en idé?</h3>
+        <p data-i18n="supCardP">Berätta för oss. Du kan skicka med skärmbilder och teknisk information som hjälper oss att hitta felet. Vi läser allt.</p>
+        <div class="row"><button class="btn primary" type="button" data-act="support-open" data-i18n="supOpen">Rapportera ett problem eller ge ett förslag</button></div>
+        <p class="hint"><span data-i18n="supMailHint">Du kan också mejla</span> <a href="mailto:support@pinglapp.com">support@pinglapp.com</a></p>
+      </div>
+      </section>
       <section class="set-group" id="setAdvanced" aria-labelledby="setAdvancedH">
         <h2 id="setAdvancedH" data-i18n="setAdvanced">Avancerat</h2>
         <p class="hint" data-i18n="setAdvancedP">För dig som vill ha fler val. Inget här behövs i vardagen.</p>
@@ -1309,7 +1331,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 </div>
 <!-- Always visible, in the page's own HTML: Google's and Microsoft's sign-in reviews look for a privacy link here. -->
 <footer class="site-foot">
-  <a href="privacy.html" data-i18n="acctPrivacy">Integritetspolicy</a><a href="terms.html" data-i18n="acctTermsShort">Villkor</a><a href="mailto:support@pinglapp.com">support@pinglapp.com</a>
+  <a href="privacy.html" data-i18n="acctPrivacy">Integritetspolicy</a><a href="terms.html" data-i18n="acctTermsShort">Villkor</a><a href="mailto:support@pinglapp.com">support@pinglapp.com</a><button type="button" class="foot-btn" data-act="support-open" data-i18n="supFoot">Rapportera ett problem</button>
 </footer>
 
 <!-- editor -->
@@ -1954,6 +1976,55 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
   </div>
 </div>
 
+<!-- report a problem or send an idea (Settings → Hjälp och feedback; supportOpen). Emailed by the send-feedback function. -->
+<div class="scrim" id="supportDlg" hidden>
+  <form class="modal" id="supForm" role="dialog" aria-labelledby="supTitle" autocomplete="off" novalidate>
+    <h2 id="supTitle" data-i18n="supH">Rapportera ett problem eller ge ett förslag</h2>
+    <div id="supFormBody" class="sup-body">
+      <label class="field"><span data-i18n="supKind">Vad gäller det?</span>
+        <select id="supKind" class="input">
+          <option value="bug" data-i18n="supKindBug">Något fungerar inte (fel)</option>
+          <option value="idea" data-i18n="supKindIdea">Förslag eller önskemål</option>
+          <option value="question" data-i18n="supKindQuestion">Fråga</option>
+          <option value="account" data-i18n="supKindAccount">Konto eller inloggning</option>
+          <option value="other" data-i18n="supKindOther">Annat</option>
+        </select>
+      </label>
+      <label class="field"><span data-i18n="supText">Beskriv</span>
+        <textarea id="supText" class="input" rows="6" maxlength="5000" required></textarea>
+      </label>
+      <label class="field"><span data-i18n="supEmail">Din e-post, om du vill ha svar (valfritt)</span>
+        <input type="email" id="supEmail" class="input" maxlength="254" autocomplete="email" placeholder="namn@exempel.se" data-i18n-ph="supEmailPh">
+      </label>
+      <div class="field">
+        <span data-i18n="supShots">Skärmbilder (högst 3)</span>
+        <div class="sup-shots" id="supShots"></div>
+        <div class="row"><button class="btn sm" type="button" data-act="support-shot" id="supShotBtn" data-i18n="supShotAdd">＋ Lägg till skärmbild</button></div>
+        <input type="file" id="supShotFile" accept="image/*" multiple hidden>
+        <p class="hint" data-i18n="supShotHint">Ta en skärmbild först (på telefonen eller datorn) och lägg till den här, eller klistra in den med Ctrl+V. Bilderna görs mindre, och dold information som plats tas bort.</p>
+      </div>
+      <label class="check"><input type="checkbox" id="supDiag" checked> <span data-i18n="supDiagLabel">Skicka med teknisk information</span></label>
+      <details class="sup-diag"><summary data-i18n="supDiagShow">Visa vad som skickas</summary>
+        <p class="hint" data-i18n="supDiagP">Det här hjälper oss att hitta felet. Innehållet i dina påminnelser och anteckningar skickas aldrig.</p>
+        <pre id="supDiagPre"></pre>
+      </details>
+      <div class="acct-captcha" id="supCaptcha" hidden></div>
+      <p class="hint"><span data-i18n="supPrivacy">Det du skickar mejlas till support@pinglapp.com.</span> <a href="privacy.html" target="_blank" rel="noopener" data-i18n="supPrivacyLink">Läs mer i integritetspolicyn</a></p>
+      <p class="banner" id="supMsg" role="status" hidden></p>
+      <div class="row" id="supMailRow" hidden><a class="btn" id="supMailLink" href="mailto:support@pinglapp.com" data-i18n="supMailApp">Skicka med din e-postapp i stället</a></div>
+    </div>
+    <div id="supDone" hidden>
+      <p class="sup-done" data-i18n="supDoneH">Tack! Vi har fått ditt meddelande.</p>
+      <p id="supDoneP"></p>
+    </div>
+    <div class="modal-foot">
+      <span class="spacer"></span>
+      <button class="btn" type="button" data-act="support-close" id="supCancel">Avbryt</button>
+      <button class="btn primary" type="submit" id="supSend" data-i18n="supSend">Skicka</button>
+    </div>
+  </form>
+</div>
+
 <!-- iPhone / iPad: add Pinglapp to the home screen (Safari has no install button a page can press) -->
 <div class="scrim" id="installDlg" hidden>
   <div class="modal" role="dialog" aria-labelledby="installTitle">
@@ -1985,6 +2056,17 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
 </div>
 
 <script>
+// The last few errors in this window, for "Rapportera ett problem" (sent only if the person leaves "Skicka med teknisk
+// information" ticked, and shown to them first). Messages and where in the code, nothing else.
+var errLog = [];
+function errLogAdd(msg) {
+  msg = String(msg || '').replace(/\s+/g, ' ').slice(0, 300);
+  if (!msg || errLog.some(x => x.endsWith(msg))) return;
+  errLog.push(new Date().toISOString().slice(11, 19) + ' ' + msg);
+  if (errLog.length > 10) errLog.shift();
+}
+addEventListener('error', e => errLogAdd((e.message || 'error') + (e.filename ? ' (' + (String(e.filename).split(/[/?#]/).filter(Boolean).pop() || '') + ':' + e.lineno + ':' + e.colno + ')' : '')));
+addEventListener('unhandledrejection', e => { const r = e.reason; errLogAdd('unhandled: ' + (r && (r.message || r.code) || String(r))); });
 /*PARSER-START*/
 // Parser error messages in both UI languages; the app sets ParserText.lang.
 const ParserText = {
@@ -8172,6 +8254,9 @@ document.addEventListener('click', e => {
     case 'close-startup': $('startupDlg').hidden = true; break;
     case 'install': installApp(); break;
     case 'close-install': $('installDlg').hidden = true; break;
+    case 'support-open': supportOpen(); break;
+    case 'support-close': if (!SUP.busy) supportClose(); break;
+    case 'support-shot': $('supShotFile').click(); break;
     case 'hide-install': S.settings.installHidden = true; save(); updateInstallUi(); break;
     case 'copy-ping-url': copyText(pingUrl()); break;
     case 'copy-settings-url': copyText($('settingsUrl').textContent); break;
@@ -8451,6 +8536,7 @@ const typing = el => el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (!popEl.hidden) closePop();
+    else if (!$('supportDlg').hidden) { if (!SUP.busy) supportClose(); }
     else if (!$('codeDlg').hidden) closeCodeDlg();
     else if (!$('linkDlg').hidden) closeLinkDlg();
     else if (!$('restoreDlg').hidden) { pendingRestore = null; $('restoreDlg').hidden = true; }
@@ -8472,7 +8558,7 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'm' && currentTab() === 'notes' && $('editor').hidden) { e.preventDefault(); markAllSugs(); return; }
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'f' && currentTab() === 'notes' && $('editor').hidden && $('codeDlg').hidden) { e.preventDefault(); openFind(); return; }
   if (e.ctrlKey || e.metaKey || e.altKey || typing(document.activeElement) || !$('editor').hidden || !$('keysDlg').hidden
-      || !$('setupDlg').hidden || !$('lockDlg').hidden || !$('startupDlg').hidden || !$('codeDlg').hidden || !$('linkDlg').hidden || !$('histDlg').hidden || !$('trashDlg').hidden || !$('restoreDlg').hidden || !isActiveWindow) return;
+      || !$('setupDlg').hidden || !$('lockDlg').hidden || !$('startupDlg').hidden || !$('codeDlg').hidden || !$('linkDlg').hidden || !$('histDlg').hidden || !$('trashDlg').hidden || !$('restoreDlg').hidden || !$('supportDlg').hidden || !isActiveWindow) return;
   if (e.key === '?') { $('keysDlg').hidden = false; return; }
   if (currentTab() === 'board') return;   // the whiteboard has its own keys
   if (e.key === '1') return showTab('reminders');
@@ -9028,8 +9114,8 @@ function acctTurnstile() {
   return acctCap.loading;
 }
 // One widget per form, made the first time the form is shown. Resolves to the widget, or null (no key, or no script).
-function acctCaptcha(view) {
-  const key = acctCaptchaKey(), v = acctView(view), box = v && v.querySelector('.acct-captcha');
+function acctCaptcha(view, boxEl) {
+  const key = acctCaptchaKey(), v = boxEl ? null : acctView(view), box = boxEl || (v && v.querySelector('.acct-captcha'));
   if (!key || !box) return Promise.resolve(null);
   const ws = acctCap.widgets;
   if (!ws[view]) {
@@ -9047,15 +9133,15 @@ function acctCaptcha(view) {
 }
 // The answer to send with this form's request, or undefined without a robot check. An answer works once, so the widget
 // is reset straight away and fetches the next one for a second try.
-async function acctCaptchaToken(view) {
+async function acctCaptchaToken(view, boxEl, say = acctMsg) {
   if (!acctCaptchaKey()) return undefined;
-  const w = await acctCaptcha(view);
+  const w = await acctCaptcha(view, boxEl);
   if (!w) throw navigator.onLine ? { code: 'captcha_failed' } : new Error('network');
   let tok = w.token;
   if (!tok) {
-    acctMsg(t('acctCaptchaWait'));
+    say(t('acctCaptchaWait'));
     tok = await new Promise(res => { w.wait.push(res); setTimeout(() => res(''), 60000); });
-    acctMsg('');
+    say('');
   }
   if (!tok) throw { code: 'captcha_failed' };
   w.token = '';
@@ -10749,6 +10835,207 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     if (m.ping === 'open' && m.tab === 'friends' && !wbGuestRoom) { showTab('friends'); inboxRefresh(); }
   });
 }
+
+// ---------------------------------------------------------------- report a problem (Settings → Hjälp och feedback)
+// The form (#supportDlg) goes to the Edge Function send-feedback, which emails it to support@pinglapp.com (Brevo).
+// Signed in, the session is the check; otherwise the robot check (Turnstile, the same widget as log-in). When sending
+// isn't possible (offline, accounts off here, a whiteboard guest window, the function failing), the person can send it
+// with their own email app instead. What they write is kept while the dialog is closed, until it has been sent.
+const SUP = { shots: [], busy: false, sent: false };
+const SUP_MAX_SHOTS = 3, SUP_SHOT_SIDE = 1600, SUP_SHOT_BYTES = 1400000;
+Object.assign(T.en, {
+  setHelp: 'Help and feedback', supCardH: 'Found a bug or have an idea?',
+  supCardP: 'Tell us. You can include screenshots and technical details that help us find the problem. We read everything.',
+  supOpen: 'Report a problem or suggest something', supMailHint: 'You can also email', supFoot: 'Report a problem',
+  supH: 'Report a problem or suggest something', supKind: 'What is it about?', supKindBug: 'Something doesn’t work (a bug)',
+  supKindIdea: 'An idea or a wish', supKindQuestion: 'A question', supKindAccount: 'Account or signing in', supKindOther: 'Something else',
+  supText: 'Describe it', supEmail: 'Your email, if you’d like an answer (optional)', supEmailPh: 'name@example.com',
+  supShots: 'Screenshots (up to 3)', supShotAdd: '＋ Add a screenshot',
+  supShotHint: 'Take a screenshot first (on your phone or computer) and add it here, or paste it with Ctrl+V. Pictures are made smaller, and hidden details such as location are removed.',
+  supDiagLabel: 'Include technical details', supDiagShow: 'Show what is sent',
+  supDiagP: 'This helps us find the problem. The contents of your reminders and notes are never sent.',
+  supPrivacy: 'What you send is emailed to support@pinglapp.com.', supPrivacyLink: 'More in the privacy policy',
+  supMailApp: 'Send with your email app instead', supDoneH: 'Thank you! We’ve got your message.', supSend: 'Send',
+});
+const SUP_T = {
+  en: {
+    supPhBug: 'What happened? What did you do just before? What did you expect to happen?',
+    supPhIdea: 'What would make Pinglapp better for you?', supPhQuestion: 'What would you like to know?',
+    supPhAccount: 'What isn’t working with your account? Never write your password.', supPhOther: 'Write here.',
+    supCancel: 'Cancel', supClose: 'Close', supNeedText: 'Write a few words about it first.', supSending: 'Sending…', supShotRemove: 'Remove screenshot',
+    supShotMax: 'At most 3 screenshots.', supShotBad: 'That picture couldn’t be added.',
+    supErrLimit: 'You’ve sent several messages today. Try again tomorrow, or send it with your email app.',
+    supErrBusy: 'We’ve had a lot of messages today. Send it with your email app instead; it reaches us just the same.',
+    supErrShots: 'A screenshot couldn’t be sent. Remove it and try again.',
+    supErrOffline: 'You seem to be offline. Try again when you’re connected, or send it with your email app.',
+    supErrSend: 'It couldn’t be sent right now. Try again in a while, or send it with your email app.',
+    supNoBackend: 'Send it with your email app; it reaches us just the same.',
+    supDoneReply: e => `We’ll answer to ${e}, usually within a few days.`,
+    supDoneNoReply: 'You didn’t give an email address, so we can’t answer, but we read everything.',
+    supMailShots: '(Attach your screenshots to this email yourself.)',
+    supKindName: { bug: 'Bug', idea: 'Idea', question: 'Question', account: 'Account', other: 'Other' },
+  },
+  sv: {
+    supPhBug: 'Vad hände? Vad gjorde du precis innan? Vad hade du väntat dig skulle hända?',
+    supPhIdea: 'Vad skulle göra Pinglapp bättre för dig?', supPhQuestion: 'Vad undrar du?',
+    supPhAccount: 'Vad är det som inte fungerar med kontot? Skriv aldrig ditt lösenord.', supPhOther: 'Skriv här.',
+    supCancel: 'Avbryt', supClose: 'Stäng', supNeedText: 'Skriv några ord om det först.', supSending: 'Skickar…', supShotRemove: 'Ta bort skärmbilden',
+    supShotMax: 'Högst 3 skärmbilder.', supShotBad: 'Bilden gick inte att lägga till.',
+    supErrLimit: 'Du har skickat flera meddelanden i dag. Försök igen i morgon, eller skicka med din e-postapp.',
+    supErrBusy: 'Vi har fått många meddelanden i dag. Skicka med din e-postapp i stället, det når oss lika bra.',
+    supErrShots: 'En skärmbild gick inte att skicka. Ta bort den och försök igen.',
+    supErrOffline: 'Du verkar vara offline. Försök igen när du är uppkopplad, eller skicka med din e-postapp.',
+    supErrSend: 'Det gick inte att skicka just nu. Försök igen om en stund, eller skicka med din e-postapp.',
+    supNoBackend: 'Skicka med din e-postapp, det når oss lika bra.',
+    supDoneReply: e => `Vi svarar till ${e}, oftast inom några dagar.`,
+    supDoneNoReply: 'Du angav ingen e-postadress, så vi kan inte svara, men vi läser allt.',
+    supMailShots: '(Lägg till skärmbilderna i mejlet själv.)',
+    supKindName: { bug: 'Fel', idea: 'Förslag', question: 'Fråga', account: 'Konto', other: 'Annat' },
+  },
+};
+Object.assign(T.en, SUP_T.en);
+Object.assign(T.sv, SUP_T.sv);
+
+// What "Skicka med teknisk information" sends, shown to the person in "Visa vad som skickas". About the device and the
+// app only; never what's in reminders or notes.
+async function supportDiag() {
+  const nav = navigator, uad = nav.userAgentData, mm = q => { try { return matchMedia(q).matches; } catch (e) { return false; } };
+  const d = {
+    page: location.origin + location.pathname, updated: document.lastModified,
+    time: new Date().toISOString() + ' (' + (Intl.DateTimeFormat().resolvedOptions().timeZone || '?') + ')',
+    language: lang() + ' (browser: ' + (nav.languages || [nav.language]).slice(0, 3).join(', ') + ')',
+    browser: nav.userAgent,
+    platform: ((uad && uad.platform) || nav.platform || '?') + (uad && uad.mobile ? ', mobile' : '') + ', touch points ' + (nav.maxTouchPoints || 0),
+    screen: `${screen.width}×${screen.height}, window ${innerWidth}×${innerHeight}, pixel ratio ${devicePixelRatio}`,
+    shown: mm('(display-mode: standalone)') || nav.standalone === true ? 'installed app' : 'browser tab',
+    online: nav.onLine,
+    look: [S.settings.palette || 'lagoon', S.settings.theme || 'system', S.settings.textSize || 'normal'].join(', ') + (mm('(prefers-reduced-motion: reduce)') ? ', reduced motion' : ''),
+    notifications: 'Notification' in window ? Notification.permission : 'not supported',
+    push: !('PushManager' in window) ? 'not supported' : (S.settings.pushOn ? 'on' : 'off') + (push.error ? ' (error: ' + push.error + ')' : '') + (pushMuted().length ? ', muted: ' + pushMuted().join(' ') : ''),
+    'service worker': nav.serviceWorker ? (nav.serviceWorker.controller ? 'active' : 'none') : 'not supported',
+    account: !acct.project ? 'accounts off here' : (acct.session ? 'signed in' : 'not signed in') + ' (' + acct.project + ')',
+    saved: (fileHandle ? 'save file (' + fileState + ')' : 'browser storage') + (isActiveWindow ? '' : ', not the editing window'),
+    data: `${S.reminders.length} reminders, ${S.notes.filter(isLive).length} notes` + (S.notes.some(n => n.shared) ? ', some shared' : ''),
+  };
+  try { if (nav.storage && nav.storage.persisted) d.storage = await nav.storage.persisted() ? 'persistent' : 'may be cleared by the browser'; } catch (e) { }
+  try { if (nav.storage && nav.storage.estimate) { const e = await nav.storage.estimate(); d.storage = (d.storage ? d.storage + ', ' : '') + Math.round((e.usage || 0) / 1e5) / 10 + ' MB used'; } } catch (e) { }
+  d.errors = errLog.length ? errLog.slice() : ['none'];
+  return d;
+}
+const supDiagText = d => Object.entries(d).map(([k, v]) => Array.isArray(v) ? k + ':\n' + v.map(x => '  - ' + x).join('\n') : k + ': ' + v).join('\n');
+
+function supMsg(msg) { const m = $('supMsg'); m.hidden = !msg; m.textContent = msg || ''; }
+function supPlaceholder() {
+  const k = $('supKind').value;
+  $('supText').placeholder = t({ bug: 'supPhBug', idea: 'supPhIdea', question: 'supPhQuestion', account: 'supPhAccount' }[k] || 'supPhOther');
+}
+function supRenderShots() {
+  const box = $('supShots'); box.textContent = '';
+  SUP.shots.forEach((src, i) => {
+    const d = document.createElement('div'); d.className = 'sup-shot';
+    const img = document.createElement('img'); img.src = src; img.alt = '';
+    const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.dataset.supRemove = i;
+    x.setAttribute('aria-label', t('supShotRemove')); x.title = t('supShotRemove');
+    d.append(img, x); box.appendChild(d);
+  });
+  $('supShotBtn').hidden = SUP.shots.length >= SUP_MAX_SHOTS;
+}
+// A screenshot, redrawn smaller as a JPEG: that also leaves out everything hidden in the file (location, camera, …).
+async function supShrink(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const k = Math.min(1, SUP_SHOT_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+    for (const q of [0.85, 0.7, 0.5]) { const out = c.toDataURL('image/jpeg', q); if (out.length * 0.75 <= SUP_SHOT_BYTES) return out; }
+    return null;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function supAddShots(files) {
+  for (const f of files) {
+    if (SUP.shots.length >= SUP_MAX_SHOTS) { toast(t('supShotMax')); break; }
+    let out = null;
+    try { if (/^image\//.test(f.type)) out = await supShrink(f); } catch (e) { }
+    if (out && out.startsWith('data:image/jpeg;base64,')) SUP.shots.push(out); else toast(t('supShotBad'));
+  }
+  supRenderShots();
+}
+
+function supportOpen() {
+  if (SUP.sent || !$('supText').value && !SUP.shots.length) {     // a fresh form (a draft stays until it has been sent)
+    SUP.sent = false; SUP.shots = [];
+    $('supKind').value = 'bug'; $('supText').value = ''; $('supDiag').checked = true;
+    $('supEmail').value = acct.session && acct.session.user && acct.session.user.email || '';
+  }
+  $('supFormBody').hidden = false; $('supDone').hidden = true; $('supSend').hidden = false;
+  $('supCancel').textContent = t('supCancel'); supMsg(''); $('supMailRow').hidden = true;
+  supPlaceholder(); supRenderShots();
+  $('supDiagPre').textContent = '…';
+  supportDiag().then(d => { $('supDiagPre').textContent = supDiagText(d); }, () => { });
+  $('supportDlg').hidden = false;
+  $('supText').focus();
+  if (!acct.session && acct.project) acctCaptcha('support', $('supCaptcha'));   // the robot check gets ready while they write
+}
+function supportClose() { $('supportDlg').hidden = true; }
+
+// The same report as an email from the person's own mail program (no screenshots: a mailto link can't carry files).
+function supMailHref(kind, text, diag) {
+  const subject = '[Pinglapp] ' + (t('supKindName')[kind] || kind) + ': ' + text.split('\n')[0].slice(0, 60);
+  let body = text + (SUP.shots.length ? '\n\n' + t('supMailShots') : '') + (diag ? '\n\n---\n' + supDiagText(diag) : '');
+  const href = b => 'mailto:support@pinglapp.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(b);
+  while (href(body).length > 1900 && body.length > 20) body = body.slice(0, Math.floor(body.length * 0.85)) + '…';
+  return href(body);
+}
+
+async function supportSend() {
+  if (SUP.busy) return;
+  const kind = $('supKind').value, text = $('supText').value.trim(), email = $('supEmail').value.trim();
+  if (text.length < 3) { supMsg(t('supNeedText')); $('supText').focus(); return; }
+  if (email && !$('supEmail').checkValidity()) { supMsg(t('acctBadEmail')); $('supEmail').focus(); return; }
+  SUP.busy = true; $('supSend').disabled = true; $('supMailRow').hidden = true; supMsg(t('supSending'));
+  let diag = null;
+  try {
+    diag = $('supDiag').checked ? await supportDiag() : null;
+    if (!acct.project) throw { code: 'no_backend' };
+    const body = { kind, text, email, diag, shots: SUP.shots.map(s => ({ data: s.slice(s.indexOf(',') + 1) })) };
+    const c = await acctClient();
+    if (!acct.session) {
+      const tok = await acctCaptchaToken('support', $('supCaptcha'), m => supMsg(m || t('supSending')));
+      if (tok) body.captcha = tok;
+    }
+    const { error } = await c.functions.invoke('send-feedback', { body });
+    if (error) {
+      let code = '';
+      try { code = (await error.context.json()).error || ''; } catch (e) { }
+      throw { code: code || 'send_failed' };
+    }
+    SUP.sent = true;
+    $('supFormBody').hidden = true; $('supDone').hidden = false; $('supSend').hidden = true;
+    $('supCancel').textContent = t('supClose');
+    $('supDoneP').textContent = email ? t('supDoneReply', email) : t('supDoneNoReply');
+    $('supCancel').focus();
+  } catch (e) {
+    const code = e && e.code;
+    const key = { no_backend: 'supNoBackend', user_limit: 'supErrLimit', day_limit: 'supErrBusy', text_bad: 'supNeedText', email_bad: 'acctBadEmail',
+      shots_bad: 'supErrShots', captcha_failed: 'acctErrCaptcha' }[code];
+    supMsg(key ? t(key) : !navigator.onLine ? t('supErrOffline') : t('supErrSend'));
+    $('supMailLink').href = supMailHref(kind, text, diag);
+    $('supMailRow').hidden = false;
+  } finally { SUP.busy = false; $('supSend').disabled = false; }
+}
+$('supForm').addEventListener('submit', e => { e.preventDefault(); supportSend(); });
+$('supKind').addEventListener('change', supPlaceholder);
+$('supShotFile').addEventListener('change', e => { const files = [...e.target.files]; e.target.value = ''; supAddShots(files); });
+$('supShots').addEventListener('click', e => {
+  const b = e.target.closest('[data-sup-remove]'); if (!b) return;
+  SUP.shots.splice(+b.dataset.supRemove, 1); supRenderShots(); $('supShotBtn').focus();
+});
+$('supportDlg').addEventListener('paste', e => {     // a screenshot pasted straight into the form (Ctrl+V)
+  const files = [...(e.clipboardData && e.clipboardData.files || [])].filter(f => /^image\//.test(f.type));
+  if (files.length) { e.preventDefault(); supAddShots(files); }
+});
 
 // ---------------------------------------------------------------- start
 $('saveChip').addEventListener('click', () => {

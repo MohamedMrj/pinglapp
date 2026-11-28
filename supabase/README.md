@@ -20,8 +20,10 @@ database password stay in the Supabase dashboard, Edge Function secrets and GitH
 | `migrations/…_retention.sql` | Phase 6: `pg_cron` removes reports older than 12 months (as `privacy.html` says) |
 | `migrations/…_push.sql` | Phase 7b: `push_subscriptions` (one per device, only push-service addresses, ≤ 10 per account) and `push_schedule` (per reminder, the next ≤ 30 due times, worked out by the app), through `push_subscribe / push_unsubscribe / push_schedule_set`; `push_take_due` / `push_report` for the Edge Function only; `pg_cron` job `ping-push` calls `push_tick()` every minute, which asks the Edge Function to send (URL + secret from Vault) |
 | `migrations/…_friend_push.sql` | E1: accessories 0–11 in `valid_avatar_style` (December pack); push for friend events: triggers on `friendships` / `inbox_items` queue ids in `push_events` (only for devices that want the kind, ≤ 5/hour per pair, ≤ 30/hour per sender), `push_subscriptions.muted` set through `push_subscribe(…, muted_kinds)`, `push_take_events` (service role; re-checks pending/friends/blocks), `push_tick` also runs when events wait |
+| `migrations/…_support.sql` | Support form: `support_sends` (only when and from which account, no content; removed after 2 days) and `support_slot(who)` for the Edge Function only: ≤ 5/day per account, ≤ 20/day without an account, ≤ 40/day in all |
 | `functions/delete-account/` | Phase 6 Edge Function: deletes the signed-in user's files in every bucket, then the user (all rows cascade) |
 | `functions/send-due-pushes/` | Phase 7b Edge Function: takes what is due, sends encrypted Web Push (RFC 8291 + VAPID, plain WebCrypto, no library), reports delivered / gone / failed. Since E1 also friend events (texts in sv/en made here) |
+| `functions/send-feedback/` | Support form ("Rapportera ett problem"): checks the session or the Turnstile answer, takes a `support_slot`, emails the text, screenshots (JPEG/PNG, ≤ 3) and technical details as plain text to support@pinglapp.com through Brevo's API, Reply-To the address given |
 | `templates/` | The auth email templates pasted into Authentication → Emails (copies, for the record) |
 
 Tests (in `../tests`, run with `npm test`):
@@ -37,6 +39,8 @@ Tests (in `../tests`, run with `npm test`):
 - `push.test.mjs` runs `send-due-pushes`' logic (its `/*PUSH-START*/` block): the encryption is decrypted with
   `http_ece` (the reference implementation), the VAPID token is verified, and a run with a stand-in admin client
   sends one message per device and reports delivered / gone / failed. It also runs `sw.js`'s `push` handler.
+- `feedback.test.mjs` runs `send-feedback`'s logic (its `/*FEEDBACK-START*/` block) with stand-ins for the admin
+  client, Turnstile and Brevo: who may send, what is refused, what the email looks like.
 
 ## Phase 6 setup (account settings, delete account)
 
@@ -98,6 +102,32 @@ app code reaches `main`** (the old app keeps working with the new database and f
    With two accounts on staging (one with push on): send a friend request; within a minute
    `select kind, taken_at from public.push_events order by id desc limit 3;` shows it taken, and the notification
    arrives ("<name> vill bli din vän"). Clicking it opens Pinglapp on Vänner.
+
+## Support form setup ("Rapportera ett problem")
+
+Settings → Hjälp och feedback (and the footer) opens a form that the Edge Function `send-feedback` emails to
+support@pinglapp.com through Brevo's email API, with screenshots attached and Reply going to the address the person
+gave. Without the function (or when it fails) the form offers the person's own email app instead, so nothing is lost.
+Staging first, hand test, then prod; the app works before these steps too (it just falls back to the email app).
+
+1. **Migration:** run `migrations/20261203000013_support.sql` in the SQL Editor (`support_sends` + `support_slot()`:
+   ≤ 5 a day per account, ≤ 20 a day for everyone without an account, ≤ 40 a day in all, so the Brevo quota that
+   sign-up and log-in emails need is never used up).
+2. **Brevo API key** (not the SMTP key): Brevo → your name (top right) → **SMTP & API** → **API Keys** → Generate a
+   new API key, name it `pinglapp-<project>-feedback`. Put it in your password manager. An API key starts with
+   `xkeysib-`; the SMTP key (`xsmtpsib-…`) does not work here, Brevo answers `401 Key not found`. If the function's log later
+   says *unrecognised IP address*, open Brevo → **Security → Authorised IPs** and turn off blocking of unknown IP
+   addresses for the API (Edge Functions don't have fixed addresses).
+3. **Turnstile secret:** Cloudflare → Turnstile → the pinglapp.com widget → **Settings** → copy the **Secret key** (the
+   same one that is in Supabase → Attack protection → Captcha).
+4. **Edge Function `send-feedback`:** Edge Functions → Deploy a new function → Via editor, name `send-feedback`, paste
+   `functions/send-feedback/index.ts`, Deploy; in its Details turn **Verify JWT off** (people without an account send
+   too; the function checks the session or the robot check itself). Edge Functions → **Secrets**: add `BREVO_API_KEY`
+   and `TURNSTILE_SECRET`.
+5. **Check:** in the app, Settings → Hjälp och feedback → send a test signed in and one signed out (with a screenshot).
+   Both arrive at support@pinglapp.com within a minute, from `no-reply@pinglapp.com`, subject `[Pinglapp] Bugg: …`;
+   Reply goes to the address typed in the form. Errors: Edge Functions → `send-feedback` → Logs (`send-feedback brevo
+   <status>` = Brevo refused: key or IP setting).
 
 ## Backups (prod)
 
