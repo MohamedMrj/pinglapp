@@ -907,7 +907,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
   </nav>
 
   <div class="banner" id="notifBanner" hidden>
-    <p data-i18n="bannerNotif"><strong>Slå på aviseringar</strong> så att dina påminnelser syns i hörnet av skärmen, även när Pinglapp ligger bakom andra fönster. Pinglapp använder dem bara för påminnelser som du själv skapat, och inget skickas via internet.</p>
+    <p data-i18n="bannerNotif"><strong>Slå på aviseringar</strong> så att dina påminnelser syns i hörnet av skärmen, även när Pinglapp ligger bakom andra fönster. Pinglapp använder dem bara för påminnelser som du själv har skapat.</p>
     <button class="btn primary sm" type="button" data-act="ask-notif" data-i18n="allowNotif">Tillåt aviseringar</button>
     <button class="btn ghost sm" type="button" data-act="hide-banner" data-i18n="notNow">Inte nu</button>
   </div>
@@ -1148,6 +1148,14 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
         <div class="row">
           <button class="btn primary" type="button" data-act="ask-notif" data-i18n="allowNotif">Tillåt aviseringar</button>
           <button class="btn" type="button" data-act="test-alert" data-i18n="testAlert">Skicka en testpåminnelse</button>
+        </div>
+        <div id="pushBox" hidden>
+          <div id="pushRow">
+            <label class="check"><input type="checkbox" id="setPush"> <span data-i18n="pushLabel">Påminn mig även när Pinglapp är stängd</span></label>
+            <p class="hint" data-i18n="pushHint">Gäller den här enheten. Påminnelsen skickas från ditt konto via webbläsarens aviseringstjänst (till exempel Google eller Apple), krypterad så att bara din enhet kan läsa den.</p>
+          </div>
+          <p class="banner" id="pushErr" hidden></p>
+          <p class="hint" id="pushSignedOut" data-i18n="pushSignedOut">Med ett konto kan påminnelserna komma även när Pinglapp är stängd.</p>
         </div>
       </div>
       <div class="card" id="installCard" hidden>
@@ -1610,7 +1618,7 @@ body.wb-full .wb.full-side .wb-side { display: flex; max-height: none; }
       <p data-i18n="setupP3">Tillåt aviseringar så att dina påminnelser syns i hörnet av skärmen, även när Pinglapp ligger bakom andra fönster.</p>
       <ul>
         <li data-i18n="setupLi5">Pinglapp använder aviseringar bara för påminnelser som du själv har skapat. Ingen reklam, inga nyheter.</li>
-        <li data-i18n="setupLi6">Aviseringarna skapas här på din dator. Inget skickas via internet.</li>
+        <li data-i18n="setupLi6">Aviseringarna skapas på din enhet. Med ett konto kan de också komma när Pinglapp är stängd; då skickas de krypterade, så att bara din enhet kan läsa dem.</li>
         <li data-i18n="setupLi7">Du kan stänga av dem när du vill i webbläsarens inställningar.</li>
       </ul>
       <p class="banner" id="setupNotifState" hidden></p>
@@ -2983,7 +2991,7 @@ const T = {
   en: {
     // static markup
     tabReminders: 'Reminders', tabNotes: 'Notes', tabSettings: 'Settings', keysBtnTitle: 'Keyboard shortcuts (?)', keysH: 'Keyboard shortcuts',
-    bannerNotif: '<strong>Turn on notifications</strong> so your reminders show up in the corner of the screen, even when Pinglapp is behind other windows. Pinglapp only uses them for reminders you created yourself, and nothing is sent over the internet.',
+    bannerNotif: '<strong>Turn on notifications</strong> so your reminders show up in the corner of the screen, even when Pinglapp is behind other windows. Pinglapp only uses them for reminders you created yourself.',
     allowNotif: 'Allow notifications', notNow: 'Not now',
     bannerFile: '<strong>Pinglapp needs a click to keep saving to your file.</strong> The browser asks for permission again after a restart. That’s a security feature, not an error. Choose “Allow on every visit” to skip the question. Nothing is lost; everything stays in the browser meanwhile.',
     reconnect: 'Reconnect', quickPh: 'E.g. Call mum tomorrow at 6pm', add: 'Add', more: 'More…',
@@ -3077,7 +3085,7 @@ const T = {
     setupNotifOn: '✓ Notifications are already on in this browser.', stepOf: (i, n) => `Step ${i} of ${n}`, setupT2: 'Get a notification when it’s time',
     setupP3: 'Allow notifications so your reminders show up in the corner of the screen, even when Pinglapp is behind other windows.',
     setupLi5: 'Pinglapp uses notifications only for reminders you created yourself. No ads, no news.',
-    setupLi6: 'The notifications are created here on your computer. Nothing is sent over the internet.',
+    setupLi6: 'The notifications are created on your device. With an account they can also arrive when Pinglapp is closed; they are then sent encrypted, so that only your device can read them.',
     setupLi7: 'You can turn them off whenever you like in the browser’s settings.',
     setupHint2: 'Tip: minimise Pinglapp instead of closing it. Reminders only come while Pinglapp is running. Under Settings there’s a guide to open Pinglapp automatically when the browser starts.',
     lockT: 'Pinglapp is already open in another window', lockP: 'So that nothing you write gets overwritten, Pinglapp can only be used in one window at a time. Your reminders appear in the other window.',
@@ -3166,6 +3174,13 @@ const T = {
     stDenied: b => `${b} is blocking notifications for this page. Click the icon left of the address, set Notifications to Allow, then reload. Until then you get in-window alerts and a sound.`,
     stUnsupported: 'This browser can’t show notifications for this page, so reminders appear as an alert inside this window, with a sound.',
     stIosInstall: 'On iPhone and iPad, notifications work once Pinglapp is on your home screen. Until then, reminders appear as an alert inside Pinglapp while it is open.',
+    pushLabel: 'Remind me even when Pinglapp is closed',
+    pushHint: 'Applies to this device. The reminder is sent from your account through the browser’s notification service (for example Google or Apple), encrypted so that only your device can read it.',
+    pushSignedOut: 'With an account, your reminders can arrive even when Pinglapp is closed.',
+    pushAutoOn: 'Your reminders will now arrive on this device even when Pinglapp is closed. You can change this in Settings.',
+    pushOnToast: 'Reminders will arrive even when Pinglapp is closed', pushOffToast: 'Reminders only arrive while Pinglapp is open',
+    pushNeedsNotif: 'notifications are not allowed', pushFailed: m => `Couldn’t switch it on (${m}).`,
+    pushErrService: m => `This browser couldn’t reach its notification service, so reminders can’t arrive here while Pinglapp is closed (${m}). A work or school network may block it: try another network or another browser. In Brave, turn on “Use Google services for push messaging” in its settings.`,
     installH: 'Install Pinglapp as an app', installP: 'Pinglapp gets its own icon and window, opens like any other app and keeps working without internet.',
     installPIos: 'Add Pinglapp to your home screen. It then opens like any other app and can show notifications when a reminder is due.',
     installBtn: 'Install', installShow: 'Show me how', installMenu: 'Install as an app', installDone: 'Pinglapp is installed. You’ll find it among your apps.',
@@ -3290,6 +3305,10 @@ const T = {
     stDenied: b => `${b} blockerar aviseringar för den här sidan. Klicka på ikonen till vänster om adressen, ställ in Aviseringar på Tillåt och ladda om sidan. Tills dess får du en ruta i fönstret och ett ljud.`,
     stUnsupported: 'Den här webbläsaren kan inte visa aviseringar för den här sidan, så påminnelser visas som en ruta i fönstret, med ett ljud.',
     stIosInstall: 'På iPhone och iPad fungerar aviseringar när Pinglapp ligger på hemskärmen. Tills dess visas påminnelser som en ruta i Pinglapp medan den är öppen.',
+    pushAutoOn: 'Nu kommer dina påminnelser till den här enheten även när Pinglapp är stängd. Du kan ändra det under Inställningar.',
+    pushOnToast: 'Påminnelserna kommer även när Pinglapp är stängd', pushOffToast: 'Påminnelserna kommer bara när Pinglapp är öppen',
+    pushNeedsNotif: 'aviseringar är inte tillåtna', pushFailed: m => `Det gick inte att slå på (${m}).`,
+    pushErrService: m => `Webbläsaren kunde inte nå sin aviseringstjänst, så påminnelser kan inte komma hit när Pinglapp är stängd (${m}). Ett jobb- eller skolnätverk kan blockera den: prova ett annat nätverk eller en annan webbläsare. I Brave slår du på ”Use Google services for push messaging” i inställningarna.`,
     installP: 'Pinglapp får en egen ikon och ett eget fönster, öppnas som vilken app som helst och fungerar även utan internet.',
     installPIos: 'Lägg Pinglapp på hemskärmen. Då öppnas den som vilken app som helst och kan visa aviseringar när det är dags för en påminnelse.',
     installBtn: 'Installera', installShow: 'Visa hur', installMenu: 'Installera som app', installDone: 'Pinglapp är installerad. Du hittar den bland dina appar.',
@@ -4638,6 +4657,7 @@ function updateNotifUi() {
   if (notifError) st.textContent = t('stFailed', notifError);
   st.textContent += t('stRunning', browserName(), isLocalFile);
   updateInstallUi();
+  if (typeof push !== 'undefined') updatePushUi();
 }
 function browserId() {
   const ua = navigator.userAgent;
@@ -4658,6 +4678,7 @@ async function askNotif() {
   try { answer = await Notification.requestPermission(); } catch (e) { answer = 'error'; }
   updateNotifUi();
   if (Notification.permission === 'granted') {
+    if (typeof push !== 'undefined' && acct && acct.session) { push.ensured = false; pushEnsure().catch(e => console.warn('push', e)); }
     toast(t('notifTesting'));
     systemNotify(t('testNotifTitle'), { body: t('testNotifBody'), tag: 'ping-test' })
       .catch(e => { notifError = e.message || String(e); updateNotifUi(); toast(t('testNotifFailed', notifError)); });
@@ -4768,7 +4789,8 @@ function fire(r, occurrence) {
   if (canNotify() && Notification.permission === 'granted') {
     const body = fmtWhen(new Date(occurrence)) + (r.tags.length ? '  ' + r.tags.map(t => '#' + t).join(' ') : '') + (r.notes ? '\n' + r.notes.slice(0, 140) : '');
     const icon = coloredIcon(COLORS[r.color || cfg.color] || (r.priority === 3 ? '#c2352b' : null));
-    systemNotify((r.priority === 3 ? '‼ ' : '') + r.title, Object.assign({ body, tag: r.id, requireInteraction: !!cfg.sticky }, icon ? { icon } : {}))
+    pushShownRecently(r.id)                       // the push for this one came first: no second notification
+      .then(dup => dup ? null : systemNotify((r.priority === 3 ? '‼ ' : '') + r.title, Object.assign({ body, tag: r.id, requireInteraction: !!cfg.sticky }, icon ? { icon } : {})))
       .then(n => { if (openAlerts.get(r.id) === a) a.notif = n; else if (n) n.close(); })
       .catch(e => { notifError = e.message || String(e); updateNotifUi(); });
   }
@@ -8514,10 +8536,11 @@ function renderAll() {
 // no accounts. Opening any address once with ?accounts=staging or ?accounts=prod picks that project on this browser,
 // and ?accounts=off switches accounts off here (both remembered; ?accounts=default forgets the choice).
 // `turnstile`: the project's Cloudflare Turnstile site key (public). Empty = no robot check; see acctCaptcha().
+// `vapid`: the project's Web Push public key (public; from tests/make-vapid.mjs). Empty = no push on that project.
 // `var`, not const/let: renderAll() reads `acct` and may run before this point.
 var ACCT_PROJECTS = {
-  staging: { url: 'https://bdvoxzkozkrxefpwuzkr.supabase.co', key: 'sb_publishable_aVOkMdJBJ-t0WtCkoMSaGg_cP2pMALL', turnstile: '0x4AAAAAAGSVtRIpaYSiFBa5' },
-  prod: { url: 'https://qezhjjcxarugwgqahlik.supabase.co', key: 'sb_publishable_KBPMUAUlNAoyp38KymNQRQ_4M1ljFau', turnstile: '0x4AAAAAAGSVtRIpaYSiFBa5' },
+  staging: { url: 'https://bdvoxzkozkrxefpwuzkr.supabase.co', key: 'sb_publishable_aVOkMdJBJ-t0WtCkoMSaGg_cP2pMALL', turnstile: '0x4AAAAAAGSVtRIpaYSiFBa5', vapid: 'BN-y54nS8yBeHlAPgwhTKPcx7XDh_3wE8ne5QgBV0GZVpP1GYNL6Pn0JNHUfRuRlP7n3dZTVdDefLM3P2aVj0-8' },
+  prod: { url: 'https://qezhjjcxarugwgqahlik.supabase.co', key: 'sb_publishable_KBPMUAUlNAoyp38KymNQRQ_4M1ljFau', turnstile: '0x4AAAAAAGSVtRIpaYSiFBa5', vapid: '' },
 };
 var ACCT_LIB = { src: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js', sri: 'sha384-uteMfOloLDGt042uDz+xHGF3ym63/WQ6rFq7murQRG8Ih7QrXGEGNtWd8688sb4O' };
 var ACCT_STORE = 'pinglapp.auth';                 // where supabase-js keeps the session in localStorage
@@ -8885,6 +8908,7 @@ async function acctLoadProfile() {
 function updateAcctChip() {
   const c = $('acctChip'); if (!c || !acct) return;
   c.hidden = !acct.project;
+  if (typeof push !== 'undefined') updatePushUi();
   $('tabFriends').hidden = $('bnavFriends').hidden = !acct.project;      // the Vänner section needs accounts
   updateSaveChip();
   if (!$('view-friends').hidden) frRender();
@@ -9699,6 +9723,7 @@ async function acctFnErr(e) {
 // The account is gone on the server (rows and files). Forget the session here. What's on this device stays, as a
 // guest's data (keep it unless asked to remove it: it may be the only copy left), or goes with "remove from this device".
 async function acctDeleted(wipe) {
+  await pushSignOut();                          // the server rows went with the account; this drops the browser's subscription
   try { await acct.client.auth.signOut({ scope: 'local' }); } catch (e) { }
   acct.session = null; acct.profile = undefined; acct.priv = null; acct.pendingStep = null; acct.blocks = null;
   clearTimeout(cloud.timer); cloud.state = 'idle';
@@ -9756,6 +9781,7 @@ async function acctSignOut(everywhere, keep = true) {
     try { ok = await cloudSync() && cloud.state === 'ok'; } finally { btns.forEach(b => { b.disabled = false; }); }
     if (!ok) { acctMsg(t('acctNotAllSynced'), 'bad'); return; }
   }
+  await pushSignOut();                          // while still signed in: the server forgets this device
   try { const c = await acctClient(); await c.auth.signOut({ scope: everywhere ? 'global' : 'local' }); } catch (e) { }
   if (!keep) { await cloudWipeHere(); return; }
   acct.session = null; acct.profile = undefined; acct.priv = null; acct.pendingStep = null; acct.blocks = null;
@@ -10323,6 +10349,7 @@ async function cloudSync() {
     await cloudBoards(c, uid);
     await cloudPictures(c, uid);
     try { await sharedSync(c); } catch (e) { console.warn('shared notes', e); }   // never makes your own sync fail
+    try { await pushEnsure(); await pushScheduleSync(); } catch (e) { console.warn('push', e); }   // nor does push
     if (cloud.filesChanged || cloud.full) { await acctLoadProfile(); }   // the storage meter
     cloudStatus(cloud.tooBig ? 'toobig' : cloud.full ? 'full' : 'ok');
     ok = true;
@@ -10338,6 +10365,159 @@ async function cloudSync() {
 }
 addEventListener('online', () => cloudSync());
 setInterval(() => { if (!document.hidden) cloudSync(); }, 120000);
+
+// ---------------------------------------------------------------- reminders when Pinglapp is closed (Web Push, phase 7b)
+// Signed in, a device can ask for its reminders to come as push notifications too, so they arrive with Pinglapp
+// closed (Android; iPhone with Pinglapp on the home screen). The browser gives a push address and keys; the server keeps
+// them (push_subscribe) and, per reminder, the next few times it is due (push_schedule_set), worked out here because
+// only the app has the full scheduler. The Edge Function send-due-pushes sends what is due, encrypted for the device;
+// sw.js shows it. Every signed-in device uploads the times (a phone may be the only device with push on while the
+// reminders are edited on a computer); the server keeps nothing for accounts without a device.
+// The switch is per device (settings.pushOn, not shared): on by itself the first time notifications are allowed while
+// signed in (with a toast saying so), off in Settings. Logging out forgets this device on the server.
+var push = { sent: null, hasDevices: null, ensured: false, busy: false, error: '' };
+const pushKey = () => (acct && acct.project && ACCT_PROJECTS[acct.project] && ACCT_PROJECTS[acct.project].vapid) || '';
+const pushSupported = () => location.protocol.startsWith('http') && 'serviceWorker' in navigator && 'PushManager' in window && canNotify();
+const pushTitle = r => ((r.priority === 3 ? '‼ ' : '') + (r.title || '')).slice(0, 200);
+// The next times reminder `r` goes off, as check() will fire them: the snooze, then the due time and its repeats.
+// At most `max` within `days` days, all after `now`. A one-off whose time has passed fires in the app, not here.
+function upcomingTimes(r, now = Date.now(), max = 20, days = 30) {
+  if (!r || r.done) return [];
+  const end = now + days * 86400000, out = [];
+  if (r.snoozeUntil != null && r.snoozeUntil > now && r.snoozeUntil < end) out.push(r.snoozeUntil);
+  if (!r.fired && r.due != null) {
+    const c = Object.assign({}, r);
+    if ((c.repeat === 'monthly' || c.repeat === 'yearly') && !c.monthDay) c.monthDay = new Date(c.due).getDate();
+    if (/^(daily|weekdays|weekly|monthly|yearly)$/.test(c.repeat) && !Array.isArray(c.wall)) { const a = new Date(c.due); c.wall = [a.getHours(), a.getMinutes()]; }
+    let d = c.due;
+    if (d <= now && c.repeat !== 'none') d = nextAfter(c, d, now);       // missed while closed: the app fires that one
+    for (let i = 0; d != null && d > now && d < end && out.length <= max && i < 500; i++) {
+      out.push(d);
+      if (c.repeat === 'none') break;
+      const n = nextAfter(c, d, d);
+      if (n == null || n <= d) break;
+      d = n;
+    }
+  }
+  return [...new Set(out)].sort((a, b) => a - b).slice(0, max);
+}
+// Upload what changed since the last upload (everything the first time in a session, or when a device has just
+// appeared on the account). Called after every sync, so the lists are topped up as times pass.
+async function pushScheduleSync(force = false) {
+  if (!pushKey() || !acct.session || !acct.client || !isActiveWindow || push.busy) return;
+  push.busy = true;
+  try {
+    if (push.uid !== acct.session.user.id) { push.uid = acct.session.user.id; push.sent = null; push.hasDevices = null; }   // another account
+    const now = Date.now(), items = S.reminders.map(r => ({ id: r.id, title: pushTitle(r), times: upcomingTimes(r, now) }));
+    const sig = new Map(items.map(i => [i.id, JSON.stringify([i.title, i.times])]));
+    const full = force || !push.sent;
+    let list = full ? items.filter(i => i.times.length) : items.filter(i => push.sent.get(i.id) !== sig.get(i.id));
+    if (!full) for (const id of push.sent.keys()) if (!sig.has(id)) list.push({ id, title: '', times: [] });   // deleted
+    if (!full && !list.length) return;
+    const had = push.hasDevices;
+    for (let i = 0; i === 0 || i < list.length; i += 500) {
+      const r = await acct.client.rpc('push_schedule_set', { items: list.slice(i, i + 500), replace: full && i === 0 });
+      if (r.error) throw r.error;
+      push.hasDevices = !!r.data;
+      if (!push.hasDevices) break;                // nothing is kept without a device
+    }
+    push.sent = sig;
+    if (!full && had === false && push.hasDevices) { push.busy = false; return pushScheduleSync(true); }   // a device appeared
+  } finally { push.busy = false; }
+}
+const b64uBytes = s => { const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)); return Uint8Array.from(b, ch => ch.charCodeAt(0)); };
+async function pushReg() {
+  return Promise.race([navigator.serviceWorker.ready, new Promise(res => setTimeout(() => res(null), 5000))]);
+}
+// Subscribe this device (or refresh it: same address, current language) and upload everything.
+async function pushSubscribe() {
+  const reg = await pushReg();
+  if (!reg || !reg.pushManager) throw new Error('no service worker');
+  const key = b64uBytes(pushKey());
+  let sub = await reg.pushManager.getSubscription();
+  const old = sub && sub.options && sub.options.applicationServerKey && new Uint8Array(sub.options.applicationServerKey);
+  if (sub && old && (old.length !== key.length || old.some((b, i) => b !== key[i]))) { await sub.unsubscribe(); sub = null; }   // another project's key
+  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  const j = sub.toJSON();
+  const r = await acct.client.rpc('push_subscribe', { endpoint_url: j.endpoint, key_p256dh: j.keys.p256dh, key_auth: j.keys.auth, lang_code: lang() });
+  if (r.error) throw r.error;
+  push.hasDevices = true; push.error = '';
+  await pushScheduleSync(true);
+}
+// Forget this device: on the server (while still signed in) and in the browser.
+async function pushUnsubscribe() {
+  if (!pushSupported()) return;
+  const reg = await pushReg(), sub = reg && reg.pushManager && await reg.pushManager.getSubscription();
+  if (!sub) return;
+  try { if (acct.session && acct.client) await acct.client.rpc('push_unsubscribe', { endpoint_url: sub.endpoint }); } catch (e) { }
+  try { await sub.unsubscribe(); } catch (e) { }
+}
+// Once per sign-in: switch on by itself the first time (notifications allowed, never decided), refresh if on.
+async function pushEnsure() {
+  if (push.ensured || !pushKey() || !acct.session || !pushSupported() || Notification.permission !== 'granted') return;
+  push.ensured = true;
+  if (S.settings.pushOn === false) return;
+  const first = S.settings.pushOn === undefined;
+  try {
+    await pushSubscribe();
+    push.error = '';
+    if (first) { S.settings.pushOn = true; save(); toast(t('pushAutoOn')); }   // said only once it really works
+  } catch (e) {
+    console.warn('push', e);
+    push.error = pushErrText(e);                  // shown in Settings; tried again at the next sign-in or page load
+  }
+  updatePushUi();
+}
+// Why subscribing failed, in words: the usual case is a browser that can't reach its push service (a work or school
+// network blocking it, or Brave with Google's push service switched off).
+function pushErrText(e) {
+  const m = (e && (e.message || e.name)) || String(e);
+  return /push service|AbortError|Registration failed/i.test(m + ' ' + (e && e.name)) ? t('pushErrService', m) : t('pushFailed', m);
+}
+// Signing out or switching accounts: forget this device on the server, and the upload state.
+async function pushSignOut() {
+  try { await pushUnsubscribe(); } catch (e) { }
+  push = { sent: null, hasDevices: null, ensured: false, busy: false, error: '' };
+}
+// "On" is saved only once subscribing worked: a page closed during the permission prompt must not leave it on.
+async function pushSwitch(on) {
+  try {
+    if (on) {
+      if (Notification.permission === 'default') await askNotif();
+      if (Notification.permission !== 'granted') throw new Error(t('pushNeedsNotif'));
+      await pushSubscribe();
+      S.settings.pushOn = true; save();
+      toast(t('pushOnToast'));
+    } else { S.settings.pushOn = false; save(); await pushUnsubscribe(); toast(t('pushOffToast')); }
+  } catch (e) {
+    console.warn('push', e);
+    if (on) { S.settings.pushOn = false; save(); }
+    push.error = on ? pushErrText(e) : ''; toast(push.error || t('pushFailed', e.message || String(e)));
+  }
+  updatePushUi();
+}
+function updatePushUi() {
+  const box = $('pushBox'); if (!box) return;
+  const avail = !!pushKey() && pushSupported() && !wbGuestRoom;
+  box.hidden = !avail;
+  if (!avail) return;
+  const signedIn = !!(acct && acct.session);
+  $('pushRow').hidden = !signedIn;
+  $('pushSignedOut').hidden = signedIn;
+  $('setPush').checked = signedIn && !!S.settings.pushOn && Notification.permission === 'granted' && !push.error;
+  $('pushErr').hidden = !(signedIn && push.error);
+  $('pushErr').textContent = push.error || '';
+}
+$('setPush').addEventListener('change', e => pushSwitch(e.target.checked));
+// A push the service worker just showed for this reminder: the in-app alert still comes, but not a second notification.
+async function pushShownRecently(tag) {
+  if (!S.settings.pushOn || !acct || !acct.session) return false;   // no push on this device: nothing to wait for
+  try {
+    const reg = 'serviceWorker' in navigator && location.protocol.startsWith('http') ? await pushReg() : null;
+    if (!reg || !reg.getNotifications) return false;
+    return (await reg.getNotifications({ tag })).some(n => n.data && n.data.push && Date.now() - n.data.shownAt < 180000);
+  } catch (e) { return false; }
+}
 
 // ---------------------------------------------------------------- moving to pinglapp.com
 // Pinglapp used to live at mohamedmrj.github.io/ping/. A browser keeps data per address, so the old address hands each

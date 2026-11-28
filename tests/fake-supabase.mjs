@@ -301,6 +301,35 @@ export const FAKE = () => {
         if (ok) { delete db.shared[args.id]; keep(); }
         return { data: ok, error: null };
       }
+      // Push (phase 7b), following 20261201000011_push.sql: devices per endpoint, the schedule only with a device.
+      if (name.startsWith('push_')) {
+        const P = (db.push ||= { subs: {}, sched: {} });
+        const mine = () => Object.values(P.subs).some(s => s.user === me);
+        if (name === 'push_subscribe') {
+          if (!/^https:\/\/(fcm\.googleapis\.com|[a-z0-9.-]+\.push\.apple\.com|updates\.push\.services\.mozilla\.com|[a-z0-9.-]+\.notify\.windows\.com)\//.test(args.endpoint_url)
+            || !/^[A-Za-z0-9_-]{80,100}$/.test(args.key_p256dh) || !/^[A-Za-z0-9_-]{16,30}$/.test(args.key_auth))
+            return { data: null, error: { code: '23514', message: 'violates check constraint' } };
+          P.subs[args.endpoint_url] = { user: me, lang: args.lang_code === 'en' ? 'en' : 'sv' }; keep();
+          return { data: true, error: null };
+        }
+        if (name === 'push_unsubscribe') {
+          const s = P.subs[args.endpoint_url], ok = !!s && s.user === me;
+          if (ok) { delete P.subs[args.endpoint_url]; keep(); }
+          return { data: ok, error: null };
+        }
+        if (name === 'push_schedule_set') {
+          if (!Array.isArray(args.items) || args.items.length > 500) return { data: null, error: { code: 'P0001', hint: 'push_items_bad', message: 'bad items' } };
+          if (!mine()) { delete P.sched[me]; keep(); return { data: false, error: null }; }
+          const s = (P.sched[me] ||= {}), now = Date.now();
+          if (args.replace) for (const id of Object.keys(s)) if (!args.items.some(i => i.id === id)) delete s[id];
+          for (const it of args.items) {
+            const ts = [...new Set((it.times || []).filter(x => typeof x === 'number' && x > now && x < now + 40 * 86400000))].sort((a, b) => a - b).slice(0, 30);
+            if (ts.length) s[it.id] = { title: String(it.title || '').trim().slice(0, 300) || '…', times: ts }; else delete s[it.id];
+          }
+          keep();
+          return { data: true, error: null };
+        }
+      }
       if (name === 'report_user') {
         if (db.reportLimit) return { data: null, error: { code: 'P0001', hint: 'report_limit', message: 'too many reports' } };
         return { data: !!idOf(args.name), error: null };

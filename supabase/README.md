@@ -18,7 +18,9 @@ database password stay in the Supabase dashboard, Edge Function secrets and GitH
 | `migrations/…_board_invites.sql` | Social S4: inbox kind `board_invite` (payload `{room, title}`, room id `^[a-z0-9]{12,40}$` checked by the table and `send_board_invite(name, room, title)`); friends only, ≤ 50/day (own limit; reminders' limit now counts reminders only), a repeat invite to the same room returns the waiting one; `my_inbox` shows invites for one day |
 | `migrations/…_shared_notes.sql` | Social S5: `shared_notes` (data + `rev`) and `shared_note_members` (edit/read), only through `shared_note_create / set_members / save / leave / stop` and `shared_notes_sync`; saving needs the current revision (else the current version comes back for the app to merge); friends only, ≤ 20 people, ≤ 30 new shares/day; unfriending or blocking unlinks; storage policies for `note-images/shared/{note}/…` (members read, owner + editors add, owner removes), counted on the owner's quota (`storage_owner`). **Redeploy `delete-account` after applying this** (it now also removes pictures of notes the user shared) |
 | `migrations/…_retention.sql` | Phase 6: `pg_cron` removes reports older than 12 months (as `privacy.html` says) |
+| `migrations/…_push.sql` | Phase 7b: `push_subscriptions` (one per device, only push-service addresses, ≤ 10 per account) and `push_schedule` (per reminder, the next ≤ 30 due times, worked out by the app), through `push_subscribe / push_unsubscribe / push_schedule_set`; `push_take_due` / `push_report` for the Edge Function only; `pg_cron` job `ping-push` calls `push_tick()` every minute, which asks the Edge Function to send (URL + secret from Vault) |
 | `functions/delete-account/` | Phase 6 Edge Function: deletes the signed-in user's files in every bucket, then the user (all rows cascade) |
+| `functions/send-due-pushes/` | Phase 7b Edge Function: takes what is due, sends encrypted Web Push (RFC 8291 + VAPID, plain WebCrypto, no library), reports delivered / gone / failed |
 | `templates/` | The auth email templates pasted into Authentication → Emails (copies, for the record) |
 
 Tests (in `../tests`, run with `npm test`):
@@ -31,6 +33,9 @@ Tests (in `../tests`, run with `npm test`):
 - `delete-account.test.mjs` runs the Edge Function's logic (its `/*DELETE-START*/` block) against a stand-in admin
   client: wrong username or no session deletes nothing; files in sub-folders and beyond 1000 go; if files can't be
   removed, the user isn't deleted either.
+- `push.test.mjs` runs `send-due-pushes`' logic (its `/*PUSH-START*/` block): the encryption is decrypted with
+  `http_ece` (the reference implementation), the VAPID token is verified, and a run with a stand-in admin client
+  sends one message per device and reports delivered / gone / failed. It also runs `sw.js`'s `push` handler.
 
 ## Phase 6 setup (account settings, delete account)
 
@@ -49,6 +54,33 @@ Tests (in `../tests`, run with `npm test`):
 4. **Hand test:** change email (both links), change password (with a fresh session: no code; to see the code step,
    test with a session older than a day), download all my data, then delete a throwaway account and check in the
    dashboard that its user, its rows and its files (Storage, all three buckets) are gone.
+
+## Phase 7b setup (reminders when Pinglapp is closed: Web Push)
+
+Do it on **staging first**, hand-test, then the same on **prod** (with its own keys and secret).
+
+1. **Keys.** In `Ping/tests`: `node make-vapid.mjs`. It prints `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and
+   `PUSH_CRON_SECRET`. Put all three in your password manager. One set per project; never reuse staging's on prod.
+2. **Migration:** run `migrations/…_push.sql` in the SQL Editor (it enables `pg_net` and schedules the job; until
+   step 4 is done the job does nothing).
+3. **Edge Function `send-due-pushes`:** Edge Functions → Deploy a new function → Via editor, name `send-due-pushes`,
+   paste `functions/send-due-pushes/index.ts`, Deploy; in its Details turn **Verify JWT off** (the cron secret is the
+   check). Then Edge Functions → **Secrets**: add `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `PUSH_CRON_SECRET`.
+4. **Vault** (SQL Editor), so the minute job can call the function:
+   ```sql
+   select vault.create_secret('https://<project ref>.supabase.co/functions/v1/send-due-pushes', 'push_function_url');
+   select vault.create_secret('<PUSH_CRON_SECRET>', 'push_cron_secret');
+   ```
+   To change one later: `select vault.update_secret((select id from vault.secrets where name = 'push_cron_secret'), '<new>');`
+5. **App:** paste the **public** key into `index.html` → `ACCT_PROJECTS.<project>.vapid` (public by design, like the
+   publishable key). Empty = the app shows nothing about push on that project.
+6. **Check:** SQL Editor `select * from cron.job_run_details where command like '%push_tick%' order by start_time desc
+   limit 5;` (succeeded, every minute) and, after a reminder was due, Edge Functions → `send-due-pushes` → Logs /
+   Invocations (200 with `{"ok":1,…}`). `select * from net._http_response order by created desc limit 5;` shows what
+   the function answered pg_net.
+
+Costs on the free plan: the job only calls the function in a minute when something is due (at most ~43 000
+invocations a month, the free tier has 500 000).
 
 ## Backups (prod)
 

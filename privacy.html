@@ -39,7 +39,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 
 <article lang="sv">
 <h1>Integritetspolicy</h1>
-<p class="date">Senast ändrad 27 november 2026</p>
+<p class="date">Senast ändrad 28 november 2026</p>
 
 <h2>Kort sagt</h2>
 <ul>
@@ -66,6 +66,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <tr><td>Påminnelser som vänner skickar till varandra: texten, vem som skickade den, till vem, när, och om den har besvarats</td><td>För att din vän ska kunna lägga till påminnelsen hos sig</td><td>Avtal</td></tr>
 <tr><td>Delade anteckningar: texten och dess versioner sedan den delades, bilder i den, vem som delade den, vilka som är med och om de kan ändra eller bara läsa</td><td>För att ni ska kunna skriva i samma anteckning eller lista</td><td>Avtal</td></tr>
 <tr><td>Inbjudningar till en tavla som delas live: tavlans namn och kod, vem som bjöd in, till vem, när, och om den har besvarats (själva tavlan sparas inte)</td><td>För att din vän ska kunna gå med på tavlan</td><td>Avtal</td></tr>
+<tr><td>Påminnelser när Pinglapp är stängd, om du slår på det på en enhet: enhetens aviseringsadress och nycklar från webbläsaren, språket, och för varje påminnelse dess rubrik och de närmaste tiderna den ska komma</td><td>För att påminnelsen ska nå enheten även när Pinglapp är stängd</td><td>Avtal</td></tr>
 <tr><td>Vilka du har blockerat, och anmälningar du skickar (vem du anmäler och varför)</td><td>För att skydda användare mot otrevligt beteende</td><td>Berättigat intresse</td></tr>
 <tr><td>Tekniska uppgifter: IP-adress, webbläsare och tidpunkter i serverloggar, och robotkontrollen när du loggar in eller skapar ett konto</td><td>För att stoppa missbruk och hålla tjänsten igång</td><td>Berättigat intresse</td></tr>
 </table></div>
@@ -91,8 +92,9 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
   <li><b>GitHub</b>: lagrar och visar själva appen, och förvarar våra veckovisa säkerhetskopior, krypterade (se nedan).</li>
   <li><b>jsDelivr</b>: levererar två kodbibliotek (för konton och för att dela tavlor live), bara när de används.</li>
   <li><b>PeerJS</b>: kopplar ihop webbläsare när du delar en tavla live.</li>
+  <li><b>Webbläsarens aviseringstjänst</b> (Google för Chrome och Android, Apple för Safari och iPhone, Mozilla för Firefox, Microsoft för Edge): bara om du slår på påminnelser när Pinglapp är stängd. Den för fram ett meddelande till din enhet. Meddelandet är krypterat så att bara din enhet kan läsa det; tjänsten ser bara att ett meddelande skickas, till vilken enhet och när.</li>
 </ul>
-<p>Cloudflare, GitHub, Google och Microsoft är amerikanska företag. Överföringar till USA sker enligt EU:s och USA:s ramverk för dataskydd (Data Privacy Framework) eller EU:s standardavtalsklausuler.</p>
+<p>Apple, Cloudflare, GitHub, Google, Microsoft och Mozilla är amerikanska företag. Överföringar till USA sker enligt EU:s och USA:s ramverk för dataskydd (Data Privacy Framework) eller EU:s standardavtalsklausuler.</p>
 
 <h2>Hur länge vi sparar</h2>
 <ul>
@@ -104,6 +106,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
   <li>En inbjudan till en tavla visas i ett dygn och tas bort senast efter 30 dagar.</li>
   <li>En delad anteckning finns kvar tills den som delade den slutar dela den eller raderar sitt konto. Då tas den och dess bilder bort från servern; den som delade den behåller den som sin egen, och de andra får en kopia i sin papperskorg. Den som lämnar en anteckning kan behålla en kopia.</li>
   <li>Anmälningar sparas i högst 12 månader. Raderar du ditt konto finns anmälningar du skickat kvar till dess, men utan koppling till dig.</li>
+  <li>Påminnelser när Pinglapp är stängd: enhetens aviseringsadress tas bort när du stänger av det, loggar ut på enheten eller när webbläsaren säger att adressen inte längre gäller. Tiderna för en påminnelse tas bort när den är klar eller raderad; passerade tider försvinner allt eftersom.</li>
   <li>Serverloggar sparas några dagar.</li>
 </ul>
 
@@ -131,7 +134,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 
 <article lang="en" hidden>
 <h1>Privacy policy</h1>
-<p class="date">Last changed 27 November 2026</p>
+<p class="date">Last changed 28 November 2026</p>
 
 <h2>In short</h2>
 <ul>
@@ -158,6 +161,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
 <tr><td>Reminders friends send each other: the text, who sent it, to whom, when, and whether it has been answered</td><td>So your friend can add the reminder on their side</td><td>Contract</td></tr>
 <tr><td>Shared notes: the text and its versions since it was shared, pictures in it, who shared it, who is in it and whether they can edit or only read</td><td>So you can write in the same note or list together</td><td>Contract</td></tr>
 <tr><td>Invitations to a board shared live: the board’s name and code, who invited, whom, when, and whether it has been answered (the board itself isn’t stored)</td><td>So your friend can join the board</td><td>Contract</td></tr>
+<tr><td>Reminders when Pinglapp is closed, if you switch it on for a device: the device’s notification address and keys from the browser, the language, and for each reminder its title and the next times it is due</td><td>So the reminder reaches the device even when Pinglapp is closed</td><td>Contract</td></tr>
 <tr><td>Who you’ve blocked, and reports you send (who you report and why)</td><td>To protect users from abusive behaviour</td><td>Legitimate interest</td></tr>
 <tr><td>Technical data: IP address, browser and times in server logs, and the robot check when you log in or create an account</td><td>To stop abuse and keep the service running</td><td>Legitimate interest</td></tr>
 </table></div>
@@ -183,8 +187,9 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
   <li><b>GitHub</b>: stores and serves the app itself, and keeps our weekly backups, encrypted (see below).</li>
   <li><b>jsDelivr</b>: delivers two code libraries (for accounts and for sharing boards live), only when they’re used.</li>
   <li><b>PeerJS</b>: connects browsers when you share a board live.</li>
+  <li><b>Your browser’s notification service</b> (Google for Chrome and Android, Apple for Safari and iPhone, Mozilla for Firefox, Microsoft for Edge): only if you switch on reminders when Pinglapp is closed. It carries a message to your device. The message is encrypted so that only your device can read it; the service only sees that a message is sent, to which device and when.</li>
 </ul>
-<p>Cloudflare, GitHub, Google and Microsoft are US companies. Transfers to the US rely on the EU–US Data Privacy Framework or the EU standard contractual clauses.</p>
+<p>Apple, Cloudflare, GitHub, Google, Microsoft and Mozilla are US companies. Transfers to the US rely on the EU–US Data Privacy Framework or the EU standard contractual clauses.</p>
 
 <h2>How long we keep data</h2>
 <ul>
@@ -196,6 +201,7 @@ th { font-size: 13px; color: var(--muted); font-weight: 600; }
   <li>An invitation to a board is shown for a day and removed after 30 days at the latest.</li>
   <li>A shared note stays until the person who shared it stops sharing it or deletes their account. It and its pictures are then removed from the server; the person who shared it keeps it as their own, and the others get a copy in their trash. Someone who leaves a note can keep a copy.</li>
   <li>Reports are kept for at most 12 months. If you delete your account, reports you sent stay until then, but with no link to you.</li>
+  <li>Reminders when Pinglapp is closed: the device’s notification address is removed when you switch it off, log out on the device, or the browser says the address no longer works. A reminder’s times are removed when it is done or deleted; past times drop off as they pass.</li>
   <li>Server logs are kept for a few days.</li>
 </ul>
 

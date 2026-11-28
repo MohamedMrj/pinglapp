@@ -1299,3 +1299,44 @@ test('install: where the browser offers an install prompt, the button opens it; 
   assert.deepEqual(errors, []);
   await ctx.close();
 });
+
+// ---- phase 7b: when a reminder goes off next (what the server is asked to send)
+test('push: upcomingTimes follows the app’s own scheduler: repeats, clock changes, snooze, cron, limits', async () => {
+  const { ctx, page, errors } = await open();
+  const got = await page.evaluate(() => {
+    const L = (...a) => new Date(...a).getTime(), F = ms => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    const now = L(2026, 2, 27, 12, 0);   // Friday 27 March 2026, two days before summer time in Stockholm
+    return {
+      daily: upcomingTimes({ repeat: 'daily', due: L(2026, 2, 28, 2, 30) }, now, 4).map(F),
+      weekdays: upcomingTimes({ repeat: 'weekdays', due: L(2026, 2, 27, 9, 0) }, now, 3).map(F),
+      missed: upcomingTimes({ repeat: 'daily', due: L(2026, 2, 20, 8, 0) }, now, 2).map(F),
+      interval: upcomingTimes({ repeat: 'interval', every: 30, due: L(2026, 2, 27, 12, 10) }, now).length,
+      intervalDays: upcomingTimes({ repeat: 'interval', every: 60 * 24 * 7, due: L(2026, 2, 28, 10, 0) }, now).length,
+      monthly31: upcomingTimes({ repeat: 'monthly', due: L(2026, 2, 31, 10, 0) }, now, 3, 400).map(F),
+      cron: upcomingTimes({ repeat: 'cron', cron: '0 9 * * 1-5', due: L(2026, 2, 30, 9, 0) }, now, 3).map(F),
+      oneOff: upcomingTimes({ repeat: 'none', due: L(2026, 2, 27, 18, 0) }, now).map(F),
+      pastOneOff: upcomingTimes({ repeat: 'none', due: L(2026, 2, 27, 11, 0), fired: false }, now),
+      snoozed: upcomingTimes({ repeat: 'none', due: L(2026, 2, 27, 11, 0), fired: true, snoozeUntil: L(2026, 2, 27, 12, 15) }, now).map(F),
+      snoozedBeforeDue: upcomingTimes({ repeat: 'none', due: L(2026, 2, 27, 18, 0), snoozeUntil: L(2026, 2, 27, 13, 0) }, now).map(F),
+      done: upcomingTimes({ repeat: 'daily', due: L(2026, 2, 28, 9, 0), done: true }, now),
+      far: upcomingTimes({ repeat: 'none', due: L(2026, 5, 1, 9, 0) }, now),
+      title: [pushTitle({ title: 'x'.repeat(300), priority: 3 }).length, pushTitle({ title: 'Ring', priority: 3 }), pushTitle({ title: 'Ring', priority: 1 })],
+    };
+  });
+  assert.deepEqual(got.daily, ['3/28 2:30', '3/29 3:30', '3/30 2:30', '3/31 2:30'], 'the night without 02:30 comes at 03:30, then back');
+  assert.deepEqual(got.weekdays, ['3/30 9:00', '3/31 9:00', '4/1 9:00'], 'today’s 09:00 has passed: fires in the app; then weekdays');
+  assert.deepEqual(got.missed, ['3/28 8:00', '3/29 8:00'], 'missed while closed: the next ones after now');
+  assert.equal(got.interval, 20, 'at most 20');
+  assert.equal(got.intervalDays, 5, 'within 30 days');
+  assert.deepEqual(got.monthly31, ['3/31 10:00', '4/30 10:00', '5/31 10:00']);
+  assert.deepEqual(got.cron, ['3/30 9:00', '3/31 9:00', '4/1 9:00']);
+  assert.deepEqual(got.oneOff, ['3/27 18:00']);
+  assert.deepEqual(got.pastOneOff, []);
+  assert.deepEqual(got.snoozed, ['3/27 12:15']);
+  assert.deepEqual(got.snoozedBeforeDue, ['3/27 13:00', '3/27 18:00'], 'both go off');
+  assert.deepEqual(got.done, []);
+  assert.deepEqual(got.far, [], 'more than 30 days ahead: later');
+  assert.deepEqual(got.title, [200, '‼ Ring', 'Ring']);
+  assert.deepEqual(errors, []);
+  await ctx.close();
+});

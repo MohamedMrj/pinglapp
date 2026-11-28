@@ -215,3 +215,130 @@ test('signing in again on the same device just syncs, without asking', async () 
   assert.equal(srv.table('u-a', 'reminders').get('r1').data.title, 'Edited while logged out');
   await A.ctx.close();
 });
+
+// ---- phase 7b: reminders when Pinglapp is closed (Web Push)
+// The browser's push service can't be reached from a test, so the service worker registration and PushManager are
+// stand-ins: subscribe() hands out a fixed address and keys and records the application server key it was given.
+const FAKE_PUSH = () => {
+  const keys = { p256dh: 'B' + 'x'.repeat(86), auth: 'a'.repeat(22) };
+  const P = window.__push = { subscribed: 0, unsubscribed: 0, current: null, key: null, shown: [] };
+  const make = () => ({ endpoint: 'https://fcm.googleapis.com/fcm/send/dev-' + (P.subscribed + 1), options: { applicationServerKey: P.key && P.key.buffer },
+    toJSON() { return { endpoint: this.endpoint, keys }; }, async unsubscribe() { P.unsubscribed++; P.current = null; return true; } });
+  const reg = {
+    pushManager: { async getSubscription() { return P.current; },
+      async subscribe(o) { P.key = new Uint8Array(o.applicationServerKey); P.current = make(); P.subscribed++; return P.current; } },
+    async getNotifications() { return []; }, async showNotification(t, o) { P.shown.push([t, o && o.tag]); },
+  };
+  window.PushManager = function PushManager() { };
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve(reg), register: async () => reg, controller: null } });
+};
+const VAPID = 'B' + 'A'.repeat(85) + 'E';    // 65 bytes, base64url
+const pushCalls = page => page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.calls.filter(c => c[0] === 'rpc' && c[1].startsWith('push_')).map(c => [c[1], c[2]]));
+const pushDb = page => page.evaluate(() => window.PING_ACCOUNTS_FAKE.db.push || null);
+async function pushDevice(srv, data, { notifications = true } = {}) {
+  const A = await device(srv, { data });
+  if (notifications) await A.ctx.grantPermissions(['notifications']);
+  await A.ctx.addInitScript(FAKE_PUSH);
+  await A.page.reload();
+  await A.page.waitForFunction(() => typeof isActiveWindow !== 'undefined' && isActiveWindow && fileInitDone);
+  return A;
+}
+
+test('push: signed in with notifications allowed, the device subscribes by itself and uploads when reminders are due', async () => {
+  const srv = new FakeServer();
+  const now = Date.now(), H = 3600000;
+  const d9 = new Date(now + 86400000); d9.setHours(9, 0, 0, 0);
+  const A = await pushDevice(srv, { reminders: [
+    Object.assign(rem('one', 'Ring mamma'), { due: now + H, repeat: 'none' }),
+    Object.assign(rem('daily', 'Träning'), { due: d9.getTime(), repeat: 'daily', priority: 3 }),
+    Object.assign(rem('done', 'Klar'), { due: now + H, repeat: 'none', done: true }),
+  ] });
+  await A.page.evaluate(v => { ACCT_PROJECTS[acctProjectName()].vapid = v; }, VAPID);
+  await login(A.page, 'a@example.com', 'correct-horse-1');
+  await A.page.click('#acctDlg [data-act=acct-merge]');
+  await synced(A.page);
+  await A.page.waitForFunction(() => !push.busy && push.sent);
+  assert.equal(await A.page.evaluate(() => S.settings.pushOn), true, 'switched on by itself');
+  assert.equal(await A.page.evaluate(() => window.__push.subscribed), 1);
+  assert.equal(await A.page.evaluate(() => window.__push.key.length), 65, 'subscribed with the project public key');
+  let db = await pushDb(A.page);
+  assert.deepEqual(Object.values(db.subs), [{ user: 'u-a', lang: 'sv' }]);
+  assert.deepEqual(Object.keys(db.sched['u-a']).sort(), ['daily', 'one'], 'nothing for a finished reminder');
+  assert.deepEqual(db.sched['u-a'].one.times, [now + H]);
+  assert.equal(db.sched['u-a'].daily.title, '‼ Träning');
+  assert.equal(db.sched['u-a'].daily.times.length, 20);
+  assert.ok(db.sched['u-a'].daily.times[1] - db.sched['u-a'].daily.times[0] >= 23 * H, 'a day apart');
+  const full = (await pushCalls(A.page)).filter(c => c[0] === 'push_schedule_set');
+  assert.equal(full[0][1].replace, true, 'the first upload in a session is a full one');
+  // Finishing a reminder: only that one is sent, with no times.
+  await A.page.evaluate(() => { complete(S.reminders.find(r => r.id === 'one')); });
+  await sync(A.page); await A.page.waitForFunction(() => !push.busy);
+  const last = (await pushCalls(A.page)).filter(c => c[0] === 'push_schedule_set').pop()[1];
+  assert.deepEqual(last, { items: [{ id: 'one', title: 'Ring mamma', times: [] }], replace: false });
+  assert.deepEqual(Object.keys((await pushDb(A.page)).sched['u-a']), ['daily']);
+  // Nothing changed: nothing is sent.
+  const n = (await pushCalls(A.page)).length;
+  await sync(A.page);
+  assert.equal((await pushCalls(A.page)).length, n);
+  // Settings: the switch is shown, on; switching off forgets the device; on again subscribes again.
+  await A.page.evaluate(() => { $('acctDlg').hidden = true; showTab('settings'); });
+  assert.equal(await A.page.isVisible('#setPush'), true);
+  assert.equal(await A.page.isChecked('#setPush'), true);
+  await A.page.click('#setPush');
+  await A.page.waitForFunction(() => window.__push.unsubscribed === 1);
+  assert.equal(await A.page.evaluate(() => S.settings.pushOn), false);
+  assert.deepEqual((await pushDb(A.page)).subs, {});
+  await A.page.click('#setPush');
+  await A.page.waitForFunction(() => window.__push.subscribed === 2 && !push.busy);
+  assert.equal(Object.keys((await pushDb(A.page)).subs).length, 1);
+  // Logging out forgets the device on the server.
+  await A.page.click('#acctChip');
+  await A.page.click('#acctDlg [data-acct-view=account] [data-act=acct-signout-ask]:not([data-all])');
+  await A.page.click('#acctDlg [data-acct-view=signout] [data-act=acct-signout]');
+  await A.page.waitForFunction(() => !acct.session);
+  assert.deepEqual((await pushDb(A.page)).subs, {});
+  assert.equal(await A.page.isVisible('#pushSignedOut'), true, 'signed out: says an account makes it possible');
+  assert.deepEqual(A.errors, []);
+  await A.ctx.close();
+});
+
+test('push: without a public key for the project, or without notifications, nothing is subscribed', async () => {
+  const srv = new FakeServer();
+  const A = await pushDevice(srv, { reminders: [Object.assign(rem('one', 'Ring'), { due: Date.now() + 3600000, repeat: 'none' })] }, { notifications: false });
+  await A.page.evaluate(() => { for (const p of Object.values(ACCT_PROJECTS)) p.vapid = ''; });   // a project without a key
+  await login(A.page, 'a@example.com', 'correct-horse-1');
+  await A.page.click('#acctDlg [data-act=acct-merge]');
+  await synced(A.page);
+  assert.deepEqual(await pushCalls(A.page), [], 'no key: no push calls at all');
+  assert.equal(await A.page.isHidden('#pushBox'), true);
+  // With a key but notifications not allowed: the times are uploaded (another device may have push), nothing subscribed.
+  await A.page.evaluate(v => { ACCT_PROJECTS[acct.project].vapid = v; push.ensured = false; }, VAPID);
+  await A.page.evaluate(() => { S.reminders[0].title = 'Ring nu'; save(); });
+  await sync(A.page); await A.page.waitForFunction(() => !push.busy);
+  assert.equal(await A.page.evaluate(() => window.__push.subscribed), 0);
+  assert.equal(await A.page.evaluate(() => S.settings.pushOn), undefined);
+  assert.deepEqual((await pushCalls(A.page)).map(c => c[0]), ['push_schedule_set']);
+  assert.equal(await A.page.evaluate(() => push.hasDevices), false, 'the account has no device yet');
+  assert.deepEqual(A.errors, []);
+  await A.ctx.close();
+});
+
+test('push: when the browser can’t reach its push service, Settings says so (and the switch stays off)', async () => {
+  const srv = new FakeServer();
+  const A = await pushDevice(srv, { reminders: [] });
+  await A.page.evaluate(v => {
+    ACCT_PROJECTS[acctProjectName()].vapid = v;
+    navigator.serviceWorker.ready.then(reg => { reg.pushManager.subscribe = async () => { throw new DOMException('Registration failed - push service error', 'AbortError'); }; });
+  }, VAPID);
+  await login(A.page, 'a@example.com', 'correct-horse-1');
+  await synced(A.page);
+  await A.page.waitForFunction(() => push.ensured && !!push.error);
+  assert.equal(await A.page.evaluate(() => S.settings.pushOn), undefined, 'not switched on, and no "it’s on" toast');
+  await A.page.evaluate(() => { $('acctDlg').hidden = true; showTab('settings'); });
+  assert.equal(await A.page.isVisible('#pushErr'), true);
+  assert.match(await A.page.textContent('#pushErr'), /aviseringstjänst.*Brave/s);
+  assert.equal(await A.page.isChecked('#setPush'), false);
+  assert.deepEqual((await pushDb(A.page) || { subs: {} }).subs, {});
+  assert.deepEqual(A.errors, []);
+  await A.ctx.close();
+});

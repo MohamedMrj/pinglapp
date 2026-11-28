@@ -31,6 +31,12 @@ create schema cron;
 create table cron.job (jobname text primary key, schedule text, command text);
 create function cron.schedule(n text, s text, c text) returns bigint language sql as $$
   insert into cron.job values (n, s, c) on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command; select 1::bigint $$;
+create schema vault;
+create table vault.decrypted_secrets (name text primary key, decrypted_secret text);
+create schema net;
+create table net.calls (url text, body jsonb, headers jsonb, timeout_milliseconds int);
+create function net.http_post(url text, body jsonb default '{}', params jsonb default '{}', headers jsonb default '{}', timeout_milliseconds int default 5000)
+  returns bigint language sql as $$ insert into net.calls values (url, body, headers, timeout_milliseconds); select 1::bigint $$;
 `;
 
 let db;
@@ -63,8 +69,8 @@ test.before(async () => {
   db = new PGlite();
   await db.exec(SUPABASE_STANDIN);
   for (const f of readdirSync(DIR).filter(f => f.endsWith('.sql')).sort()) {
-    // pg_cron isn't available in PGlite; the stand-in cron schema above takes its place.
-    const sql = readFileSync(DIR + f, 'utf8').replace(/create extension if not exists pg_cron;/i, '');
+    // pg_cron and pg_net aren't available in PGlite; the stand-in cron schema above takes its place.
+    const sql = readFileSync(DIR + f, 'utf8').replace(/create extension if not exists pg_(cron|net);/gi, '');
     try { await db.exec(sql); } catch (e) { throw new Error(`${f}: ${e.message}`); }
   }
   await signUp(A, 'a@example.com', { username: 'alice', display_name: 'Alice', terms: 'true' });
@@ -611,6 +617,106 @@ test('shared notes: pictures are visible to everyone in the note, added by owner
   assert.deepEqual(await see(E), []);
 });
 
+// ---- phase 7b: push
+const EP = n => `https://fcm.googleapis.com/fcm/send/device-${n}`;
+const P256 = 'B' + 'x'.repeat(86), AUTH = 'a'.repeat(22);
+const sub = (uid, ep, lang = 'sv') => rows(uid, 'select public.push_subscribe($1, $2, $3, $4) as ok', [ep, P256, AUTH, lang]);
+const sched = (uid, items, replace = false) => rows(uid, 'select public.push_schedule_set($1, $2) as ok', [JSON.stringify(items), replace]);
+
+test('push: devices subscribe through the functions only; only push services; ≤ 10 per account; a device moves with sign-in', async () => {
+  await fails(A, 'select * from public.push_subscriptions', [], /permission denied/);
+  await fails(A, 'select * from public.push_schedule', [], /permission denied/);
+  await fails(null, 'select public.push_subscribe($1, $2, $3, $4)', [EP(1), P256, AUTH, 'sv'], /permission denied/);
+  await fails(A, 'select public.push_take_due()', [], /permission denied/);
+  await fails(A, 'select public.push_report($1, $2, $3)', [[], [], []], /permission denied/);
+  await fails(A, 'select public.push_tick()', [], /permission denied/);
+  assert.equal((await sub(A, EP(1)))[0].ok, true);
+  await sub(A, EP(1), 'en');                                   // again: refreshed, not doubled
+  let s = (await db.query('select user_id, lang from public.push_subscriptions where endpoint = $1', [EP(1)])).rows;
+  assert.deepEqual(s.map(r => ({ ...r })), [{ user_id: A, lang: 'en' }]);
+  for (const bad of ['http://fcm.googleapis.com/x', 'https://evil.example.com/x', 'https://fcm.googleapis.com.evil.com/x'])
+    await fails(A, 'select public.push_subscribe($1, $2, $3, $4)', [bad, P256, AUTH, 'sv'], /check constraint/);
+  await fails(A, 'select public.push_subscribe($1, $2, $3, $4)', [EP(2), 'short', AUTH, 'sv'], /check constraint/);
+  for (const ep of ['https://web.push.apple.com/abc', 'https://updates.push.services.mozilla.com/wpush/v2/abc', 'https://wns2-db5p.notify.windows.com/w/?token=abc'])
+    await sub(B, ep);
+  // Bob signs in as Alice on the Apple device: it moves to Alice.
+  await sub(A, 'https://web.push.apple.com/abc');
+  assert.equal((await db.query(`select user_id from public.push_subscriptions where endpoint = 'https://web.push.apple.com/abc'`)).rows[0].user_id, A);
+  for (let i = 10; i < 22; i++) await sub(A, EP(i));
+  assert.equal((await db.query('select count(*)::int as n from public.push_subscriptions where user_id = $1', [A])).rows[0].n, 10);
+  assert.equal((await db.query('select 1 from public.push_subscriptions where endpoint = $1', [EP(1)])).rows.length, 0, 'the oldest went');
+  // Unsubscribe: only your own.
+  assert.equal((await rows(B, 'select public.push_unsubscribe($1) as ok', [EP(21)]))[0].ok, false);
+  assert.equal((await rows(A, 'select public.push_unsubscribe($1) as ok', [EP(21)]))[0].ok, true);
+});
+
+test('push: the schedule keeps future times only, is kept only with a device, and the sender takes what is due once', async () => {
+  const C2 = '00000000-0000-4000-8000-0000000000f7';
+  await signUp(C2, 'p7@example.com', { username: 'pushy' });
+  const t = Date.now(), H = 3600000;
+  // No device yet: nothing is kept.
+  assert.equal((await sched(C2, [{ id: 'r1', title: 'Ring mamma', times: [t + H] }]))[0].ok, false);
+  assert.equal((await db.query('select 1 from public.push_schedule where user_id = $1', [C2])).rows.length, 0);
+  await sub(C2, EP('c2'));
+  assert.equal((await sched(C2, [
+    { id: 'r1', title: '  Ring mamma  ', times: [t + 2 * H, t + H, t + H, t - H, t + 50 * 86400000, 'x'] },
+    { id: 'r2', title: '', times: [t + H] },
+    { id: 'r3', title: 'Klar', times: [] }
+  ]))[0].ok, true);
+  let p = (await db.query('select reminder_id, title, cardinality(times) as n, next_at from public.push_schedule where user_id = $1 order by 1', [C2])).rows;
+  assert.deepEqual(p.map(r => [r.reminder_id, r.title, r.n]), [['r1', 'Ring mamma', 2], ['r2', '…', 1]]);
+  assert.ok(Math.abs(+p[0].next_at - (t + H)) < 1000, 'next_at is the first time');
+  const many = Array.from({ length: 40 }, (_, i) => t + (i + 1) * 60000);
+  await sched(C2, [{ id: 'r4', title: 'Ofta', times: many }]);
+  assert.equal((await db.query(`select cardinality(times) as n from public.push_schedule where user_id = $1 and reminder_id = 'r4'`, [C2])).rows[0].n, 30);
+  await fails(C2, 'select public.push_schedule_set($1)', [JSON.stringify([{ id: '', times: [] }])], /push_items_bad/);
+  await fails(C2, 'select public.push_schedule_set($1)', [JSON.stringify({ id: 'x' })], /push_items_bad/);
+  // A full upload removes what isn't listed.
+  await sched(C2, [{ id: 'r1', title: 'Ring mamma', times: [t + H, t + 2 * H] }], true);
+  assert.deepEqual((await db.query('select reminder_id from public.push_schedule where user_id = $1', [C2])).rows.map(r => r.reminder_id), ['r1']);
+  // Make r1's first time due a minute ago (as if time passed), plus one that is 2 hours late (skipped).
+  await db.query(`update public.push_schedule set times = array[now() - interval '2 hours', now() - interval '1 minute', now() + interval '1 hour'],
+                  next_at = now() - interval '2 hours' where user_id = $1`, [C2]);
+  await sub(C2, EP('c2b'), 'en');
+  const due = await rows('service', 'select * from public.push_take_due()');
+  const mine = due.filter(d => d.reminder_id === 'r1');
+  assert.deepEqual(mine.map(d => d.endpoint).sort(), [EP('c2'), EP('c2b')], 'one row per device');
+  assert.ok(Math.abs(+mine[0].at - (Date.now() - 60000)) < 5000, 'the latest due time, not the late one');
+  assert.equal(mine.find(d => d.endpoint === EP('c2b')).lang, 'en');
+  assert.equal((await rows('service', 'select * from public.push_take_due()')).filter(d => d.reminder_id === 'r1').length, 0, 'sent once');
+  const [row] = (await db.query('select next_at from public.push_schedule where user_id = $1', [C2])).rows;
+  assert.ok(+row.next_at > Date.now(), 'next_at moved on to the next time');
+  // Re-uploading the same times after sending doesn't send them again.
+  await db.query(`update public.push_schedule set next_at = null where user_id = $1`, [C2]);
+  await sched(C2, [{ id: 'r1', title: 'Ring mamma', times: [t + H] }]);
+  assert.ok(+(await db.query('select next_at from public.push_schedule where user_id = $1', [C2])).rows[0].next_at > Date.now());
+  // Reports: delivered, gone, failing.
+  const ids = (await db.query('select id, endpoint from public.push_subscriptions where user_id = $1 order by id', [C2])).rows;
+  await rows('service', 'select public.push_report($1, $2, $3)', [[ids[0].id], [], [ids[1].id]]);
+  let s = (await db.query('select endpoint, failures, last_ok_at from public.push_subscriptions where user_id = $1 order by id', [C2])).rows;
+  assert.ok(s[0].last_ok_at); assert.equal(s[1].failures, 1);
+  await db.query('update public.push_subscriptions set failures = 19 where id = $1', [ids[1].id]);
+  await rows('service', 'select public.push_report($1, $2, $3)', [[], [ids[0].id], [ids[1].id]]);
+  assert.equal((await db.query('select 1 from public.push_subscriptions where user_id = $1', [C2])).rows.length, 0, 'gone and 20 failures are removed');
+});
+
+test('push: the minute job calls the Edge Function only when something is due and the Vault secrets are set', async () => {
+  assert.equal((await db.query(`select schedule from cron.job where jobname = 'ping-push'`)).rows[0].schedule, '* * * * *');
+  await db.query('delete from net.calls');
+  await db.query(`update public.push_schedule set next_at = now() - interval '1 minute' where reminder_id = 'r1'`);
+  await db.query('select public.push_tick()');
+  assert.equal((await db.query('select count(*)::int as n from net.calls')).rows[0].n, 0, 'no secrets: nothing');
+  await db.query(`insert into vault.decrypted_secrets values ('push_function_url', 'https://x.supabase.co/functions/v1/send-due-pushes'), ('push_cron_secret', 's3cret')`);
+  await db.query('select public.push_tick()');
+  const [c] = (await db.query('select * from net.calls')).rows;
+  assert.equal(c.url, 'https://x.supabase.co/functions/v1/send-due-pushes');
+  assert.equal(c.headers['x-cron-secret'], 's3cret');
+  await db.query('delete from net.calls');
+  await db.query('update public.push_schedule set next_at = null');
+  await db.query('select public.push_tick()');
+  assert.equal((await db.query('select count(*)::int as n from net.calls')).rows[0].n, 0, 'nothing due: no call');
+});
+
 test('deleting an account removes all its rows', async () => {
   const E2 = '00000000-0000-4000-8000-0000000000e2';
   await signUp(E2, 'e2@example.com', { username: 'eve2' });
@@ -621,7 +727,9 @@ test('deleting an account removes all its rows', async () => {
   await rows(A, `select public.shared_note_create('sh-alicesnote00001', '{"text":"a"}', '[{"name":"eve2"}]')`);
   await rows(E2, `select public.shared_note_create('sh-evesnote000001', '{"text":"e"}', '[{"name":"alice"}]')`);
   await rows(A, `select public.report_user('bob', 'sent by alice')`);
-  const E = '00000000-0000-4000-8000-0000000000e1';
+  await sub(A, EP('del'));
+  await sched(A, [{ id: 'rdel', title: 'x', times: [Date.now() + 3600000] }]);
+  const E ='00000000-0000-4000-8000-0000000000e1';
   await signUp(E, 'e@example.com', { username: 'erin' });
   await rows(E, `select public.report_user('alice', 'about alice')`);
   await db.query('delete from auth.users where id = $1', [A]);
@@ -629,7 +737,7 @@ test('deleting an account removes all its rows', async () => {
   assert.equal((await db.query('select 1 from public.reports where target = $1', [A])).rows.length, 0);
   assert.deepEqual((await db.query(`select reporter from public.reports where reason = 'sent by alice'`)).rows.map(r => r.reporter), [null]);
   for (const t of ['profiles', 'account_private']) assert.equal((await db.query(`select 1 from public.${t} where id = $1`, [A])).rows.length, 0, t);
-  for (const t of ['reminders', 'notes', 'boards', 'user_settings']) assert.equal((await db.query(`select 1 from public.${t} where user_id = $1`, [A])).rows.length, 0, t);
+  for (const t of ['reminders', 'notes', 'boards', 'user_settings', 'push_subscriptions', 'push_schedule']) assert.equal((await db.query(`select 1 from public.${t} where user_id = $1`, [A])).rows.length, 0, t);
   assert.equal((await db.query('select 1 from public.blocks where blocker = $1 or blocked = $1', [A])).rows.length, 0);
   assert.equal((await db.query('select 1 from public.friendships where a = $1 or b = $1 or requested_by = $1', [A])).rows.length, 0);
   assert.equal((await db.query('select 1 from public.inbox_items where sender = $1 or recipient = $1', [A])).rows.length, 0);
