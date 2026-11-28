@@ -814,6 +814,11 @@ body.wb-guest .wb-side { display: none; }
 /* Fullscreen: the board covers the whole window (and the whole screen where the browser allows it). The list of
    boards is hidden until asked for. Dialogs, menus, reminders and toasts have a higher z-index, so they still show. */
 body.wb-full { overflow: hidden; }
+/* Drawing with a pen on a tablet: a resting hand or a double tap must never select words in the board's toolbar or
+   list, nor (in full screen) anywhere on the page behind it. Places where you type stay selectable. */
+.wb, body.wb-full { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.wb button, .wb .wb-side, .wb [role="toolbar"] { touch-action: manipulation; }
+.wb input, .wb textarea, .wb [contenteditable="true"], body.wb-full input, body.wb-full textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 body.wb-full .wb { position: fixed; inset: 0; z-index: 40; height: auto !important; min-height: 0; background: var(--bg);
   padding: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
   grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
@@ -6528,6 +6533,7 @@ function wbCursorSend(p) {
 // the hand resting on the screen, is ignored until it lifts. When the pen lands, a pan or pinch the palm started a
 // moment earlier is undone, so the board doesn't jump.
 function wbPalmFilter(e) {
+  wb.lastType = e.pointerType;
   if (e.pointerType === 'pen') {
     if (!wb.penMode) { wb.penMode = true; wbHint('wbHintPen'); }
     wb.pensDown.add(e.pointerId);
@@ -6770,6 +6776,7 @@ function wbCancelAct() {
 }
 cv.addEventListener('dblclick', e => {
   if (!wb.board) return;
+  if (wb.penMode && wb.lastType === 'touch') return;      // in pen mode a double tap by the hand opens nothing
   const p = wbPt(e), it = wbTopAt(p);
   if (it && (Board.hasText(it) || Board.isLine(it))) { wb.sel = new Set([it.id]); wbEditText(it, false); return; }
   if (!it && wbCanCreate('text')) wbEditText({ id: uid(), type: 'text', x: p[0], y: p[1] - 12, w: 8, h: 25, text: '', stroke: wb.ink, fs: 20, z: wbTopZ(), author: wb.me.cid }, true);

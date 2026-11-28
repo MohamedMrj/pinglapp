@@ -139,6 +139,15 @@ test('palm rejection: with a pen, a hand resting on the screen draws nothing and
   await ev('pointerup', 44, 'touch', 650, 430);
   assert.equal(await h.evaluate(() => Object.keys(wb.board.items).length), 1, 'a finger drew nothing');
   assert.notDeepEqual(await h.evaluate(() => ({ ...wb.view })), view0, 'a finger moved the board');
+  // A double tap by the hand on the pen's stroke opens no text box; in full screen nothing on the page can be selected.
+  const strokeAt = [1000, 150];                                // empty space: a double tap there would start a text box
+  await ev('pointerdown', 55, 'touch', ...strokeAt); await ev('pointerup', 55, 'touch', ...strokeAt);
+  await h.evaluate(([x, y]) => { const r = document.getElementById('wbCanvas').getBoundingClientRect(); document.getElementById('wbCanvas').dispatchEvent(new MouseEvent('dblclick', { clientX: r.left + x, clientY: r.top + y, bubbles: true })); }, strokeAt);
+  assert.equal(await h.evaluate(() => wb.editing), null, 'no text box opened by the hand');
+  await h.evaluate(() => wbSetFull(true));
+  assert.equal(await h.evaluate(() => getComputedStyle(document.body).userSelect), 'none', 'full screen: no text selection');
+  assert.equal(await h.evaluate(() => getComputedStyle(document.querySelector('.wb-side')).userSelect), 'none');
+  await h.evaluate(() => wbSetFull(false));
   assert.deepEqual(s.errors, []);
   await s.ctx.close();
 });
